@@ -1,0 +1,38 @@
+# Python virtual environments
+.venv/
+venv/
+
+# Python cache and build products
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+build/
+dist/
+
+# Local assistant/editor state
+.workbuddy-ai/
+.vscode/
+.idea/
+
+# Runtime output
+outputs/*
+!outputs/.gitkeep
+*.log
+
+# Large raw dataset
+data/images/
+data/annotations/labelme_json/
+
+# Local credential file used by the legacy application
+app/legacy/A_chedaoyuce0.txt
+
+# Archives
+*.zip
+*.rar
+*.7z
+
+# OS files
+.DS_Store
+Thumbs.db

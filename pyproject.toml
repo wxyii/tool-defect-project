@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tool-defect-project"
+version = "1.0.0"
+description = "Tool defect classification and segmentation reproduction project"
+requires-python = ">=3.9,<3.12"
+
+[project.scripts]
+tool-defect = "tool_defect.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
