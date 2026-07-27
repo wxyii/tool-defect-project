@@ -92,6 +92,7 @@ def _evaluate(args):
 def _ring_compare(args):
     from tool_defect.data.ring_geometry import (
         process_image_path,
+        save_boundary_profiles,
         save_comparison_figure,
         save_pipeline_figure,
     )
@@ -113,6 +114,10 @@ def _ring_compare(args):
             result,
             output_dir / f"{path.stem}_pipeline.png",
             title=f"{label}：{path.name}",
+        )
+        save_boundary_profiles(
+            result,
+            output_dir / f"{path.stem}_boundary_profiles.csv",
         )
     comparison_path = output_dir / "ring_comparison.png"
     save_comparison_figure(results, labels, comparison_path)
