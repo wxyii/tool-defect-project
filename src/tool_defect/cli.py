@@ -135,6 +135,7 @@ def _polar_fit(args):
         angle_samples=args.angle_samples,
         minimum_periods=args.minimum_periods,
         maximum_periods=args.maximum_periods,
+        cache_dir=args.cache,
     )
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0
@@ -143,7 +144,27 @@ def _polar_fit(args):
 def _polar_detect(args):
     from tool_defect.detection.polar_anomaly import run_detection
 
-    report = run_detection(args.input_path, args.model, args.output)
+    report = run_detection(
+        args.input_path,
+        args.model,
+        args.output,
+        cache_dir=args.cache,
+    )
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 0
+
+
+def _polar_cache(args):
+    from tool_defect.detection.polar_anomaly import iter_image_paths
+    from tool_defect.detection.polar_cache import build_polar_cache
+
+    report = build_polar_cache(
+        args.input_path,
+        args.output,
+        iter_image_paths(args.input_path),
+        output_size=args.output_size,
+        angle_samples=args.angle_samples,
+    )
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0
 
@@ -257,6 +278,11 @@ def build_parser():
     polar_fit_parser.add_argument("--angle-samples", type=int, default=1440)
     polar_fit_parser.add_argument("--minimum-periods", type=int, default=8)
     polar_fit_parser.add_argument("--maximum-periods", type=int, default=40)
+    polar_fit_parser.add_argument(
+        "--cache",
+        type=Path,
+        help="复用或自动更新指定目录中的极坐标预处理缓存",
+    )
     polar_fit_parser.set_defaults(handler=_polar_fit)
 
     polar_detect_parser = subparsers.add_parser(
@@ -275,7 +301,30 @@ def build_parser():
         type=Path,
         default=PROJECT_ROOT / "outputs/polar_detection",
     )
+    polar_detect_parser.add_argument(
+        "--cache",
+        type=Path,
+        help="复用或自动更新指定目录中的极坐标预处理缓存",
+    )
     polar_detect_parser.set_defaults(handler=_polar_detect)
+
+    polar_cache_parser = subparsers.add_parser(
+        "polar-cache", help="生成或更新圆形刀片的极坐标预处理缓存"
+    )
+    polar_cache_parser.add_argument(
+        "--input",
+        dest="input_path",
+        type=Path,
+        default=PROJECT_ROOT / "data/images",
+    )
+    polar_cache_parser.add_argument(
+        "--output",
+        type=Path,
+        default=PROJECT_ROOT / "outputs/polar_cache",
+    )
+    polar_cache_parser.add_argument("--output-size", type=int, default=512)
+    polar_cache_parser.add_argument("--angle-samples", type=int, default=1440)
+    polar_cache_parser.set_defaults(handler=_polar_cache)
 
     return parser
 

@@ -26,6 +26,12 @@ from tool_defect.detection.polar_anomaly import (
     iter_image_paths,
     save_detection_artifacts,
 )
+from tool_defect.detection.polar_cache import (
+    cache_entry_is_valid,
+    load_cache_entry,
+    load_or_build_cache,
+    save_cache_entry,
+)
 from tool_defect.data.ring_geometry import Circle
 
 
@@ -201,6 +207,87 @@ class PolarAnomalyTests(unittest.TestCase):
                 cv2.IMREAD_COLOR,
             )
             self.assertGreater(int(np.sum(mapped[:, :, 2] > mapped[:, :, 1])), 0)
+
+    def test_polar_cache_round_trip_and_source_invalidation(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source_path = root / "nested" / "input.png"
+            source_path.parent.mkdir()
+            source = np.full((64, 64, 3), 80, dtype=np.uint8)
+            success, encoded = cv2.imencode(".png", source)
+            self.assertTrue(success)
+            encoded.tofile(str(source_path))
+            width = 120
+            ring = SimpleNamespace(
+                source=source,
+                corrected=np.full((80, 80, 3), 70, dtype=np.uint8),
+                polar_image=_periodic_polar(20)[:, :width],
+                raw_inner_boundary=np.full(width, 25.0, dtype=np.float32),
+                raw_outer_boundary=np.full(width, 55.0, dtype=np.float32),
+                inner_boundary=np.full(width, 26.0, dtype=np.float32),
+                outer_boundary=np.full(width, 54.0, dtype=np.float32),
+                rectification_matrix=np.array(
+                    [[1.0, 0.0, 4.0], [0.0, 1.0, 5.0]],
+                    dtype=np.float32,
+                ),
+                corrected_outer_circle=Circle(40.0, 40.0, 35.0),
+            )
+            cache_dir = root / "cache"
+            entry_dir = save_cache_entry(
+                source_path,
+                root,
+                cache_dir,
+                ring,
+                output_size=80,
+                angle_samples=width,
+            )
+
+            self.assertTrue(
+                cache_entry_is_valid(
+                    source_path,
+                    root,
+                    entry_dir,
+                    output_size=80,
+                    angle_samples=width,
+                )
+            )
+            loaded = load_cache_entry(
+                source_path, root, cache_dir, load_source=True
+            )
+            np.testing.assert_array_equal(ring.polar_image, loaded.polar_image)
+            np.testing.assert_allclose(
+                ring.outer_boundary, loaded.outer_boundary
+            )
+            np.testing.assert_allclose(
+                ring.rectification_matrix, loaded.rectification_matrix
+            )
+            self.assertEqual(source.shape, loaded.source.shape)
+
+            _, cache_state = load_or_build_cache(
+                source_path,
+                source_path.parent,
+                cache_dir,
+                output_size=80,
+                angle_samples=width,
+                load_source=False,
+            )
+            self.assertEqual("hit", cache_state)
+            self.assertEqual(1, len(list(cache_dir.glob("*/geometry.npz"))))
+
+            changed = source.copy()
+            changed[0, 0] = 255
+            success, encoded = cv2.imencode(".png", changed)
+            self.assertTrue(success)
+            encoded.tofile(str(source_path))
+            self.assertFalse(
+                cache_entry_is_valid(
+                    source_path,
+                    root,
+                    entry_dir,
+                    output_size=80,
+                    angle_samples=width,
+                )
+            )
 
 
 if __name__ == "__main__":

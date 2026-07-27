@@ -71,8 +71,13 @@ Labelme 标注、类别清单、目录类别名称或已有模型。它先利用
 使用全部原图建立无标签标定模型：
 
 ```powershell
+python -m tool_defect.cli polar-cache `
+  --input data\images `
+  --output outputs\polar_cache
+
 python -m tool_defect.cli polar-fit `
   --input data\images `
+  --cache outputs\polar_cache `
   --output artifacts\polar_anomaly
 ```
 
@@ -82,8 +87,14 @@ python -m tool_defect.cli polar-fit `
 python -m tool_defect.cli polar-detect `
   --input data\images `
   --model artifacts\polar_anomaly `
+  --cache outputs\polar_cache `
   --output outputs\polar_detection
 ```
+
+每个缓存条目包含无损 `polar.png`、边界和仿射参数
+`geometry.npz`，以及来源校验信息 `metadata.json`。原图内容、展开尺寸、
+角度采样数或环形几何代码变化时，缓存会自动失效并重建。缓存命中时，
+标定不再读取原图像素；检测只为生成原图叠加结果读取一次原图。
 
 标定目录会生成 `polar_anomaly.json` 和 `calibration_report.json`。
 检测目录会生成：

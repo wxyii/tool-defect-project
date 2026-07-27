@@ -12,7 +12,10 @@ import numpy as np
 from tool_defect.data.ring_geometry import (
     RingResult,
     process_image_path,
-    read_color_image,
+)
+from tool_defect.detection.polar_cache import (
+    load_or_build_cache,
+    source_root_for,
 )
 
 
@@ -319,6 +322,7 @@ def fit_unlabeled_model(
     angle_samples=1440,
     minimum_periods=8,
     maximum_periods=40,
+    cache_dir=None,
 ):
     """从无标签图像集合标定特征尺度和候选阈值。"""
 
@@ -328,13 +332,28 @@ def fit_unlabeled_model(
     samples = []
     failures = []
     periods = []
+    cache_hits = 0
+    cache_rebuilt = 0
+    source_root = source_root_for(input_path)
     for image_path in image_paths:
         try:
-            ring_result = process_image_path(
-                image_path,
-                output_size=output_size,
-                angle_samples=angle_samples,
-            )
+            if cache_dir is None:
+                ring_result = process_image_path(
+                    image_path,
+                    output_size=output_size,
+                    angle_samples=angle_samples,
+                )
+            else:
+                ring_result, cache_state = load_or_build_cache(
+                    image_path,
+                    source_root,
+                    cache_dir,
+                    output_size=output_size,
+                    angle_samples=angle_samples,
+                    load_source=False,
+                )
+                cache_hits += int(cache_state == "hit")
+                cache_rebuilt += int(cache_state == "rebuilt")
             analysis = analyze_ring_result(
                 ring_result,
                 minimum_periods=minimum_periods,
@@ -391,6 +410,9 @@ def fit_unlabeled_model(
         "input_images": len(image_paths),
         "calibration_images": len(samples),
         "failed_images": len(failures),
+        "cache_dir": str(cache_dir) if cache_dir is not None else "",
+        "cache_hits": cache_hits,
+        "cache_rebuilt": cache_rebuilt,
         "period_counts": {
             str(count): int(periods.count(count))
             for count in sorted(set(periods))
@@ -526,14 +548,15 @@ def detect_ring_result(ring_result, model):
     return analysis, score_map, candidate_mask, regions, anomaly_score
 
 
-def detect_path(image_path, model):
+def detect_path(image_path, model, ring_result=None):
     image_path = Path(image_path)
     try:
-        ring_result = process_image_path(
-            image_path,
-            output_size=model.output_size,
-            angle_samples=model.angle_samples,
-        )
+        if ring_result is None:
+            ring_result = process_image_path(
+                image_path,
+                output_size=model.output_size,
+                angle_samples=model.angle_samples,
+            )
         analysis, score_map, candidate_mask, regions, anomaly_score = (
             detect_ring_result(ring_result, model)
         )
@@ -658,15 +681,33 @@ def save_detection_artifacts(result, output_dir, stem):
     return {name: str(path) for name, path in paths.items()}
 
 
-def run_detection(input_path, model_path, output_dir):
+def run_detection(input_path, model_path, output_dir, cache_dir=None):
     model = PolarAnomalyModel.load(model_path)
     image_paths = iter_image_paths(input_path)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     summaries = []
     region_rows = []
+    cache_hits = 0
+    cache_rebuilt = 0
+    source_root = source_root_for(input_path)
     for index, image_path in enumerate(image_paths):
-        result = detect_path(image_path, model)
+        cached_result = None
+        if cache_dir is not None:
+            try:
+                cached_result, cache_state = load_or_build_cache(
+                    image_path,
+                    source_root,
+                    cache_dir,
+                    output_size=model.output_size,
+                    angle_samples=model.angle_samples,
+                    load_source=True,
+                )
+                cache_hits += int(cache_state == "hit")
+                cache_rebuilt += int(cache_state == "rebuilt")
+            except Exception:
+                cached_result = None
+        result = detect_path(image_path, model, ring_result=cached_result)
         stem = f"{index:04d}_{image_path.stem}"
         artifacts = save_detection_artifacts(result, output_dir, stem)
         summaries.append(
@@ -728,6 +769,9 @@ def run_detection(input_path, model_path, output_dir):
             int(row["region_count"] > 0) for row in successful
         ),
         "threshold": model.threshold,
+        "cache_dir": str(cache_dir) if cache_dir is not None else "",
+        "cache_hits": cache_hits,
+        "cache_rebuilt": cache_rebuilt,
     }
     if successful:
         scores = np.asarray(
