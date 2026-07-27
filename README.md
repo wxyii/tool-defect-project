@@ -42,6 +42,22 @@ python -m tool_defect.cli predict `
   --output outputs\multitask_demo
 ```
 
+## 圆形刀片的环形展开对比
+
+对合格与不合格刀片依次执行内外圆定位、中心和尺度校正、环形区域提取及极坐标展开：
+
+```powershell
+python -m tool_defect.cli ring-compare `
+  --qualified data\images\Qualified\21-1.png `
+  --unqualified data\images\Unqualified\103.png `
+  --output outputs\ring_comparison
+```
+
+不传图像参数时会使用上述两张代表性样本。输出目录包含两张单图流程图和
+`ring_comparison.png` 对比图。对比图中的所有刀片都具有相同的外圆半径，
+极坐标展开图横轴覆盖完整一周，纵轴对应从外圆到内圆的径向位置，因此可以
+直接比较不同类型刀片在各圆周角度上的纹理和缺陷。
+
 双任务推理会同时生成：
 
 - `predictions.csv`：分类结果、概率和输出文件路径。

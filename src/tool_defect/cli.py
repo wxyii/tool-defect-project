@@ -89,6 +89,37 @@ def _evaluate(args):
     return 0
 
 
+def _ring_compare(args):
+    from tool_defect.data.ring_geometry import (
+        process_image_path,
+        save_comparison_figure,
+        save_pipeline_figure,
+    )
+
+    output_dir = args.output
+    output_dir.mkdir(parents=True, exist_ok=True)
+    input_paths = [args.qualified, args.unqualified]
+    labels = ["合格刀片", "不合格刀片"]
+    results = [
+        process_image_path(
+            path,
+            output_size=args.output_size,
+            angle_samples=args.angle_samples,
+        )
+        for path in input_paths
+    ]
+    for path, label, result in zip(input_paths, labels, results):
+        save_pipeline_figure(
+            result,
+            output_dir / f"{path.stem}_pipeline.png",
+            title=f"{label}：{path.name}",
+        )
+    comparison_path = output_dir / "ring_comparison.png"
+    save_comparison_figure(results, labels, comparison_path)
+    print(comparison_path)
+    return 0
+
+
 def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -157,6 +188,28 @@ def build_parser():
     evaluate_parser.add_argument("--output", type=Path)
     evaluate_parser.add_argument("--full-metrics", action="store_true")
     evaluate_parser.set_defaults(handler=_evaluate)
+
+    ring_parser = subparsers.add_parser(
+        "ring-compare", help="定位、校正并展开合格与不合格刀片的环形区域"
+    )
+    ring_parser.add_argument(
+        "--qualified",
+        type=Path,
+        default=PROJECT_ROOT / "data/images/Qualified/21-1.png",
+    )
+    ring_parser.add_argument(
+        "--unqualified",
+        type=Path,
+        default=PROJECT_ROOT / "data/images/Unqualified/103.png",
+    )
+    ring_parser.add_argument(
+        "--output",
+        type=Path,
+        default=PROJECT_ROOT / "outputs/ring_comparison",
+    )
+    ring_parser.add_argument("--output-size", type=int, default=512)
+    ring_parser.add_argument("--angle-samples", type=int, default=1440)
+    ring_parser.set_defaults(handler=_ring_compare)
 
     return parser
 
