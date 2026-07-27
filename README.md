@@ -1,71 +1,148 @@
-# 基于机器视觉的车刀缺陷识别
+# 基于机器视觉的刀具缺陷识别
 
-本目录是项目唯一复现入口，包含180张图像及对应掩码、82份Labelme标注、现有分类与双任务权重，以及整理后的训练、推理和评估代码。
+本目录是整理后的唯一项目入口，包含 180 张图像及对应掩码、82 份 Labelme 缺陷标注、现有分类/双任务权重，以及训练、推理、评估和可视化代码。
 
-## 关键结论
+## 1. 环境
 
-- 推理优先加载 `model.json + weights.h5`。分类权重实际输入为299×299，双任务权重为256×256，程序会自动读取尺寸。
-- `models/classifier.py` 和 `models/multitask.py` 用于重新训练；`models/multitask_agsfpn_reference.py` 是参考实现。
-- 数据采用固定随机种子1的分层划分：115张训练、29张验证、36张测试。这不代表学校原实验划分。
-- 现有源码与H5不能按拓扑直接加载，已有JSON/H5用于推理和独立评估，整理后源码用于重新训练。
-
-## 环境
-
-环境已创建在 `.venv`。在PowerShell中运行：
+项目使用本目录下的 Python 3.9 虚拟环境。在 VS Code 的 PowerShell 终端中执行：
 
 ```powershell
+cd F:\智奇资料\tool_defect_project
 .\.venv\Scripts\Activate.ps1
 python --version
 ```
 
-重新创建环境时使用：
+也可以不激活环境，直接把命令中的 `python` 替换为：
 
 ```powershell
-C:\Users\Administrator\AppData\Local\Programs\Python\Python39\python.exe -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m pip install --no-build-isolation -e .
+.\.venv\Scripts\python.exe
 ```
 
-## 数据检查与推理
+## 2. 使用现有权重推理
+
+分类推理：
 
 ```powershell
-python -m tool_defect.cli data-check
-
 python -m tool_defect.cli predict `
   --task classification `
   --input data\images\qualified\100.png `
   --output outputs\classification_demo
-
-python -m tool_defect.cli predict `
-  --task multitask `
-  --input data\images\unqualified\1.png `
-  --output outputs\multitask_demo
 ```
 
-双任务推理会同时生成：
-
-- `predictions.csv`：分类结果、概率和输出文件路径。
-- `masks/*.png`：模型直接产生的原始二值掩码，用于复核和后续计算。
-- `visualizations/*_result.png`：最大边不超过1600像素的中文检测结果图。
-
-检测结果图以半透明红色区域、红色轮廓和编号标出模型定位的疑似缺陷，并显示“合格/不合格”、分类置信度及人工复核提示。显示过程可能过滤极小的孤立噪点，但不会修改 `masks` 中保存的原始掩码。“疑似缺陷”表示模型预测，不等同于人工确认。
-
-如果模型判定不合格但分割掩码为空，结果图会明确显示“未能定位缺陷区域，请人工复核”，不会人为补画缺陷位置。
-
-## 完整指标评估
-
-分类权重：
+分类—分割双任务推理：
 
 ```powershell
-python -m tool_defect.cli evaluate `
-  --task classification `
-  --model-dir artifacts\classification `
-  --split test `
-  --output outputs\evaluation\existing_classification `
-  --full-metrics
+python -m tool_defect.cli predict `
+  --task multitask `
+  --input data\images\unqualified\100.png `
+  --output outputs\multitask_demo_100
 ```
 
-双任务权重：
+双任务推理会生成：
+
+- `predictions.csv`：分类、置信度和结果文件路径。
+- `masks/*.png`：模型输出的原始二值缺陷掩码。
+- `visualizations/*_result.png`：中文检测结果图，以红色透明区域、轮廓和编号标明疑似缺陷。
+
+“疑似缺陷”表示模型预测，不等于人工确认。若模型判定不合格但掩码为空，结果图会明确提示“未能定位缺陷区域，请人工复核”，不会虚构缺陷位置。
+
+## 3. 数据划分
+
+- `data/manifests/dataset.csv`：整理项目时生成的原始确定性划分，保留不改。
+- `data/manifests/retrain.csv`：本次重训练专用的无泄漏划分。
+- `data/manifests/retrain_audit.json`：排除和去重审计。
+
+重训练清单从 180 个样本中排除 `unqualified/2.png` 与 `unqualified/16.png` 这组“图像完全相同但掩码冲突”的样本，并对合格图像精确去重，最终保留 172 个样本：
+
+- 训练集：110
+- 验证集：28
+- 测试集：34
+
+同一文件名家族和完全重复图像不会跨训练、验证、测试集合。
+
+## 4. 重新训练双任务模型
+
+本次专用入口只训练分类—分割双任务模型，不训练分类模型。它直接加载：
+
+```text
+artifacts/multitask/model.json
+artifacts/multitask/weights.h5
+```
+
+旧文件只读保留。所有新实验保存到：
+
+```text
+artifacts/multitask_retrained/<实验编号>/
+```
+
+正式训练：
+
+```powershell
+python -m tool_defect.cli retrain-multitask `
+  --config configs\retrain_multitask.json `
+  --run-id multitask_retrain_YYYYMMDD_HHMM
+```
+
+仅验证训练链路的两阶段冒烟测试：
+
+```powershell
+python -m tool_defect.cli retrain-multitask `
+  --config configs\retrain_multitask.json `
+  --run-id smoke_test `
+  --smoke
+```
+
+断点权重存在时，可以在同一实验目录重新进入训练流程：
+
+```powershell
+python -m tool_defect.cli retrain-multitask `
+  --config configs\retrain_multitask.json `
+  --resume artifacts\multitask_retrained\<实验编号>
+```
+
+训练策略：
+
+- Stage 1：保持现有权重中的冻结状态，学习率 `1e-4`，最多 30 epoch。
+- Stage 2：解冻 Xception block11–14 卷积，BatchNorm 保持冻结，学习率 `1e-5`，最多 15 epoch。
+- 每批 1 张合格图像和 1 张不合格图像。
+- 图像与掩码同步翻转/旋转，图像另做轻微亮度和对比度增强。
+- 分类损失：带 `0.05` 标签平滑的交叉熵。
+- 分割损失：`0.5 × Focal Tversky + 0.5 × 前景 Focal BCE`。
+- 最佳权重按 `0.4 × 验证集分类 ACC + 0.6 × 验证集缺陷 Dice` 保存。
+
+训练终端会逐 epoch 显示总 Loss、分类 Loss/ACC/Precision/Recall，以及缺陷 IoU/Dice/Precision/Recall和相应验证集指标。
+
+每个实验目录包含：
+
+- `model.json`、`weights.h5`：最佳联合分数模型。
+- `weights_last.h5`、`stage1_last.h5`、`stage2_last.h5`：断点和阶段末权重。
+- `history.csv`、`history.json`：训练历史。
+- `config.json`、`manifest.csv`、`environment.txt`、`run_metadata.json`：复现实验所需的配置和审计信息。
+
+## 5. 比较旧模型与新模型
+
+训练结束后，在完全相同的 34 张测试图像上比较：
+
+```powershell
+python -m tool_defect.cli compare-multitask `
+  --baseline artifacts\multitask `
+  --candidate artifacts\multitask_retrained\<实验编号> `
+  --manifest data\manifests\retrain.csv `
+  --output artifacts\multitask_retrained\<实验编号>\comparison
+```
+
+输出包括：
+
+- 分类 ACC、Loss、Precision、Recall、F1。
+- 缺陷 IoU、Dice、Precision、Recall、mIoU 和分割 Loss。
+- 原模型和新模型的分类/分割混淆矩阵。
+- 逐图预测 CSV。
+- 配对 Bootstrap 95% 置信区间。
+- `COMPARISON_REPORT.md` 和完整 `comparison.json`。
+
+推广门槛为：缺陷 IoU 与 Recall 均至少提高 0.05，且分类 ACC 下降不超过 0.03。未通过时，新权重仍作为实验结果保留，但不会替换默认旧权重。
+
+## 6. 现有权重单独评估
 
 ```powershell
 python -m tool_defect.cli evaluate `
@@ -76,24 +153,6 @@ python -m tool_defect.cli evaluate `
   --full-metrics
 ```
 
-评估会生成：
+## 7. 结果解释限制
 
-- `metrics.json`：ACC、Recall、Precision、F1、标准化交叉熵Loss；双任务还包含IoU、Dice和像素准确率。
-- `predictions.csv`：逐图预测；双任务额外包含逐图缺陷IoU/Dice。
-- `classification_confusion_matrix.csv/png`：分类混淆矩阵。
-- `segmentation_confusion_matrix.csv/png`：双任务像素混淆矩阵。
-
-这里的Loss是按当前统一定义重新计算的标准化交叉熵，不等同于学生原训练日志中的Loss。
-
-## 训练
-
-```powershell
-python -m tool_defect.cli train --task classification --config configs\default.json
-python -m tool_defect.cli train --task multitask --config configs\default.json
-```
-
-训练入口支持 `--epochs`、`--batch-size`、`--max-samples` 和 `--output` 覆盖参数。完整训练需要较长时间和合适的计算资源。
-
-## 资料限制
-
-现有资料缺少学校原始数据划分、完整训练日志、确定的类别目录顺序，以及源码与权重严格对应的证明。因此可以验证现有权重在当前测试协议下的表现，但不能据此证明学生历史报告中的指标完全真实。
+学校报告中可识别的声称值为：分类 ACC 0.9655、Recall 0.9375、Loss 0.1263，双任务 mIoU 0.8626。学校原始数据划分、完整训练日志和指标实现均缺失，因此本项目可以在当前统一协议下比较现有权重和重训练权重，但不能把结果表述为学校实验的严格同条件复现。

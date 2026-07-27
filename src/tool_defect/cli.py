@@ -73,6 +73,21 @@ def _train(args):
     return 0
 
 
+def _retrain_multitask(args):
+    from tool_defect.training.retrain_multitask import retrain_multitask
+
+    run_dir = retrain_multitask(
+        config_path=args.config,
+        init_model_dir=args.init_model_dir,
+        output_root=args.output_root,
+        run_id=args.run_id,
+        smoke=args.smoke,
+        resume=args.resume,
+    )
+    print(run_dir)
+    return 0
+
+
 def _evaluate(args):
     from tool_defect.evaluation.evaluate import evaluate
 
@@ -86,6 +101,24 @@ def _evaluate(args):
         full_metrics=args.full_metrics,
     )
     print(json.dumps(metrics, ensure_ascii=False, indent=2))
+    return 0
+
+
+def _compare_multitask(args):
+    from tool_defect.evaluation.compare_multitask import (
+        compare_multitask_models,
+    )
+
+    result = compare_multitask_models(
+        config_path=args.config,
+        manifest_path=args.manifest,
+        baseline_model_dir=args.baseline,
+        candidate_model_dir=args.candidate,
+        output_dir=args.output,
+        bootstrap_samples=args.bootstrap_samples,
+        seed=args.seed,
+    )
+    print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0
 
 
@@ -138,6 +171,22 @@ def build_parser():
     train_parser.add_argument("--output", type=Path)
     train_parser.set_defaults(handler=_train)
 
+    retrain_parser = subparsers.add_parser(
+        "retrain-multitask",
+        help="warm-start the supplied multitask artifact in two stages",
+    )
+    retrain_parser.add_argument(
+        "--config",
+        type=Path,
+        default=PROJECT_ROOT / "configs/retrain_multitask.json",
+    )
+    retrain_parser.add_argument("--init-model-dir", type=Path)
+    retrain_parser.add_argument("--output-root", type=Path)
+    retrain_parser.add_argument("--run-id")
+    retrain_parser.add_argument("--resume", type=Path)
+    retrain_parser.add_argument("--smoke", action="store_true")
+    retrain_parser.set_defaults(handler=_retrain_multitask)
+
     evaluate_parser = subparsers.add_parser(
         "evaluate", help="evaluate an existing artifact on the validation split"
     )
@@ -157,6 +206,31 @@ def build_parser():
     evaluate_parser.add_argument("--output", type=Path)
     evaluate_parser.add_argument("--full-metrics", action="store_true")
     evaluate_parser.set_defaults(handler=_evaluate)
+
+    compare_parser = subparsers.add_parser(
+        "compare-multitask",
+        help="compare original and retrained multitask artifacts on one test split",
+    )
+    compare_parser.add_argument(
+        "--config",
+        type=Path,
+        default=PROJECT_ROOT / "configs/retrain_multitask.json",
+    )
+    compare_parser.add_argument(
+        "--manifest",
+        type=Path,
+        default=PROJECT_ROOT / "data/manifests/retrain.csv",
+    )
+    compare_parser.add_argument(
+        "--baseline",
+        type=Path,
+        default=PROJECT_ROOT / "artifacts/multitask",
+    )
+    compare_parser.add_argument("--candidate", type=Path, required=True)
+    compare_parser.add_argument("--output", type=Path, required=True)
+    compare_parser.add_argument("--bootstrap-samples", type=int, default=1000)
+    compare_parser.add_argument("--seed", type=int, default=1)
+    compare_parser.set_defaults(handler=_compare_multitask)
 
     return parser
 

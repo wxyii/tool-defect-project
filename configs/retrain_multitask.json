@@ -1,0 +1,33 @@
+{
+  "image_size": 256,
+  "seed": 1,
+  "class_names": [
+    "qualified",
+    "unqualified"
+  ],
+  "paths": {
+    "data": "data",
+    "manifest": "data/manifests/retrain.csv",
+    "multitask_model": "artifacts/multitask",
+    "retrained_output": "artifacts/multitask_retrained",
+    "outputs": "outputs"
+  },
+  "retrain_multitask": {
+    "batch_size": 2,
+    "stage1": {
+      "epochs": 30,
+      "learning_rate": 0.0001,
+      "patience": 8
+    },
+    "stage2": {
+      "epochs": 15,
+      "learning_rate": 0.00001,
+      "patience": 5
+    },
+    "reduce_lr": {
+      "factor": 0.5,
+      "patience": 4,
+      "min_lr": 0.0000001
+    }
+  }
+}
