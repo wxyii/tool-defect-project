@@ -5,6 +5,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 import random
 from typing import Iterable, List
+import warnings
 
 
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
@@ -60,6 +61,8 @@ def build_manifest(
         image_dir = data_root / "images" / label_name
         mask_dir = data_root / "masks" / label_name
         annotation_dir = data_root / "annotations" / "labelme_json"
+        if not annotation_dir.exists():
+            warnings.warn(f"annotations directory not found: {annotation_dir}")
         images = sorted(
             (
                 path
@@ -87,7 +90,8 @@ def build_manifest(
             mask = _find_mask(image, mask_dir)
             annotation = annotation_dir / f"{image.stem}.json"
             if label_name == "unqualified" and not annotation.is_file():
-                raise ValueError(f"missing annotation for image: {image}")
+                warnings.warn(f"missing annotation for image: {image}")
+                annotation = None
             all_rows.append(
                 ManifestRow(
                     sample_id=f"{label_name}/{image.name}",
@@ -95,7 +99,7 @@ def build_manifest(
                     mask_path=_relative(mask, data_root),
                     annotation_path=(
                         _relative(annotation, data_root)
-                        if label_name == "unqualified"
+                        if label_name == "unqualified" and annotation is not None
                         else ""
                     ),
                     label=label,

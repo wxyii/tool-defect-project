@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "feature_centers": [
+    0.3914109617471695,
+    1.1601993441581726,
+    0.11321820318698883
+  ],
+  "feature_scales": [
+    0.5055023136734956,
+    1.911576781670228,
+    0.8644164593021049
+  ],
+  "threshold": 6.0,
+  "output_size": 512,
+  "angle_samples": 1440,
+  "minimum_periods": 8,
+  "maximum_periods": 40,
+  "calibration_images": 180,
+  "failed_images": 0,
+  "feature_names": [
+    "texture",
+    "gradient",
+    "boundary"
+  ]
+}

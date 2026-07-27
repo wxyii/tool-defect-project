@@ -36,3 +36,4 @@ app/legacy/A_chedaoyuce0.txt
 # OS files
 .DS_Store
 Thumbs.db
+uv.lock

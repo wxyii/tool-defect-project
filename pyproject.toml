@@ -7,9 +7,16 @@ name = "tool-defect-project"
 version = "1.0.0"
 description = "Tool defect classification and segmentation reproduction project"
 requires-python = ">=3.9,<3.12"
+dependencies = [
+    "openc>=0.0.2",
+]
 
 [project.scripts]
 tool-defect = "tool_defect.cli:main"
+
+[[tool.uv.index]]
+url = "https://mirrors.aliyun.com/pypi/simple"
+default = true
 
 [tool.setuptools]
 package-dir = {"" = "src"}

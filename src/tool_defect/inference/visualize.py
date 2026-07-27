@@ -12,6 +12,9 @@ FONT_CANDIDATES = (
     Path(r"C:\Windows\Fonts\msyh.ttc"),
     Path(r"C:\Windows\Fonts\msyhbd.ttc"),
     Path(r"C:\Windows\Fonts\simhei.ttf"),
+    Path("/System/Library/Fonts/STHeiti Medium.ttc"),
+    Path("/System/Library/Fonts/STHeiti Light.ttc"),
+    Path("/System/Library/Fonts/Hiragino Sans GB.ttc"),
 )
 
 
