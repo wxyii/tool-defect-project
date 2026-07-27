@@ -32,6 +32,7 @@ from tool_defect.detection.polar_cache import (
     load_or_build_cache,
     save_cache_entry,
 )
+from tool_defect.detection.polar_preprocess import denoise_polar_image
 from tool_defect.data.ring_geometry import Circle
 
 
@@ -89,6 +90,28 @@ def _calibrated_model(clean_analyses):
 
 
 class PolarAnomalyTests(unittest.TestCase):
+    def test_polar_denoising_reduces_noise_and_keeps_shape(self):
+        clean = _periodic_polar(24)
+        generator = np.random.default_rng(7)
+        noisy = np.clip(
+            clean.astype(np.int16)
+            + generator.normal(0.0, 18.0, clean.shape),
+            0,
+            255,
+        ).astype(np.uint8)
+
+        denoised = denoise_polar_image(noisy)
+
+        self.assertEqual(noisy.shape, denoised.shape)
+        self.assertEqual(np.uint8, denoised.dtype)
+        noisy_error = np.mean(
+            np.abs(noisy.astype(np.float32) - clean.astype(np.float32))
+        )
+        denoised_error = np.mean(
+            np.abs(denoised.astype(np.float32) - clean.astype(np.float32))
+        )
+        self.assertLess(denoised_error, noisy_error * 0.75)
+
     def test_estimates_different_period_counts_and_ignores_phase(self):
         for count, phase in ((18, 0), (24, 11), (30, 7)):
             polar = _periodic_polar(count, phase=phase)
@@ -251,10 +274,15 @@ class PolarAnomalyTests(unittest.TestCase):
                     angle_samples=width,
                 )
             )
+            self.assertTrue((entry_dir / "polar_denoised.png").is_file())
             loaded = load_cache_entry(
                 source_path, root, cache_dir, load_source=True
             )
             np.testing.assert_array_equal(ring.polar_image, loaded.polar_image)
+            self.assertEqual(
+                ring.polar_image.shape,
+                loaded.denoised_polar_image.shape,
+            )
             np.testing.assert_allclose(
                 ring.outer_boundary, loaded.outer_boundary
             )

@@ -80,7 +80,16 @@ python -m tool_defect.cli polar-detect `
   --output outputs\polar_detection
 ```
 
-检测会生成 `predictions.csv`、`regions.csv`、热力图、极坐标标注图、原图回映图和 `detection_report.json`。这些连续异常分数用于筛选疑似区域；没有独立人工真值时，不应将其解释为分类准确率或缺陷类别评估。
+每个缓存条目包含无损原始展开图 `polar.png`、保边降噪后的
+`polar_denoised.png`、边界和仿射参数 `geometry.npz`，以及来源校验信息
+`metadata.json`。标定和检测统一先使用降噪图，再进行周期估计和异常特征
+计算；降噪时将极坐标横轴按首尾相接处理，避免在 0/360 度接缝引入人工
+边缘。原图内容、展开尺寸、角度采样数、环形几何或降噪代码变化时，缓存会
+自动失效并重建。缓存命中时，标定不再读取原图像素；检测只为生成原图叠加
+结果读取一次原图。
+
+降噪会改变纹理和梯度特征的统计分布。升级后需重新运行 `polar-cache` 和
+`polar-fit`，不能继续使用旧版 `polar_anomaly.json` 进行检测。
 
 ## 3. 数据划分
 
