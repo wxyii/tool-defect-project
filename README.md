@@ -46,6 +46,42 @@ python -m tool_defect.cli predict `
 
 “疑似缺陷”表示模型预测，不等于人工确认。若模型判定不合格但掩码为空，结果图会明确提示“未能定位缺陷区域，请人工复核”，不会虚构缺陷位置。
 
+### 2.1 圆形刀片的环形展开对比
+
+对合格与不合格刀片依次执行内外椭圆定位、斜拍仿射校正、中心和尺度统一、逐角度边界跟踪、环形区域提取及归一化极坐标展开：
+
+```powershell
+python -m tool_defect.cli ring-compare `
+  --qualified data\images\qualified\21-1.png `
+  --unqualified data\images\unqualified\103.png `
+  --output outputs\ring_comparison
+```
+
+输出目录包含两张单图流程图、`ring_comparison.png` 对比图，以及每张图片对应的 `*_boundary_profiles.csv` 边界曲线。极坐标展开图横轴覆盖完整一周，纵轴采用内外边界之间的归一化径向位置。
+
+### 2.2 极坐标无标签缺陷检测
+
+该检测器复用圆形刀片定位和极坐标展开结果，不读取现有掩码、Labelme 标注、类别清单或已有模型。它利用刀片圆周重复纹样建立图内中位模板，并通过多张无标签图像标定纹理、梯度和外边界偏差的鲁棒尺度。
+
+```powershell
+python -m tool_defect.cli polar-cache `
+  --input data\images `
+  --output outputs\polar_cache
+
+python -m tool_defect.cli polar-fit `
+  --input data\images `
+  --cache outputs\polar_cache `
+  --output artifacts\polar_anomaly
+
+python -m tool_defect.cli polar-detect `
+  --input data\images `
+  --model artifacts\polar_anomaly `
+  --cache outputs\polar_cache `
+  --output outputs\polar_detection
+```
+
+检测会生成 `predictions.csv`、`regions.csv`、热力图、极坐标标注图、原图回映图和 `detection_report.json`。这些连续异常分数用于筛选疑似区域；没有独立人工真值时，不应将其解释为分类准确率或缺陷类别评估。
+
 ## 3. 数据划分
 
 - `data/manifests/dataset.csv`：整理项目时生成的原始确定性划分，保留不改。

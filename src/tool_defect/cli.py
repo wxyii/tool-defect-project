@@ -47,7 +47,7 @@ def _predict(args):
     output_dir = args.output or config.path("outputs")
     result = predict(
         task=args.task,
-        input_path=args.input_path,
+        input_paths=args.input_paths,
         output_dir=output_dir,
         model_dir=model_dir,
     )
@@ -122,6 +122,86 @@ def _compare_multitask(args):
     return 0
 
 
+def _ring_compare(args):
+    from tool_defect.data.ring_geometry import (
+        process_image_path,
+        save_boundary_profiles,
+        save_comparison_figure,
+        save_pipeline_figure,
+    )
+
+    output_dir = args.output
+    output_dir.mkdir(parents=True, exist_ok=True)
+    input_paths = [args.qualified, args.unqualified]
+    labels = ["合格刀片", "不合格刀片"]
+    results = [
+        process_image_path(
+            path,
+            output_size=args.output_size,
+            angle_samples=args.angle_samples,
+        )
+        for path in input_paths
+    ]
+    for path, label, result in zip(input_paths, labels, results):
+        save_pipeline_figure(
+            result,
+            output_dir / f"{path.stem}_pipeline.png",
+            title=f"{label}：{path.name}",
+        )
+        save_boundary_profiles(
+            result,
+            output_dir / f"{path.stem}_boundary_profiles.csv",
+        )
+    comparison_path = output_dir / "ring_comparison.png"
+    save_comparison_figure(results, labels, comparison_path)
+    print(comparison_path)
+    return 0
+
+
+def _polar_fit(args):
+    from tool_defect.detection.polar_anomaly import fit_unlabeled_model
+
+    _, report = fit_unlabeled_model(
+        args.input_path,
+        args.output,
+        output_size=args.output_size,
+        angle_samples=args.angle_samples,
+        minimum_periods=args.minimum_periods,
+        maximum_periods=args.maximum_periods,
+        cache_dir=args.cache,
+    )
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 0
+
+
+def _polar_detect(args):
+    from tool_defect.detection.polar_anomaly import run_detection
+
+    report = run_detection(
+        args.input_path,
+        args.model,
+        args.output,
+        cache_dir=args.cache,
+    )
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 0
+
+
+def _polar_cache(args):
+    from tool_defect.detection.polar_anomaly import iter_image_paths
+    from tool_defect.detection.polar_cache import build_polar_cache
+
+    report = build_polar_cache(
+        args.input_path,
+        args.output,
+        iter_image_paths(args.input_path),
+        output_size=args.output_size,
+        angle_samples=args.angle_samples,
+    )
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 0
+
+
 def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -144,7 +224,7 @@ def build_parser():
     predict_parser.add_argument(
         "--task", choices=("classification", "multitask"), required=True
     )
-    predict_parser.add_argument("--input", dest="input_path", type=Path, required=True)
+    predict_parser.add_argument("--input", dest="input_paths", type=Path, nargs="+", required=True)
     predict_parser.add_argument("--output", type=Path)
     predict_parser.add_argument(
         "--config", type=Path, default=PROJECT_ROOT / "configs/default.json"
@@ -231,6 +311,94 @@ def build_parser():
     compare_parser.add_argument("--bootstrap-samples", type=int, default=1000)
     compare_parser.add_argument("--seed", type=int, default=1)
     compare_parser.set_defaults(handler=_compare_multitask)
+
+    ring_parser = subparsers.add_parser(
+        "ring-compare", help="定位、校正并展开合格与不合格刀片的环形区域"
+    )
+    ring_parser.add_argument(
+        "--qualified",
+        type=Path,
+        default=PROJECT_ROOT / "data/images/Qualified/21-1.png",
+    )
+    ring_parser.add_argument(
+        "--unqualified",
+        type=Path,
+        default=PROJECT_ROOT / "data/images/Unqualified/103.png",
+    )
+    ring_parser.add_argument(
+        "--output",
+        type=Path,
+        default=PROJECT_ROOT / "outputs/ring_comparison",
+    )
+    ring_parser.add_argument("--output-size", type=int, default=512)
+    ring_parser.add_argument("--angle-samples", type=int, default=1440)
+    ring_parser.set_defaults(handler=_ring_compare)
+
+    polar_fit_parser = subparsers.add_parser(
+        "polar-fit", help="从无标签圆形刀片图像标定极坐标异常检测器"
+    )
+    polar_fit_parser.add_argument(
+        "--input",
+        dest="input_path",
+        type=Path,
+        default=PROJECT_ROOT / "data/images",
+    )
+    polar_fit_parser.add_argument(
+        "--output",
+        type=Path,
+        default=PROJECT_ROOT / "artifacts/polar_anomaly",
+    )
+    polar_fit_parser.add_argument("--output-size", type=int, default=512)
+    polar_fit_parser.add_argument("--angle-samples", type=int, default=1440)
+    polar_fit_parser.add_argument("--minimum-periods", type=int, default=8)
+    polar_fit_parser.add_argument("--maximum-periods", type=int, default=40)
+    polar_fit_parser.add_argument(
+        "--cache",
+        type=Path,
+        help="复用或自动更新指定目录中的极坐标预处理缓存",
+    )
+    polar_fit_parser.set_defaults(handler=_polar_fit)
+
+    polar_detect_parser = subparsers.add_parser(
+        "polar-detect", help="定位并评分极坐标展开图中的疑似缺陷"
+    )
+    polar_detect_parser.add_argument(
+        "--input", dest="input_path", type=Path, required=True
+    )
+    polar_detect_parser.add_argument(
+        "--model",
+        type=Path,
+        default=PROJECT_ROOT / "artifacts/polar_anomaly",
+    )
+    polar_detect_parser.add_argument(
+        "--output",
+        type=Path,
+        default=PROJECT_ROOT / "outputs/polar_detection",
+    )
+    polar_detect_parser.add_argument(
+        "--cache",
+        type=Path,
+        help="复用或自动更新指定目录中的极坐标预处理缓存",
+    )
+    polar_detect_parser.set_defaults(handler=_polar_detect)
+
+    polar_cache_parser = subparsers.add_parser(
+        "polar-cache", help="生成或更新圆形刀片的极坐标预处理缓存"
+    )
+    polar_cache_parser.add_argument(
+        "--input",
+        dest="input_path",
+        type=Path,
+        default=PROJECT_ROOT / "data/images",
+    )
+    polar_cache_parser.add_argument(
+        "--output",
+        type=Path,
+        default=PROJECT_ROOT / "outputs/polar_cache",
+    )
+    polar_cache_parser.add_argument("--output-size", type=int, default=512)
+    polar_cache_parser.add_argument("--angle-samples", type=int, default=1440)
+    polar_cache_parser.set_defaults(handler=_polar_cache)
 
     return parser
 

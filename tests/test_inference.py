@@ -24,7 +24,7 @@ class InferenceTests(unittest.TestCase):
 
             result_path = predict(
                 task="classification",
-                input_path=image,
+                input_paths=image,
                 output_dir=output_dir,
                 model_dir=PROJECT_ROOT / "artifacts/classification",
             )
@@ -48,7 +48,7 @@ class InferenceTests(unittest.TestCase):
 
             result_path = predict(
                 task="multitask",
-                input_path=image,
+                input_paths=image,
                 output_dir=output_dir,
                 model_dir=PROJECT_ROOT / "artifacts/multitask",
             )
