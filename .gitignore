@@ -37,4 +37,7 @@ app/legacy/A_chedaoyuce0.txt
 .DS_Store
 Thumbs.db
 
-artifacts/*
+# Large local model and training artifacts
+artifacts/
+app/legacy/A_chedaoyuce0.exe
+docs/reference/基于机器视觉的刀具缺陷识别研究汇报.pptx
