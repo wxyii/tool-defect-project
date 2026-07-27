@@ -67,6 +67,7 @@ class RingResult:
     outer_circle: Circle
     inner_circle: Circle
     corrected: np.ndarray
+    rectification_matrix: np.ndarray
     corrected_outer_circle: Circle
     corrected_inner_circle: Circle
     annular_roi: np.ndarray
@@ -811,7 +812,7 @@ def process_ring_image(image, output_size=512, angle_samples=1440):
     """执行椭圆定位、斜拍校正、边界跟踪和归一化展开。"""
 
     outer_ellipse = locate_outer_ellipse(image)
-    corrected, corrected_outer, _ = rectify_ellipse(
+    corrected, corrected_outer, rectification_matrix = rectify_ellipse(
         image,
         outer_ellipse,
         output_size=output_size,
@@ -861,7 +862,7 @@ def process_ring_image(image, output_size=512, angle_samples=1440):
             outer_ellipse.y,
             np.sqrt(
                 outer_ellipse.major_radius * outer_ellipse.minor_radius
-            ),
+            )*2,
         ),
         inner_circle=Circle(
             inner_ellipse.x,
@@ -871,6 +872,7 @@ def process_ring_image(image, output_size=512, angle_samples=1440):
             ),
         ),
         corrected=corrected,
+        rectification_matrix=rectification_matrix,
         corrected_outer_circle=corrected_outer,
         corrected_inner_circle=corrected_inner,
         annular_roi=annular_roi,

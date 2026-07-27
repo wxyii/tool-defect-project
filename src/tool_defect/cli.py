@@ -47,7 +47,7 @@ def _predict(args):
     output_dir = args.output or config.path("outputs")
     result = predict(
         task=args.task,
-        input_path=args.input_path,
+        input_paths=args.input_paths,
         output_dir=output_dir,
         model_dir=model_dir,
     )
@@ -125,6 +125,29 @@ def _ring_compare(args):
     return 0
 
 
+def _polar_fit(args):
+    from tool_defect.detection.polar_anomaly import fit_unlabeled_model
+
+    _, report = fit_unlabeled_model(
+        args.input_path,
+        args.output,
+        output_size=args.output_size,
+        angle_samples=args.angle_samples,
+        minimum_periods=args.minimum_periods,
+        maximum_periods=args.maximum_periods,
+    )
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 0
+
+
+def _polar_detect(args):
+    from tool_defect.detection.polar_anomaly import run_detection
+
+    report = run_detection(args.input_path, args.model, args.output)
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 0
+
+
 def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -147,7 +170,7 @@ def build_parser():
     predict_parser.add_argument(
         "--task", choices=("classification", "multitask"), required=True
     )
-    predict_parser.add_argument("--input", dest="input_path", type=Path, required=True)
+    predict_parser.add_argument("--input", dest="input_paths", type=Path, nargs="+", required=True)
     predict_parser.add_argument("--output", type=Path)
     predict_parser.add_argument(
         "--config", type=Path, default=PROJECT_ROOT / "configs/default.json"
@@ -215,6 +238,44 @@ def build_parser():
     ring_parser.add_argument("--output-size", type=int, default=512)
     ring_parser.add_argument("--angle-samples", type=int, default=1440)
     ring_parser.set_defaults(handler=_ring_compare)
+
+    polar_fit_parser = subparsers.add_parser(
+        "polar-fit", help="从无标签圆形刀片图像标定极坐标异常检测器"
+    )
+    polar_fit_parser.add_argument(
+        "--input",
+        dest="input_path",
+        type=Path,
+        default=PROJECT_ROOT / "data/images",
+    )
+    polar_fit_parser.add_argument(
+        "--output",
+        type=Path,
+        default=PROJECT_ROOT / "artifacts/polar_anomaly",
+    )
+    polar_fit_parser.add_argument("--output-size", type=int, default=512)
+    polar_fit_parser.add_argument("--angle-samples", type=int, default=1440)
+    polar_fit_parser.add_argument("--minimum-periods", type=int, default=8)
+    polar_fit_parser.add_argument("--maximum-periods", type=int, default=40)
+    polar_fit_parser.set_defaults(handler=_polar_fit)
+
+    polar_detect_parser = subparsers.add_parser(
+        "polar-detect", help="定位并评分极坐标展开图中的疑似缺陷"
+    )
+    polar_detect_parser.add_argument(
+        "--input", dest="input_path", type=Path, required=True
+    )
+    polar_detect_parser.add_argument(
+        "--model",
+        type=Path,
+        default=PROJECT_ROOT / "artifacts/polar_anomaly",
+    )
+    polar_detect_parser.add_argument(
+        "--output",
+        type=Path,
+        default=PROJECT_ROOT / "outputs/polar_detection",
+    )
+    polar_detect_parser.set_defaults(handler=_polar_detect)
 
     return parser
 

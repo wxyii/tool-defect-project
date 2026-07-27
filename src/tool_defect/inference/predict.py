@@ -15,24 +15,31 @@ IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
 CLASS_NAMES = ("qualified", "unqualified")
 
 
-def discover_images(input_path):
-    input_path = Path(input_path)
-    if input_path.is_file():
-        if input_path.suffix.lower() not in IMAGE_SUFFIXES:
-            raise ValueError(f"unsupported image file: {input_path}")
-        return [input_path]
-    if input_path.is_dir():
-        images = sorted(
-            (
-                path
-                for path in input_path.rglob("*")
-                if path.is_file() and path.suffix.lower() in IMAGE_SUFFIXES
-            ),
-            key=lambda path: str(path).lower(),
-        )
-        if images:
-            return images
-    raise ValueError(f"no supported images found: {input_path}")
+def discover_images(input_paths):
+    if isinstance(input_paths, (str, Path)):
+        input_paths = [input_paths]
+    image_list = []
+    for item in input_paths:
+        path = Path(item)
+        if path.is_file():
+            if path.suffix.lower() not in IMAGE_SUFFIXES:
+                raise ValueError(f"unsupported image file: {path}")
+            image_list.append(path)
+        elif path.is_dir():
+            images = sorted(
+                (
+                    p
+                    for p in path.rglob("*")
+                    if p.is_file() and p.suffix.lower() in IMAGE_SUFFIXES
+                ),
+                key=lambda p: str(p).lower(),
+            )
+            image_list.extend(images)
+        else:
+            raise ValueError(f"no supported images found: {path}")
+    if not image_list:
+        raise ValueError(f"no supported images found in: {input_paths}")
+    return image_list
 
 
 def _named_predictions(model, predictions):
@@ -48,11 +55,11 @@ def _write_png(path, image):
     encoded.tofile(path)
 
 
-def predict(task, input_path, output_dir, model_dir, image_size=None):
+def predict(task, input_paths, output_dir, model_dir, image_size=None):
     if task not in {"classification", "multitask"}:
         raise ValueError("task must be 'classification' or 'multitask'")
 
-    images = discover_images(input_path)
+    images = discover_images(input_paths)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     mask_dir = output_dir / "masks"
