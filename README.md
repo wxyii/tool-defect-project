@@ -91,10 +91,16 @@ python -m tool_defect.cli polar-detect `
   --output outputs\polar_detection
 ```
 
-每个缓存条目包含无损 `polar.png`、边界和仿射参数
-`geometry.npz`，以及来源校验信息 `metadata.json`。原图内容、展开尺寸、
-角度采样数或环形几何代码变化时，缓存会自动失效并重建。缓存命中时，
-标定不再读取原图像素；检测只为生成原图叠加结果读取一次原图。
+每个缓存条目包含无损原始展开图 `polar.png`、保边降噪后的
+`polar_denoised.png`、边界和仿射参数 `geometry.npz`，以及来源校验信息
+`metadata.json`。标定和检测统一先使用降噪图，再进行周期估计和异常特征
+计算；降噪时将极坐标横轴按首尾相接处理，避免在 0/360 度接缝引入人工
+边缘。原图内容、展开尺寸、角度采样数、环形几何或降噪代码变化时，缓存会
+自动失效并重建。缓存命中时，标定不再读取原图像素；检测只为生成原图叠加
+结果读取一次原图。
+
+降噪会改变纹理和梯度特征的统计分布。升级后需重新运行 `polar-cache` 和
+`polar-fit`，不能继续使用旧版 `polar_anomaly.json` 进行检测。
 
 标定目录会生成 `polar_anomaly.json` 和 `calibration_report.json`。
 检测目录会生成：
