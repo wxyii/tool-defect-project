@@ -80,7 +80,87 @@ python -m tool_defect.cli polar-detect `
   --output outputs\polar_detection
 ```
 
-检测会生成 `predictions.csv`、`regions.csv`、热力图、极坐标标注图、原图回映图和 `detection_report.json`。这些连续异常分数用于筛选疑似区域；没有独立人工真值时，不应将其解释为分类准确率或缺陷类别评估。
+每个缓存条目包含无损原始展开图 `polar.png`、保边降噪后的
+`polar_denoised.png`、边界和仿射参数 `geometry.npz`，以及来源校验信息
+`metadata.json`。标定和检测统一先使用降噪图，再进行周期估计和异常特征
+计算；降噪时将极坐标横轴按首尾相接处理，避免在 0/360 度接缝引入人工
+边缘。原图内容、展开尺寸、角度采样数、环形几何或降噪代码变化时，缓存会
+自动失效并重建。缓存命中时，标定不再读取原图像素；检测只为生成原图叠加
+结果读取一次原图。
+
+降噪会改变纹理和梯度特征的统计分布。升级后需重新运行 `polar-cache` 和
+`polar-fit`，不能继续使用旧版 `polar_anomaly.json` 进行检测。
+
+### 2.3 生成环形区域训练数据集
+
+现有双任务训练入口可以直接读取两种处理后的数据集。生成过程复用同一套
+椭圆校正和逐角度边界跟踪，并对原图与掩膜执行完全一致的空间变换；图像
+使用线性插值，二值掩膜使用最近邻插值。原清单中的训练、验证、测试划分
+保持不变。
+
+生成自适应环形区域数据集：
+
+```powershell
+python -m tool_defect.cli ring-dataset `
+  --mode adaptive-annular `
+  --data-root data `
+  --manifest data\manifests\dataset.csv `
+  --cache outputs\polar_cache `
+  --output data\processed\adaptive_annular
+```
+
+生成边界归一化展开数据集：
+
+```powershell
+python -m tool_defect.cli ring-dataset `
+  --mode boundary-normalized `
+  --data-root data `
+  --manifest data\manifests\dataset.csv `
+  --cache outputs\polar_cache `
+  --radial-samples 256 `
+  --output data\processed\boundary_normalized
+```
+
+每个输出目录包含处理后的 `images/`、同步变换的 `masks/`、
+`manifests/dataset.csv`、逐样本 `manifests/provenance.csv` 和
+`generation_report.json`。若任一样本处理失败，或原本含缺陷的掩膜在
+变换后变为空，命令会以失败状态结束且不会写入新的训练清单。
+原 Labelme 坐标不再适用于变换后的图像，因此不会写入新训练清单，仅在
+`provenance.csv` 中保留原标注路径用于追溯。
+
+分别训练两种数据：
+
+```powershell
+python -m tool_defect.cli train `
+  --task multitask `
+  --config configs\multitask_adaptive_annular.json `
+  --output outputs\training\multitask_adaptive_annular
+
+python -m tool_defect.cli train `
+  --task multitask `
+  --config configs\multitask_boundary_normalized.json `
+  --output outputs\training\multitask_boundary_normalized
+```
+
+在各自保持不变的测试集上评估：
+
+```powershell
+python -m tool_defect.cli evaluate `
+  --task multitask `
+  --config configs\multitask_adaptive_annular.json `
+  --model-dir outputs\training\multitask_adaptive_annular `
+  --split test `
+  --output outputs\evaluation\multitask_adaptive_annular `
+  --full-metrics
+
+python -m tool_defect.cli evaluate `
+  --task multitask `
+  --config configs\multitask_boundary_normalized.json `
+  --model-dir outputs\training\multitask_boundary_normalized `
+  --split test `
+  --output outputs\evaluation\multitask_boundary_normalized `
+  --full-metrics
+```
 
 ## 3. 数据划分
 

@@ -13,9 +13,13 @@ from tool_defect.data.ring_geometry import (
     process_ring_image,
     read_color_image,
 )
+from tool_defect.detection.polar_preprocess import (
+    DENOISE_CONFIG,
+    denoise_polar_image,
+)
 
 
-CACHE_VERSION = 1
+CACHE_VERSION = 2
 
 
 @dataclass
@@ -27,6 +31,7 @@ class CachedRingResult:
     rectification_matrix: np.ndarray
     corrected_outer_circle: Circle
     polar_image: np.ndarray
+    denoised_polar_image: np.ndarray
     raw_inner_boundary: np.ndarray
     raw_outer_boundary: np.ndarray
     inner_boundary: np.ndarray
@@ -35,9 +40,11 @@ class CachedRingResult:
 
 def _pipeline_signature():
     geometry_path = Path(__file__).parents[1] / "data" / "ring_geometry.py"
+    preprocess_path = Path(__file__).with_name("polar_preprocess.py")
     digest = hashlib.sha256()
     digest.update(f"polar-cache-{CACHE_VERSION}".encode("ascii"))
     digest.update(geometry_path.read_bytes())
+    digest.update(preprocess_path.read_bytes())
     return digest.hexdigest()
 
 
@@ -115,6 +122,7 @@ def _metadata_for(
         "polar_shape": list(ring_result.polar_image.shape),
         "output_size": int(output_size),
         "angle_samples": int(angle_samples),
+        "denoise": dict(DENOISE_CONFIG),
     }
 
 
@@ -130,6 +138,10 @@ def save_cache_entry(
     entry_dir = _entry_directory(image_path, source_root, cache_dir)
     entry_dir.mkdir(parents=True, exist_ok=True)
     _write_png(entry_dir / "polar.png", ring_result.polar_image)
+    _write_png(
+        entry_dir / "polar_denoised.png",
+        denoise_polar_image(ring_result.polar_image),
+    )
     outer = ring_result.corrected_outer_circle
     np.savez_compressed(
         entry_dir / "geometry.npz",
@@ -179,6 +191,8 @@ def cache_entry_is_valid(
     entry_dir = Path(entry_dir)
     if not (entry_dir / "polar.png").is_file():
         return False
+    if not (entry_dir / "polar_denoised.png").is_file():
+        return False
     if not (entry_dir / "geometry.npz").is_file():
         return False
     metadata = _read_metadata(entry_dir)
@@ -190,6 +204,7 @@ def cache_entry_is_valid(
         "source_relative_path": _relative_source(image_path, source_root),
         "output_size": int(output_size),
         "angle_samples": int(angle_samples),
+        "denoise": dict(DENOISE_CONFIG),
     }
     if any(metadata.get(key) != value for key, value in expected.items()):
         return False
@@ -214,6 +229,7 @@ def load_cache_entry(
         entry_dir = _entry_directory(image_path, source_root, cache_dir)
     entry_dir = Path(entry_dir)
     polar_image = _read_png(entry_dir / "polar.png")
+    denoised_polar_image = _read_png(entry_dir / "polar_denoised.png")
     with np.load(entry_dir / "geometry.npz", allow_pickle=False) as geometry:
         corrected_shape = tuple(int(value) for value in geometry["corrected_shape"])
         original_shape = tuple(int(value) for value in geometry["original_shape"])
@@ -234,6 +250,7 @@ def load_cache_entry(
                 float(outer_values[2]),
             ),
             polar_image=polar_image,
+            denoised_polar_image=denoised_polar_image,
             raw_inner_boundary=geometry["raw_inner_boundary"].astype(np.float32),
             raw_outer_boundary=geometry["raw_outer_boundary"].astype(np.float32),
             inner_boundary=geometry["inner_boundary"].astype(np.float32),
@@ -268,6 +285,8 @@ def _find_entry_by_absolute_source(
         if metadata.get("angle_samples") != int(angle_samples):
             continue
         if not (metadata_path.parent / "polar.png").is_file():
+            continue
+        if not (metadata_path.parent / "polar_denoised.png").is_file():
             continue
         if not (metadata_path.parent / "geometry.npz").is_file():
             continue
@@ -345,7 +364,12 @@ def load_or_build_cache(
         angle_samples=angle_samples,
     )
     if load_source:
-        return ring_result, "rebuilt"
+        return (
+            load_cache_entry(
+                image_path, source_root, cache_dir, load_source=True
+            ),
+            "rebuilt",
+        )
     return (
         load_cache_entry(
             image_path, source_root, cache_dir, load_source=False
@@ -402,6 +426,7 @@ def build_polar_cache(
         "failed_images": len(failures),
         "cache_version": CACHE_VERSION,
         "pipeline_signature": _pipeline_signature(),
+        "denoise": dict(DENOISE_CONFIG),
         "entries": entries,
         "failures": failures,
     }

@@ -17,9 +17,10 @@ from tool_defect.detection.polar_cache import (
     load_or_build_cache,
     source_root_for,
 )
+from tool_defect.detection.polar_preprocess import analysis_polar_image
 
 
-MODEL_VERSION = 1
+MODEL_VERSION = 2
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}
 FEATURE_NAMES = ("texture", "gradient", "boundary")
 
@@ -271,7 +272,7 @@ def analyze_ring_result(
     minimum_periods=8,
     maximum_periods=40,
 ):
-    normalized = _normalize_polar(ring_result.polar_image)
+    normalized = _normalize_polar(analysis_polar_image(ring_result))
     period_count = estimate_period_count(
         normalized,
         minimum_periods=minimum_periods,

@@ -237,6 +237,40 @@ def _polar_cache(args):
     return 0
 
 
+def _ring_dataset(args):
+    from tool_defect.data.ring_dataset import build_ring_dataset
+
+    output = args.output
+    if output is None:
+        output = (
+            PROJECT_ROOT
+            / "data"
+            / "processed"
+            / args.mode.replace("-", "_")
+        )
+
+    def report_progress(index, total, sample_id, cache_state):
+        if index == 1 or index % 10 == 0 or index == total:
+            print(
+                f"[{index}/{total}] {sample_id} "
+                f"（极坐标缓存：{cache_state}）"
+            )
+
+    report = build_ring_dataset(
+        source_data_root=args.data_root,
+        source_manifest=args.manifest,
+        output_root=output,
+        mode=args.mode,
+        cache_dir=args.cache,
+        output_size=args.output_size,
+        angle_samples=args.angle_samples,
+        radial_samples=args.radial_samples,
+        progress_callback=report_progress,
+    )
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 0
+
+
 def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -475,6 +509,47 @@ def build_parser():
     polar_cache_parser.add_argument("--output-size", type=int, default=512)
     polar_cache_parser.add_argument("--angle-samples", type=int, default=1440)
     polar_cache_parser.set_defaults(handler=_polar_cache)
+
+    ring_dataset_parser = subparsers.add_parser(
+        "ring-dataset",
+        help="生成自适应环形区域或边界归一化展开训练数据集",
+    )
+    ring_dataset_parser.add_argument(
+        "--mode",
+        choices=("adaptive-annular", "boundary-normalized"),
+        required=True,
+    )
+    ring_dataset_parser.add_argument(
+        "--data-root",
+        type=Path,
+        default=PROJECT_ROOT / "data",
+        help="源图像、掩膜所在的数据根目录",
+    )
+    ring_dataset_parser.add_argument(
+        "--manifest",
+        type=Path,
+        default=PROJECT_ROOT / "data/manifests/dataset.csv",
+        help="源数据清单；原有训练、验证、测试划分会原样保留",
+    )
+    ring_dataset_parser.add_argument(
+        "--output",
+        type=Path,
+        help="输出数据根目录；默认按模式写入 data/processed",
+    )
+    ring_dataset_parser.add_argument(
+        "--cache",
+        type=Path,
+        default=PROJECT_ROOT / "outputs/polar_cache",
+        help="复用或自动更新极坐标几何缓存",
+    )
+    ring_dataset_parser.add_argument("--output-size", type=int, default=512)
+    ring_dataset_parser.add_argument("--angle-samples", type=int, default=1440)
+    ring_dataset_parser.add_argument(
+        "--radial-samples",
+        type=int,
+        help="展开图固定径向采样数，仅用于 boundary-normalized",
+    )
+    ring_dataset_parser.set_defaults(handler=_ring_dataset)
 
     return parser
 

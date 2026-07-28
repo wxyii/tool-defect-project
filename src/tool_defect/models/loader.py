@@ -6,7 +6,12 @@ from pathlib import Path
 def load_saved_model(model_dir, weights_name="weights.h5"):
     # Register serializable project layers before deserializing source models.
     from tool_defect.models import cbam as _cbam  # noqa: F401
+    from keras.src.saving import serialization_lib
     from tensorflow.keras.models import model_from_json
+
+    # Legacy supplied JSON files contain trusted Lambda layers, while newly
+    # generated models use the registered CBAM layers above.
+    serialization_lib.enable_unsafe_deserialization()
 
     model_dir = Path(model_dir)
     architecture_path = model_dir / "model.json"

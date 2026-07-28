@@ -43,3 +43,5 @@ docs/reference/基于机器视觉的刀具缺陷识别研究汇报.pptx
 
 # Alternative dependency manager lock file
 uv.lock
+
+data/processed/
