@@ -4,7 +4,12 @@ from pathlib import Path
 
 
 def load_saved_model(model_dir, weights_name="weights.h5"):
+    from keras.src.saving import serialization_lib
     from tensorflow.keras.models import model_from_json
+
+    import tool_defect.models.cbam
+
+    serialization_lib.enable_unsafe_deserialization()
 
     model_dir = Path(model_dir)
     architecture_path = model_dir / "model.json"
