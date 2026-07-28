@@ -88,6 +88,22 @@ def _retrain_multitask(args):
     return 0
 
 
+def _train_multitask_source(args):
+    from tool_defect.training.train_multitask_source import (
+        train_multitask_source,
+    )
+
+    run_dir = train_multitask_source(
+        config_path=args.config,
+        output_root=args.output_root,
+        run_id=args.run_id,
+        smoke=args.smoke,
+        resume=args.resume,
+    )
+    print(run_dir)
+    return 0
+
+
 def _evaluate(args):
     from tool_defect.evaluation.evaluate import evaluate
 
@@ -114,6 +130,25 @@ def _compare_multitask(args):
         manifest_path=args.manifest,
         baseline_model_dir=args.baseline,
         candidate_model_dir=args.candidate,
+        output_dir=args.output,
+        bootstrap_samples=args.bootstrap_samples,
+        seed=args.seed,
+    )
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
+
+
+def _compare_multitask_suite(args):
+    from tool_defect.evaluation.compare_multitask_suite import (
+        compare_multitask_suite,
+    )
+
+    result = compare_multitask_suite(
+        config_path=args.config,
+        manifest_path=args.manifest,
+        baseline_model_dir=args.baseline,
+        previous_model_dir=args.previous,
+        source_model_dir=args.candidate,
         output_dir=args.output,
         bootstrap_samples=args.bootstrap_samples,
         seed=args.seed,
@@ -267,6 +302,21 @@ def build_parser():
     retrain_parser.add_argument("--smoke", action="store_true")
     retrain_parser.set_defaults(handler=_retrain_multitask)
 
+    source_train_parser = subparsers.add_parser(
+        "train-multitask-source",
+        help="train multitask.py with a fresh ImageNet-initialized backbone",
+    )
+    source_train_parser.add_argument(
+        "--config",
+        type=Path,
+        default=PROJECT_ROOT / "configs/train_multitask_source.json",
+    )
+    source_train_parser.add_argument("--output-root", type=Path)
+    source_train_parser.add_argument("--run-id")
+    source_train_parser.add_argument("--resume", type=Path)
+    source_train_parser.add_argument("--smoke", action="store_true")
+    source_train_parser.set_defaults(handler=_train_multitask_source)
+
     evaluate_parser = subparsers.add_parser(
         "evaluate", help="evaluate an existing artifact on the validation split"
     )
@@ -311,6 +361,32 @@ def build_parser():
     compare_parser.add_argument("--bootstrap-samples", type=int, default=1000)
     compare_parser.add_argument("--seed", type=int, default=1)
     compare_parser.set_defaults(handler=_compare_multitask)
+
+    suite_parser = subparsers.add_parser(
+        "compare-multitask-suite",
+        help="compare original, previous retraining, and source-trained artifacts",
+    )
+    suite_parser.add_argument(
+        "--config",
+        type=Path,
+        default=PROJECT_ROOT / "configs/train_multitask_source.json",
+    )
+    suite_parser.add_argument(
+        "--manifest",
+        type=Path,
+        default=PROJECT_ROOT / "data/manifests/retrain.csv",
+    )
+    suite_parser.add_argument(
+        "--baseline",
+        type=Path,
+        default=PROJECT_ROOT / "artifacts/multitask",
+    )
+    suite_parser.add_argument("--previous", type=Path, required=True)
+    suite_parser.add_argument("--candidate", type=Path, required=True)
+    suite_parser.add_argument("--output", type=Path, required=True)
+    suite_parser.add_argument("--bootstrap-samples", type=int, default=1000)
+    suite_parser.add_argument("--seed", type=int, default=1)
+    suite_parser.set_defaults(handler=_compare_multitask_suite)
 
     ring_parser = subparsers.add_parser(
         "ring-compare", help="定位、校正并展开合格与不合格刀片的环形区域"

@@ -61,11 +61,13 @@ def _safe_divide(numerator, denominator):
     return float(numerator / denominator) if denominator else 0.0
 
 
-def segmentation_metrics(true_masks, probabilities):
+def segmentation_metrics(true_masks, probabilities, threshold=0.5):
     true_masks = np.asarray(true_masks)
     probabilities = np.asarray(probabilities, dtype=np.float64)
     true_ids = np.argmax(true_masks, axis=-1).reshape(-1)
-    predicted_ids = np.argmax(probabilities, axis=-1).reshape(-1)
+    predicted_ids = (
+        probabilities[..., 1] >= float(threshold)
+    ).astype(np.int32).reshape(-1)
     matrix = np.bincount(
         2 * true_ids.astype(np.int64) + predicted_ids.astype(np.int64),
         minlength=4,

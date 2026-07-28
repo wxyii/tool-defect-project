@@ -1,6 +1,6 @@
 """Convolutional Block Attention Module used by the retained models."""
 
-from tensorflow.keras import backend as K
+import tensorflow as tf
 from tensorflow.keras.layers import (
     Activation,
     Add,
@@ -9,10 +9,32 @@ from tensorflow.keras.layers import (
     Dense,
     GlobalAveragePooling2D,
     GlobalMaxPooling2D,
-    Lambda,
+    Layer,
     Multiply,
     Reshape,
 )
+
+
+@tf.keras.utils.register_keras_serializable(package="tool_defect")
+class ChannelMean(Layer):
+    """Serializable channel mean used instead of an unsafe Lambda layer."""
+
+    def call(self, inputs):
+        return tf.reduce_mean(inputs, axis=3, keepdims=True)
+
+    def compute_output_shape(self, input_shape):
+        return tuple(input_shape[:-1]) + (1,)
+
+
+@tf.keras.utils.register_keras_serializable(package="tool_defect")
+class ChannelMax(Layer):
+    """Serializable channel maximum used instead of an unsafe Lambda layer."""
+
+    def call(self, inputs):
+        return tf.reduce_max(inputs, axis=3, keepdims=True)
+
+    def compute_output_shape(self, input_shape):
+        return tuple(input_shape[:-1]) + (1,)
 
 
 def channel_attention(input_feature, ratio=7):
@@ -42,14 +64,8 @@ def channel_attention(input_feature, ratio=7):
 
 
 def spatial_attention(input_feature):
-    average = Lambda(
-        lambda value: K.mean(value, axis=3, keepdims=True),
-        output_shape=lambda shape: shape[:-1] + (1,),
-    )(input_feature)
-    maximum = Lambda(
-        lambda value: K.max(value, axis=3, keepdims=True),
-        output_shape=lambda shape: shape[:-1] + (1,),
-    )(input_feature)
+    average = ChannelMean()(input_feature)
+    maximum = ChannelMax()(input_feature)
     combined = Concatenate(axis=3)([average, maximum])
     weights = Conv2D(
         filters=1,

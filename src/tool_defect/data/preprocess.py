@@ -1,9 +1,41 @@
 """Image and mask preprocessing shared by training and inference."""
 
+import json
 from pathlib import Path
 
 import cv2
 import numpy as np
+
+
+ZERO_ONE = "zero_one"
+XCEPTION = "xception"
+_SUPPORTED_MODES = {ZERO_ONE, XCEPTION}
+
+
+def apply_input_preprocessing(images, mode=ZERO_ONE):
+    """Convert normalized [0, 1] images to an artifact's expected input range."""
+    mode = str(mode)
+    if mode not in _SUPPORTED_MODES:
+        raise ValueError(f"unsupported input preprocessing mode: {mode}")
+    images = np.asarray(images, dtype=np.float32)
+    if mode == XCEPTION:
+        return images * 2.0 - 1.0
+    return images
+
+
+def artifact_preprocessing_mode(model_dir):
+    """Read artifact preprocessing metadata, defaulting legacy models to [0, 1]."""
+    metadata_path = Path(model_dir) / "preprocessing.json"
+    if not metadata_path.is_file():
+        return ZERO_ONE
+    with metadata_path.open(encoding="utf-8") as handle:
+        metadata = json.load(handle)
+    mode = metadata.get("mode")
+    if mode not in _SUPPORTED_MODES:
+        raise ValueError(
+            f"invalid preprocessing mode in {metadata_path}: {mode!r}"
+        )
+    return mode
 
 
 def _read_grayscale(path):

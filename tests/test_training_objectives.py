@@ -15,6 +15,7 @@ from tool_defect.training.objectives import (
     DefectPrecision,
     DefectRecall,
     combined_segmentation_loss,
+    balanced_segmentation_loss,
 )
 
 
@@ -72,6 +73,26 @@ class TrainingObjectiveTests(unittest.TestCase):
             metric = metric_class()
             metric.update_state(targets, probabilities)
             self.assertTrue(np.isfinite(float(metric.result().numpy())))
+
+    def test_balanced_loss_penalizes_both_false_positive_and_false_negative(self):
+        targets = _one_hot([[[0, 1], [0, 0]]])
+        perfect = tf.cast(targets, tf.float32) * 0.9998 + 0.0001
+        false_positive = _one_hot([[[1, 1], [0, 0]]])
+        false_negative = _one_hot([[[0, 0], [0, 0]]])
+        false_positive = tf.cast(false_positive, tf.float32) * 0.9998 + 0.0001
+        false_negative = tf.cast(false_negative, tf.float32) * 0.9998 + 0.0001
+
+        perfect_loss = float(
+            balanced_segmentation_loss(targets, perfect).numpy()
+        )
+        self.assertGreater(
+            float(balanced_segmentation_loss(targets, false_positive).numpy()),
+            perfect_loss,
+        )
+        self.assertGreater(
+            float(balanced_segmentation_loss(targets, false_negative).numpy()),
+            perfect_loss,
+        )
 
 
 if __name__ == "__main__":

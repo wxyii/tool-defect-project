@@ -4,6 +4,8 @@ from pathlib import Path
 
 
 def load_saved_model(model_dir, weights_name="weights.h5"):
+    # Register serializable project layers before deserializing source models.
+    from tool_defect.models import cbam as _cbam  # noqa: F401
     from tensorflow.keras.models import model_from_json
 
     model_dir = Path(model_dir)

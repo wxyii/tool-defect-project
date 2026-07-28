@@ -9,6 +9,10 @@ import numpy as np
 
 from tool_defect.config import load_config
 from tool_defect.data.datasets import load_dataset
+from tool_defect.data.preprocess import (
+    apply_input_preprocessing,
+    artifact_preprocessing_mode,
+)
 from tool_defect.evaluation.metrics import (
     CLASS_NAMES,
     SEGMENT_NAMES,
@@ -118,7 +122,9 @@ def evaluate(
     model_key = (
         "classification_model" if task == "classification" else "multitask_model"
     )
-    model = load_saved_model(model_dir or config.path(model_key))
+    model_dir = Path(model_dir or config.path(model_key))
+    model = load_saved_model(model_dir)
+    preprocessing = artifact_preprocessing_mode(model_dir)
     image_size = int(model.input_shape[1])
 
     if task == "classification":
@@ -131,7 +137,12 @@ def evaluate(
             include_masks=False,
             return_rows=True,
         )
-        class_probabilities = np.asarray(model.predict(images, verbose=0))
+        class_probabilities = np.asarray(
+            model.predict(
+                apply_input_preprocessing(images, preprocessing),
+                verbose=0,
+            )
+        )
         segmentation_probabilities = None
         masks = None
     else:
@@ -144,7 +155,10 @@ def evaluate(
             include_masks=True,
             return_rows=True,
         )
-        predictions = model.predict(images, verbose=0)
+        predictions = model.predict(
+            apply_input_preprocessing(images, preprocessing),
+            verbose=0,
+        )
         named = dict(zip(model.output_names, predictions))
         class_probabilities = np.asarray(named["cla_out"])
         segmentation_probabilities = np.asarray(named["seg_out"])

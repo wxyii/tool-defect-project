@@ -14,6 +14,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from tool_defect.evaluation.compare_multitask import compare_multitask_models
+from tool_defect.evaluation.compare_multitask_suite import (
+    compare_multitask_suite,
+)
 
 
 def _model(good):
@@ -58,36 +61,39 @@ def _model(good):
 def _write_fixture(root):
     data_root = root / "data"
     rows = []
-    for index, (label_name, label) in enumerate(
-        [
-            ("qualified", 0),
-            ("unqualified", 1),
-            ("qualified", 0),
-            ("unqualified", 1),
-        ]
-    ):
-        image_rel = Path("images") / label_name / f"{index}.png"
-        mask_rel = Path("masks") / label_name / f"{index}.png"
-        image_path = data_root / image_rel
-        mask_path = data_root / mask_rel
-        image_path.parent.mkdir(parents=True, exist_ok=True)
-        mask_path.parent.mkdir(parents=True, exist_ok=True)
-        mask = np.zeros((8, 8), dtype=np.uint8)
-        if label:
-            mask[2:5, 3:6] = 255
-        Image.fromarray(np.repeat(mask[..., None], 3, axis=-1)).save(image_path)
-        Image.fromarray(mask).save(mask_path)
-        rows.append(
-            {
-                "sample_id": f"{label_name}/{index}.png",
-                "image_path": image_rel.as_posix(),
-                "mask_path": mask_rel.as_posix(),
-                "annotation_path": "",
-                "label": str(label),
-                "label_name": label_name,
-                "split": "test",
-            }
-        )
+    for split in ("validation", "test"):
+        for index, (label_name, label) in enumerate(
+            [
+                ("qualified", 0),
+                ("unqualified", 1),
+                ("qualified", 0),
+                ("unqualified", 1),
+            ]
+        ):
+            image_rel = Path("images") / label_name / f"{split}_{index}.png"
+            mask_rel = Path("masks") / label_name / f"{split}_{index}.png"
+            image_path = data_root / image_rel
+            mask_path = data_root / mask_rel
+            image_path.parent.mkdir(parents=True, exist_ok=True)
+            mask_path.parent.mkdir(parents=True, exist_ok=True)
+            mask = np.zeros((8, 8), dtype=np.uint8)
+            if label:
+                mask[2:5, 3:6] = 255
+            Image.fromarray(np.repeat(mask[..., None], 3, axis=-1)).save(
+                image_path
+            )
+            Image.fromarray(mask).save(mask_path)
+            rows.append(
+                {
+                    "sample_id": f"{label_name}/{split}_{index}.png",
+                    "image_path": image_rel.as_posix(),
+                    "mask_path": mask_rel.as_posix(),
+                    "annotation_path": "",
+                    "label": str(label),
+                    "label_name": label_name,
+                    "split": split,
+                }
+            )
     manifest = data_root / "manifest.csv"
     with manifest.open("w", newline="", encoding="utf-8-sig") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
@@ -118,7 +124,9 @@ def _write_fixture(root):
         ),
         encoding="utf-8",
     )
-    return config_path, manifest, rows
+    return config_path, manifest, [
+        row for row in rows if row["split"] == "test"
+    ]
 
 
 class CompareMultitaskTests(unittest.TestCase):
@@ -169,6 +177,29 @@ class CompareMultitaskTests(unittest.TestCase):
                 "candidate_segmentation_confusion_matrix.csv",
             ):
                 self.assertTrue((output / name).is_file(), name)
+
+    def test_suite_writes_three_model_fixed_and_validation_tuned_results(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            config, manifest, _ = _write_fixture(root)
+            result = compare_multitask_suite(
+                config_path=config,
+                manifest_path=manifest,
+                baseline_model_dir=root / "baseline",
+                previous_model_dir=root / "baseline",
+                source_model_dir=root / "candidate",
+                output_dir=root / "suite",
+                bootstrap_samples=10,
+                seed=1,
+            )
+
+            self.assertEqual(
+                {"baseline", "previous", "source"},
+                set(result["models"]),
+            )
+            self.assertFalse(result["test_set_used_for_threshold_selection"])
+            self.assertTrue((root / "suite" / "suite.json").is_file())
+            self.assertTrue((root / "suite" / "SUITE_REPORT.md").is_file())
 
 
 if __name__ == "__main__":

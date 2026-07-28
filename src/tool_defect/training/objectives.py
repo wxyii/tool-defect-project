@@ -52,6 +52,31 @@ def combined_segmentation_loss(y_true, y_pred):
     )
 
 
+@tf.keras.utils.register_keras_serializable(package="tool_defect")
+def balanced_focal_tversky_loss(y_true, y_pred):
+    """Symmetric foreground overlap loss that does not prefer recall over precision."""
+    return focal_tversky_loss(
+        y_true,
+        y_pred,
+        alpha=0.5,
+        beta=0.5,
+        gamma=0.75,
+    )
+
+
+@tf.keras.utils.register_keras_serializable(package="tool_defect")
+def balanced_foreground_focal_bce(y_true, y_pred):
+    """Focal foreground BCE with equal positive and negative class weighting."""
+    return foreground_focal_bce(y_true, y_pred, alpha=0.5, gamma=2.0)
+
+
+@tf.keras.utils.register_keras_serializable(package="tool_defect")
+def balanced_segmentation_loss(y_true, y_pred):
+    return 0.5 * balanced_focal_tversky_loss(
+        y_true, y_pred
+    ) + 0.5 * balanced_foreground_focal_bce(y_true, y_pred)
+
+
 class _DefectConfusionMetric(tf.keras.metrics.Metric):
     def __init__(self, name, **kwargs):
         super().__init__(name=name, **kwargs)

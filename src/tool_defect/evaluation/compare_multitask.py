@@ -9,6 +9,10 @@ import tensorflow as tf
 
 from tool_defect.config import load_config
 from tool_defect.data.datasets import load_dataset
+from tool_defect.data.preprocess import (
+    apply_input_preprocessing,
+    artifact_preprocessing_mode,
+)
 from tool_defect.evaluation.evaluate import _save_confusion_matrix
 from tool_defect.evaluation.metrics import (
     CLASS_NAMES,
@@ -31,7 +35,12 @@ def _predict(model_dir, images):
     model = load_saved_model(model_dir)
     if model.output_names != ["cla_out", "seg_out"]:
         raise ValueError(f"unexpected multitask outputs: {model.output_names}")
-    predictions = model.predict(images, batch_size=2, verbose=0)
+    preprocessing = artifact_preprocessing_mode(model_dir)
+    predictions = model.predict(
+        apply_input_preprocessing(images, preprocessing),
+        batch_size=2,
+        verbose=0,
+    )
     named = dict(zip(model.output_names, predictions))
     output = (
         np.asarray(named["cla_out"]),

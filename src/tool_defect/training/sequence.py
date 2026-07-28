@@ -7,7 +7,12 @@ import numpy as np
 import tensorflow as tf
 
 from tool_defect.data.datasets import load_manifest_rows
-from tool_defect.data.preprocess import load_image, load_mask
+from tool_defect.data.preprocess import (
+    ZERO_ONE,
+    apply_input_preprocessing,
+    load_image,
+    load_mask,
+)
 
 
 class BalancedMultitaskSequence(tf.keras.utils.Sequence):
@@ -24,6 +29,7 @@ class BalancedMultitaskSequence(tf.keras.utils.Sequence):
         augment=False,
         photometric=True,
         balanced=True,
+        preprocessing=ZERO_ONE,
     ):
         self.manifest_path = Path(manifest_path)
         self.data_root = Path(data_root)
@@ -34,6 +40,7 @@ class BalancedMultitaskSequence(tf.keras.utils.Sequence):
         self.augment = bool(augment)
         self.photometric = bool(photometric)
         self.balanced = bool(balanced)
+        self.preprocessing = str(preprocessing)
         if self.batch_size < 1:
             raise ValueError("batch_size must be positive")
         if self.balanced and self.batch_size % 2:
@@ -130,7 +137,7 @@ class BalancedMultitaskSequence(tf.keras.utils.Sequence):
             )
             mask = load_mask(self.data_root / row["mask_path"], self.image_size)
             image, mask = self._augment_pair(image, mask, index, position)
-            images.append(image)
+            images.append(apply_input_preprocessing(image, self.preprocessing))
             masks.append(mask)
             labels.append(int(row["label"]))
         label_targets = np.eye(2, dtype=np.float32)[

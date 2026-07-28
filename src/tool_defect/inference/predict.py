@@ -6,7 +6,11 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from tool_defect.data.preprocess import load_image_batch
+from tool_defect.data.preprocess import (
+    apply_input_preprocessing,
+    artifact_preprocessing_mode,
+    load_image_batch,
+)
 from tool_defect.inference.visualize import overlay_defect_on_image
 from tool_defect.models.loader import load_saved_model
 
@@ -69,6 +73,7 @@ def predict(task, input_paths, output_dir, model_dir, image_size=None):
         visualization_dir.mkdir(parents=True, exist_ok=True)
 
     model = load_saved_model(model_dir)
+    preprocessing = artifact_preprocessing_mode(model_dir)
     model_image_size = int(model.input_shape[1])
     if image_size is not None and int(image_size) != model_image_size:
         raise ValueError(
@@ -77,7 +82,10 @@ def predict(task, input_paths, output_dir, model_dir, image_size=None):
         )
     rows = []
     for index, image_path in enumerate(images):
-        batch = load_image_batch(image_path, image_size=model_image_size)
+        batch = apply_input_preprocessing(
+            load_image_batch(image_path, image_size=model_image_size),
+            preprocessing,
+        )
         named = _named_predictions(model, model.predict(batch, verbose=0))
         class_output_name = (
             "cla_out" if "cla_out" in named else model.output_names[0]
