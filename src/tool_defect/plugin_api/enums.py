@@ -1,0 +1,41 @@
+"""推理进程内部插件协议使用的稳定枚举。"""
+
+from enum import Enum
+
+
+class PluginKind(str, Enum):
+    PREPROCESSOR = "preprocessor"
+    ALGORITHM = "algorithm"
+
+
+class QualityStatus(str, Enum):
+    OK = "OK"
+    WARNING = "WARNING"
+    REJECTED = "REJECTED"
+
+
+class AlgorithmOutcome(str, Enum):
+    QUALIFIED = "QUALIFIED"
+    UNQUALIFIED = "UNQUALIFIED"
+    INCONCLUSIVE = "INCONCLUSIVE"
+
+
+class PluginErrorCode(str, Enum):
+    INPUT_INVALID = "INPUT_INVALID"
+    PREPROCESS_REJECTED = "PREPROCESS_REJECTED"
+    MODEL_INCOMPATIBLE = "MODEL_INCOMPATIBLE"
+    RESOURCE_EXHAUSTED = "RESOURCE_EXHAUSTED"
+    RUNTIME_TRANSIENT = "RUNTIME_TRANSIENT"
+    PLUGIN_BUG = "PLUGIN_BUG"
+
+
+class PluginState(str, Enum):
+    DISCOVERED = "DISCOVERED"
+    CONFIG_VALIDATED = "CONFIG_VALIDATED"
+    ARTIFACT_VERIFIED = "ARTIFACT_VERIFIED"
+    LOADED = "LOADED"
+    WARMED = "WARMED"
+    READY = "READY"
+    DRAINING = "DRAINING"
+    FAILED = "FAILED"
+    CLOSED = "CLOSED"
