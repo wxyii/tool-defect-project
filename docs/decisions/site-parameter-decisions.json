@@ -1,0 +1,382 @@
+{
+  "$schema": "../../configs/schema/site-decisions.schema.json",
+  "schema_version": "1.0.0",
+  "as_of": "2026-07-29",
+  "decisions": [
+    {
+      "id": "DEC-CAPTURE-PLC-001",
+      "title": "PLC 或传感器协议与触发时序",
+      "status": "上线阻断",
+      "config_keys": [
+        "capture.plc_protocol",
+        "capture.trigger_mode"
+      ],
+      "owner": "采集与设备负责人",
+      "latest_gate": "G7",
+      "source_refs": [
+        "Docs/README.md#6-尚需现场确认的输入",
+        "Docs/14-技术选型.md#42-硬件适配例外"
+      ],
+      "safe_default_summary": "协议为空且只允许模拟触发。",
+      "unknown_behavior": "真实硬件采集保持禁用，不能生成生产检测或自动 PASS。"
+    },
+    {
+      "id": "DEC-CAPTURE-CAMERA-001",
+      "title": "工业相机型号、软件开发包和采集参数",
+      "status": "上线阻断",
+      "config_keys": [
+        "capture.camera_model",
+        "capture.camera_sdk",
+        "capture.real_hardware_enabled"
+      ],
+      "owner": "采集与设备负责人",
+      "latest_gate": "G7",
+      "source_refs": [
+        "Docs/README.md#6-尚需现场确认的输入",
+        "Docs/14-技术选型.md#42-硬件适配例外"
+      ],
+      "safe_default_summary": "相机和软件开发包为空，真实硬件关闭。",
+      "unknown_behavior": "仅运行可重复模拟器；无图、损坏图和相机异常必须保留证据并进入 HOLD。"
+    },
+    {
+      "id": "DEC-EDGE-OS-001",
+      "title": "工控机操作系统",
+      "status": "上线阻断",
+      "config_keys": [
+        "capture.edge_operating_system"
+      ],
+      "owner": "采集与设备负责人",
+      "latest_gate": "G7",
+      "source_refs": [
+        "Docs/README.md#6-尚需现场确认的输入",
+        "Docs/14-技术选型.md#17-需要现场确认后才能锁定的选项"
+      ],
+      "safe_default_summary": "操作系统为空，不生成生产安装包。",
+      "unknown_behavior": "开发构建可继续，真实驱动和生产部署保持阻断。"
+    },
+    {
+      "id": "DEC-PERFORMANCE-CYCLE-001",
+      "title": "单刀检测节拍",
+      "status": "上线阻断",
+      "config_keys": [
+        "performance.cycle_time_ms"
+      ],
+      "owner": "工艺负责人",
+      "latest_gate": "G7",
+      "source_refs": [
+        "Docs/README.md#6-尚需现场确认的输入",
+        "Docs/11-日志与监控.md#7-服务目标"
+      ],
+      "safe_default_summary": "节拍为空，不声称已满足生产性能。",
+      "unknown_behavior": "性能结果只能标记为待签字，不得伪造服务目标或自动放行依据。"
+    },
+    {
+      "id": "DEC-PERFORMANCE-LATENCY-001",
+      "title": "允许的端到端延迟",
+      "status": "上线阻断",
+      "config_keys": [
+        "performance.allowed_latency_ms",
+        "performance.slo_claims_enabled"
+      ],
+      "owner": "工艺负责人",
+      "latest_gate": "G7",
+      "source_refs": [
+        "Docs/README.md#6-尚需现场确认的输入",
+        "Docs/11-日志与监控.md#7-服务目标"
+      ],
+      "safe_default_summary": "允许延迟为空且服务目标声明关闭。",
+      "unknown_behavior": "只记录测量方法和实际结果，不形成上线通过结论。"
+    },
+    {
+      "id": "DEC-OFFLINE-DURATION-001",
+      "title": "网络中断最长时长",
+      "status": "上线阻断",
+      "config_keys": [
+        "offline.maximum_offline_hours",
+        "offline.delete_unsynchronized_images"
+      ],
+      "owner": "现场运维负责人",
+      "latest_gate": "G7",
+      "source_refs": [
+        "Docs/README.md#6-尚需现场确认的输入",
+        "Docs/07-图片存储方案.md#3-工控机本地缓存"
+      ],
+      "safe_default_summary": "离线时长为空，未同步原图禁止删除。",
+      "unknown_behavior": "中心状态未知时持续保留和补传，不假定成功，不产生自动 PASS。"
+    },
+    {
+      "id": "DEC-CAPACITY-LOCAL-DISK-001",
+      "title": "工控机本地磁盘容量和水位",
+      "status": "上线阻断",
+      "config_keys": [
+        "capacity.local_disk_capacity_gb",
+        "capacity.disk_warning_percent",
+        "capacity.disk_critical_percent",
+        "capacity.disk_pause_percent"
+      ],
+      "owner": "现场运维负责人",
+      "latest_gate": "G7",
+      "source_refs": [
+        "Docs/README.md#6-尚需现场确认的输入",
+        "Docs/10-异常处理.md#工控机磁盘"
+      ],
+      "safe_default_summary": "容量为空；水位暂按 80%、90%、95% 告警、升级和安全暂停。",
+      "unknown_behavior": "达到暂停水位时停止新采集，未上传和中心未知原图仍不得删除。"
+    },
+    {
+      "id": "DEC-DISPOSITION-THRESHOLD-001",
+      "title": "自动放行与不合格判定阈值",
+      "status": "上线阻断",
+      "config_keys": [
+        "disposition.automatic_pass_enabled",
+        "disposition.qualification_threshold",
+        "disposition.unqualification_threshold",
+        "disposition.unknown_threshold_action",
+        "disposition.technical_failure_action"
+      ],
+      "owner": "质量负责人",
+      "latest_gate": "G7",
+      "source_refs": [
+        "Docs/README.md#6-尚需现场确认的输入",
+        "Docs/01-核心设计原则.md#7-安全失败",
+        "Docs/08-增量训练闭环.md#82-当前代码门槛"
+      ],
+      "safe_default_summary": "所有生产阈值为空，自动 PASS 关闭，未知和技术失败固定进入 HOLD。",
+      "unknown_behavior": "任何未知阈值、矛盾或技术异常都不能转换为自动 PASS。"
+    },
+    {
+      "id": "DEC-DISPOSITION-SAMPLING-001",
+      "title": "人工抽检比例",
+      "status": "上线阻断",
+      "config_keys": [
+        "disposition.sampling_ratio"
+      ],
+      "owner": "质量负责人",
+      "latest_gate": "G7",
+      "source_refs": [
+        "Docs/README.md#6-尚需现场确认的输入",
+        "Docs/04-人工复核系统.md#抽检"
+      ],
+      "safe_default_summary": "抽检比例为空，不宣称生产抽检策略已经批准。",
+      "unknown_behavior": "不得用缺失抽检配置绕过人工复核或质量试运行。"
+    },
+    {
+      "id": "DEC-REVIEW-SLA-001",
+      "title": "人工复核时限",
+      "status": "上线阻断",
+      "config_keys": [
+        "review.sla_minutes",
+        "review.overdue_action"
+      ],
+      "owner": "质量负责人",
+      "latest_gate": "G7",
+      "source_refs": [
+        "Docs/README.md#6-尚需现场确认的输入",
+        "Docs/04-人工复核系统.md#优先级和时限"
+      ],
+      "safe_default_summary": "复核时限为空，超时动作固定为升级并继续 HOLD。",
+      "unknown_behavior": "超时样本不能自动放行，必须升级给授权质量负责人。"
+    },
+    {
+      "id": "DEC-RETENTION-001",
+      "title": "图片、复核记录和训练数据保留期",
+      "status": "上线阻断",
+      "config_keys": [
+        "retention.raw_image_days",
+        "retention.review_record_days",
+        "retention.training_data_days",
+        "retention.automatic_deletion_enabled"
+      ],
+      "owner": "质量、法务与存储负责人",
+      "latest_gate": "G7",
+      "source_refs": [
+        "Docs/README.md#6-尚需现场确认的输入",
+        "Docs/07-图片存储方案.md#9-生命周期"
+      ],
+      "safe_default_summary": "最终天数为空，自动删除关闭。",
+      "unknown_behavior": "未签字前不物理删除业务事实、原图、人工掩膜、数据集或模型。"
+    },
+    {
+      "id": "DEC-RETENTION-DERIVED-001",
+      "title": "可重建派生图片暂定保留期",
+      "status": "暂定默认值",
+      "config_keys": [
+        "retention.derived_image_days"
+      ],
+      "owner": "质量、法务与存储负责人",
+      "latest_gate": "G7",
+      "source_refs": [
+        "Docs/07-图片存储方案.md#9-生命周期"
+      ],
+      "safe_default_summary": "热图、叠加图和极坐标中间图暂定 180 天。",
+      "unknown_behavior": "即使达到暂定期限，自动删除仍保持关闭，等待保留策略签字。"
+    },
+    {
+      "id": "DEC-RECOVERY-001",
+      "title": "恢复点、恢复时间和高可用目标",
+      "status": "上线阻断",
+      "config_keys": [
+        "recovery.rpo_minutes",
+        "recovery.rto_minutes",
+        "recovery.high_availability_enabled",
+        "recovery.restore_target_confirmed"
+      ],
+      "owner": "基础设施负责人",
+      "latest_gate": "G7",
+      "source_refs": [
+        "Docs/README.md#6-尚需现场确认的输入",
+        "Docs/07-图片存储方案.md#10-备份与恢复",
+        "Docs/14-技术选型.md#17-需要现场确认后才能锁定的选项"
+      ],
+      "safe_default_summary": "恢复目标为空，高可用和恢复目标确认均关闭。",
+      "unknown_behavior": "不得把备份成功当作恢复成功，未完成恢复演练不能上线。"
+    },
+    {
+      "id": "DEC-IDENTITY-001",
+      "title": "企业统一身份系统",
+      "status": "上线阻断",
+      "config_keys": [
+        "identity.provider",
+        "identity.production_authentication_enabled"
+      ],
+      "owner": "身份与安全负责人",
+      "latest_gate": "G7",
+      "source_refs": [
+        "Docs/README.md#6-尚需现场确认的输入",
+        "Docs/14-技术选型.md#12-身份和权限"
+      ],
+      "safe_default_summary": "身份提供方为空，生产鉴权关闭且生产环境整体禁用。",
+      "unknown_behavior": "不得回退到匿名生产访问或在配置中保存凭据。"
+    },
+    {
+      "id": "DEC-STORAGE-PROTOCOL-001",
+      "title": "对象存储使用 S3 兼容协议边界",
+      "status": "已确认",
+      "config_keys": [
+        "storage.protocol",
+        "storage.public_access_enabled"
+      ],
+      "owner": "存储负责人",
+      "latest_gate": "G1",
+      "source_refs": [
+        "Docs/01-核心设计原则.md#2-事实源唯一",
+        "Docs/07-图片存储方案.md#4-中央对象存储"
+      ],
+      "safe_default_summary": "固定使用 S3 兼容抽象且公开访问关闭。",
+      "unknown_behavior": "具体产品未知不改变接口边界；浏览器不得获得长期桶凭据。"
+    },
+    {
+      "id": "DEC-STORAGE-PRODUCT-001",
+      "title": "对象存储具体产品和端点",
+      "status": "上线阻断",
+      "config_keys": [
+        "storage.product",
+        "storage.endpoint"
+      ],
+      "owner": "存储负责人",
+      "latest_gate": "G7",
+      "source_refs": [
+        "Docs/README.md#6-尚需现场确认的输入",
+        "Docs/14-技术选型.md#9-对象存储"
+      ],
+      "safe_default_summary": "产品与端点为空，不提供生产存储连接。",
+      "unknown_behavior": "不得使用任意网址、公开桶或未经许可证审查的产品。"
+    },
+    {
+      "id": "DEC-STORAGE-SIGNED-URL-001",
+      "title": "对象短时只读授权有效期",
+      "status": "暂定默认值",
+      "config_keys": [
+        "storage.signed_url_ttl_seconds"
+      ],
+      "owner": "存储与安全负责人",
+      "latest_gate": "G7",
+      "source_refs": [
+        "Docs/07-图片存储方案.md#8-访问控制"
+      ],
+      "safe_default_summary": "暂定 300 秒，且只能单对象只读。",
+      "unknown_behavior": "过期、越权或范围未知时拒绝访问，不延长为长期凭据。"
+    },
+    {
+      "id": "DEC-MESSAGING-001",
+      "title": "现有消息队列复用和高可用方式",
+      "status": "上线阻断",
+      "config_keys": [
+        "messaging.product",
+        "messaging.high_availability_enabled"
+      ],
+      "owner": "基础设施负责人",
+      "latest_gate": "G7",
+      "source_refs": [
+        "Docs/README.md#6-尚需现场确认的输入",
+        "Docs/14-技术选型.md#7-RabbitMQ"
+      ],
+      "safe_default_summary": "产品为空且高可用关闭，不能形成生产拓扑。",
+      "unknown_behavior": "开发替身不能冒充生产可靠性证据；业务事实不得依赖队列查询。"
+    },
+    {
+      "id": "DEC-MONITORING-001",
+      "title": "企业监控平台复用",
+      "status": "上线阻断",
+      "config_keys": [
+        "monitoring.platform",
+        "monitoring.production_alerting_enabled"
+      ],
+      "owner": "可观测与运维负责人",
+      "latest_gate": "G7",
+      "source_refs": [
+        "Docs/README.md#6-尚需现场确认的输入",
+        "Docs/11-日志与监控.md#8-告警基线"
+      ],
+      "safe_default_summary": "平台为空且生产告警关闭，因此生产环境整体保持禁用。",
+      "unknown_behavior": "监控失明不能被视为健康；未演练严重告警不得上线。"
+    },
+    {
+      "id": "DEC-COMPUTE-001",
+      "title": "中心服务器系统及 CPU 或 GPU 推理",
+      "status": "上线阻断",
+      "config_keys": [
+        "compute.inference_device",
+        "compute.server_operating_system"
+      ],
+      "owner": "基础设施与推理负责人",
+      "latest_gate": "G7",
+      "source_refs": [
+        "Docs/README.md#6-尚需现场确认的输入",
+        "Docs/14-技术选型.md#17-需要现场确认后才能锁定的选项"
+      ],
+      "safe_default_summary": "推理设备和服务器系统为空。",
+      "unknown_behavior": "仅能报告开发环境性能，不得声称满足真实节拍。"
+    },
+    {
+      "id": "DEC-DEPLOYMENT-001",
+      "title": "Compose 或企业容器平台",
+      "status": "上线阻断",
+      "config_keys": [
+        "deployment.platform"
+      ],
+      "owner": "基础设施负责人",
+      "latest_gate": "G7",
+      "source_refs": [
+        "Docs/14-技术选型.md#17-需要现场确认后才能锁定的选项"
+      ],
+      "safe_default_summary": "部署平台为空，不生成生产发布结论。",
+      "unknown_behavior": "开发环境可使用 Compose，不能据此推断生产平台已经批准。"
+    },
+    {
+      "id": "DEC-DEPLOYMENT-K8S-001",
+      "title": "是否引入 Kubernetes",
+      "status": "可后置",
+      "config_keys": [
+        "deployment.kubernetes_enabled"
+      ],
+      "owner": "架构负责人",
+      "latest_gate": "G7",
+      "source_refs": [
+        "Docs/14-技术选型.md#142-暂不采用-Kubernetes"
+      ],
+      "safe_default_summary": "首期关闭 Kubernetes。",
+      "unknown_behavior": "没有持续运行瓶颈证据时保持模块化单体与 Compose，不提前扩展架构。"
+    }
+  ]
+}

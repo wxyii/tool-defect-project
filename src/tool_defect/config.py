@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 import json
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any, Dict
 
 
@@ -31,7 +31,8 @@ def load_config(config_path):
     paths = values.get("paths", {})
     for name, value in paths.items():
         candidate = Path(value)
-        if candidate.is_absolute() or candidate.drive:
+        windows_candidate = PureWindowsPath(str(value))
+        if candidate.is_absolute() or windows_candidate.is_absolute():
             raise ValueError(f"configuration path '{name}' must be project-relative")
 
     project_root = (

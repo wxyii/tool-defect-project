@@ -1,0 +1,63 @@
+{
+  "schema_version": "1.0.0",
+  "observed_at": "2026-07-29T14:07:30+08:00",
+  "command": "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests",
+  "environment": {
+    "python": "3.11.14",
+    "operating_system": "macOS arm64",
+    "tensorflow": "2.13.0",
+    "keras": "2.13.1"
+  },
+  "result": {
+    "exit_code": 1,
+    "tests_run": 62,
+    "failures": 1,
+    "errors": 9,
+    "status": "已冻结的已知失败基线"
+  },
+  "failure_tests": [
+    {
+      "test_id": "tests.test_config.ConfigTests.test_load_config_rejects_absolute_project_paths",
+      "reason": "POSIX 环境下 pathlib 不把 D:/chedao/yuan 识别为绝对路径。"
+    }
+  ],
+  "error_tests": [
+    {
+      "test_id": "tests.test_cli.CliTests.test_evaluate_command_prints_machine_readable_metrics",
+      "reason": "artifacts/classification/weights.h5 缺失。"
+    },
+    {
+      "test_id": "tests.test_cli.CliTests.test_evaluate_full_metrics_writes_requested_artifacts",
+      "reason": "artifacts/multitask/weights.h5 缺失。"
+    },
+    {
+      "test_id": "tests.test_cli.CliTests.test_predict_command_runs_with_central_classification_artifact",
+      "reason": "artifacts/classification/weights.h5 缺失。"
+    },
+    {
+      "test_id": "tests.test_inference.InferenceTests.test_supplied_classification_weights_predict_one_real_image",
+      "reason": "artifacts/classification/weights.h5 缺失。"
+    },
+    {
+      "test_id": "tests.test_inference.InferenceTests.test_supplied_multitask_weights_write_classification_and_mask",
+      "reason": "artifacts/multitask/weights.h5 缺失。"
+    },
+    {
+      "test_id": "tests.test_model_loading.SavedModelLoadingTests.test_classification_artifact_loads_with_two_class_output",
+      "reason": "artifacts/classification/weights.h5 缺失。"
+    },
+    {
+      "test_id": "tests.test_model_loading.SavedModelLoadingTests.test_multitask_artifact_loads_with_classification_and_mask_outputs",
+      "reason": "artifacts/multitask/weights.h5 缺失。"
+    },
+    {
+      "test_id": "tests.test_workflows.WorkflowTests.test_supplied_classification_model_evaluates_real_validation_samples",
+      "reason": "artifacts/classification/weights.h5 缺失。"
+    },
+    {
+      "test_id": "tests.test_workflows.WorkflowTests.test_supplied_multitask_model_evaluates_both_outputs",
+      "reason": "artifacts/multitask/weights.h5 缺失。"
+    }
+  ],
+  "safety_interpretation": "该结果用于冻结现状，不表示失败被接受为生产能力。模型缺失、加载失败和路径不确定均不得转换为 PASS。"
+}

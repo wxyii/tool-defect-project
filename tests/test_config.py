@@ -44,15 +44,20 @@ class ConfigTests(unittest.TestCase):
 
     def test_load_config_rejects_absolute_project_paths(self):
         """Catches non-portable configuration tied to the original workstation."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            config_path = Path(temp_dir) / "default.json"
-            config_path.write_text(
-                json.dumps({"paths": {"data": "D:/chedao/yuan"}, "image_size": 256}),
-                encoding="utf-8",
-            )
+        absolute_paths = ("D:/chedao/yuan", r"\\fileserver\share\images", "/data/images")
+        for absolute_path in absolute_paths:
+            with self.subTest(absolute_path=absolute_path):
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    config_path = Path(temp_dir) / "default.json"
+                    config_path.write_text(
+                        json.dumps(
+                            {"paths": {"data": absolute_path}, "image_size": 256}
+                        ),
+                        encoding="utf-8",
+                    )
 
-            with self.assertRaisesRegex(ValueError, "relative"):
-                load_config(config_path)
+                    with self.assertRaisesRegex(ValueError, "relative"):
+                        load_config(config_path)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tool-defect.example.invalid/schema/site-decisions-v1.json",
+  "title": "现场参数与架构决策登记模式",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "as_of",
+    "decisions"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "as_of": {
+      "type": "string",
+      "pattern": "[0-9]{4}-[0-9]{2}-[0-9]{2}"
+    },
+    "decisions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "status",
+          "config_keys",
+          "owner",
+          "latest_gate",
+          "source_refs",
+          "safe_default_summary",
+          "unknown_behavior"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "DEC-[A-Z0-9-]+"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "已确认",
+              "暂定默认值",
+              "上线阻断",
+              "可后置"
+            ]
+          },
+          "config_keys": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+"
+            }
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1
+          },
+          "latest_gate": {
+            "type": "string",
+            "enum": [
+              "G0",
+              "G1",
+              "G2",
+              "G3",
+              "G4",
+              "G5",
+              "G6",
+              "G7"
+            ]
+          },
+          "source_refs": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "Docs/.+"
+            }
+          },
+          "safe_default_summary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unknown_behavior": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

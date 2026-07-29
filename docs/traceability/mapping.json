@@ -1,0 +1,542 @@
+{
+  "schema_version": "1.0.0",
+  "documents": {
+    "01": {
+      "path": "Docs/01-核心设计原则.md",
+      "tasks": [
+        "P1-02",
+        "P3-04",
+        "P5-04",
+        "P8-04"
+      ],
+      "gates": [
+        "G0",
+        "G1",
+        "G2",
+        "G3",
+        "G4",
+        "G5",
+        "G6",
+        "G7"
+      ]
+    },
+    "02": {
+      "path": "Docs/02-完整检测业务流程.md",
+      "tasks": [
+        "P1-02",
+        "P3-01",
+        "P3-02",
+        "P3-03",
+        "P3-04",
+        "P3-05",
+        "P3-06",
+        "P3-07",
+        "P4-02"
+      ],
+      "gates": [
+        "G1",
+        "G3",
+        "G4",
+        "G7"
+      ]
+    },
+    "03": {
+      "path": "Docs/03-算法与预处理通用接口设计.md",
+      "tasks": [
+        "P2-A01",
+        "P2-A02",
+        "P2-A03",
+        "P2-A04",
+        "P2-D01",
+        "P3-03"
+      ],
+      "gates": [
+        "G2",
+        "G3",
+        "G6",
+        "G7"
+      ]
+    },
+    "04": {
+      "path": "Docs/04-人工复核系统.md",
+      "tasks": [
+        "P3-04",
+        "P4-01",
+        "P4-02",
+        "P4-03",
+        "P4-04",
+        "P4-05",
+        "P4-06",
+        "P6-02"
+      ],
+      "gates": [
+        "G3",
+        "G4",
+        "G6",
+        "G7"
+      ]
+    },
+    "05": {
+      "path": "Docs/05-数据库设计.md",
+      "tasks": [
+        "P2-B02",
+        "P3-01",
+        "P3-02",
+        "P4-01",
+        "P4-02",
+        "P4-03",
+        "P4-05",
+        "P6-01",
+        "P6-02",
+        "P6-05"
+      ],
+      "gates": [
+        "G2",
+        "G3",
+        "G4",
+        "G6",
+        "G7"
+      ]
+    },
+    "06": {
+      "path": "Docs/06-接口设计.md",
+      "tasks": [
+        "P1-03",
+        "P1-04",
+        "P3-01",
+        "P3-02",
+        "P3-03",
+        "P3-07",
+        "P4-01",
+        "P4-02",
+        "P4-03",
+        "P5-04",
+        "P6-05",
+        "P6-06"
+      ],
+      "gates": [
+        "G1",
+        "G3",
+        "G4",
+        "G5",
+        "G6",
+        "G7"
+      ]
+    },
+    "07": {
+      "path": "Docs/07-图片存储方案.md",
+      "tasks": [
+        "P2-B03",
+        "P2-C01",
+        "P3-05",
+        "P4-03",
+        "P5-05"
+      ],
+      "gates": [
+        "G2",
+        "G3",
+        "G4",
+        "G5",
+        "G7"
+      ]
+    },
+    "08": {
+      "path": "Docs/08-增量训练闭环.md",
+      "tasks": [
+        "P2-A04",
+        "P6-01",
+        "P6-02",
+        "P6-03",
+        "P6-04",
+        "P6-05",
+        "P6-06",
+        "P6-07",
+        "P6-08",
+        "P8-03"
+      ],
+      "gates": [
+        "G2",
+        "G6",
+        "G7"
+      ]
+    },
+    "09": {
+      "path": "Docs/09-前端功能规划.md",
+      "tasks": [
+        "P2-W01",
+        "P3-06",
+        "P4-04",
+        "P6-07",
+        "P8-02"
+      ],
+      "gates": [
+        "G2",
+        "G3",
+        "G4",
+        "G6",
+        "G7"
+      ]
+    },
+    "10": {
+      "path": "Docs/10-异常处理.md",
+      "tasks": [
+        "P3-03",
+        "P3-05",
+        "P5-01",
+        "P5-06",
+        "P5-07"
+      ],
+      "gates": [
+        "G3",
+        "G5",
+        "G7"
+      ]
+    },
+    "11": {
+      "path": "Docs/11-日志与监控.md",
+      "tasks": [
+        "P5-02",
+        "P5-03",
+        "P5-06",
+        "P7-04"
+      ],
+      "gates": [
+        "G5",
+        "G7"
+      ]
+    },
+    "12": {
+      "path": "Docs/12-安全权限与角色.md",
+      "tasks": [
+        "P4-05",
+        "P5-04",
+        "P6-05",
+        "P7-06"
+      ],
+      "gates": [
+        "G4",
+        "G5",
+        "G6",
+        "G7"
+      ]
+    },
+    "13": {
+      "path": "Docs/13-推荐项目代码结构.md",
+      "tasks": [
+        "P1-01",
+        "P2-A01",
+        "P2-B01",
+        "P2-C01",
+        "P2-D01",
+        "P2-W01",
+        "P8-04"
+      ],
+      "gates": [
+        "G1",
+        "G2",
+        "G7"
+      ]
+    },
+    "14": {
+      "path": "Docs/14-技术选型.md",
+      "tasks": [
+        "P0-02",
+        "P1-06",
+        "P5-04",
+        "P7-01",
+        "P7-02"
+      ],
+      "gates": [
+        "G0",
+        "G1",
+        "G5",
+        "G7"
+      ]
+    }
+  },
+  "test_mappings": [
+    {
+      "pattern": "tests/test_baseline_inventory.py",
+      "documents": [
+        "01",
+        "08"
+      ],
+      "keywords": [
+        "SHA-256",
+        "模型",
+        "配置"
+      ]
+    },
+    {
+      "pattern": "tests/test_traceability.py",
+      "documents": [
+        "01"
+      ],
+      "keywords": [
+        "可审计",
+        "追溯"
+      ]
+    },
+    {
+      "pattern": "tests/test_config.py",
+      "documents": [
+        "01",
+        "13"
+      ],
+      "keywords": [
+        "配置",
+        "绝对路径"
+      ]
+    },
+    {
+      "pattern": "tests/test_manifest.py",
+      "documents": [
+        "07",
+        "08"
+      ],
+      "keywords": [
+        "清单",
+        "SHA-256"
+      ]
+    },
+    {
+      "pattern": "tests/test_retrain_manifest.py",
+      "documents": [
+        "08"
+      ],
+      "keywords": [
+        "去重",
+        "泄漏",
+        "冲突"
+      ]
+    },
+    {
+      "pattern": "tests/test_ring_dataset.py",
+      "documents": [
+        "03",
+        "08"
+      ],
+      "keywords": [
+        "掩膜",
+        "坐标",
+        "划分"
+      ]
+    },
+    {
+      "pattern": "tests/test_polar_anomaly.py",
+      "documents": [
+        "03",
+        "08"
+      ],
+      "keywords": [
+        "极坐标",
+        "版本",
+        "坐标"
+      ]
+    },
+    {
+      "pattern": "tests/test_ring_geometry.py",
+      "documents": [
+        "03"
+      ],
+      "keywords": [
+        "几何",
+        "坐标",
+        "预处理"
+      ]
+    },
+    {
+      "pattern": "tests/test_training_*.py",
+      "documents": [
+        "08"
+      ],
+      "keywords": [
+        "训练",
+        "复现"
+      ]
+    },
+    {
+      "pattern": "tests/test_retrain_multitask.py",
+      "documents": [
+        "08"
+      ],
+      "keywords": [
+        "训练",
+        "不可变",
+        "覆盖"
+      ]
+    },
+    {
+      "pattern": "tests/test_model_*.py",
+      "documents": [
+        "03",
+        "08"
+      ],
+      "keywords": [
+        "模型",
+        "输入",
+        "输出"
+      ]
+    },
+    {
+      "pattern": "tests/test_inference.py",
+      "documents": [
+        "03"
+      ],
+      "keywords": [
+        "推理",
+        "结果"
+      ]
+    },
+    {
+      "pattern": "tests/test_compare_multitask.py",
+      "documents": [
+        "08"
+      ],
+      "keywords": [
+        "相同",
+        "测试集",
+        "评估"
+      ]
+    },
+    {
+      "pattern": "tests/test_metrics.py",
+      "documents": [
+        "08"
+      ],
+      "keywords": [
+        "指标",
+        "评估"
+      ]
+    },
+    {
+      "pattern": "tests/test_mask_conversion.py",
+      "documents": [
+        "04",
+        "08"
+      ],
+      "keywords": [
+        "掩膜",
+        "标注"
+      ]
+    },
+    {
+      "pattern": "tests/test_visualize.py",
+      "documents": [
+        "04",
+        "09"
+      ],
+      "keywords": [
+        "原图",
+        "颜色",
+        "掩膜"
+      ]
+    },
+    {
+      "pattern": "tests/test_cli.py",
+      "documents": [
+        "03",
+        "08",
+        "13"
+      ],
+      "keywords": [
+        "命令行",
+        "评估",
+        "模型"
+      ]
+    },
+    {
+      "pattern": "tests/test_datasets.py",
+      "documents": [
+        "03",
+        "08"
+      ],
+      "keywords": [
+        "数据集",
+        "掩膜"
+      ]
+    },
+    {
+      "pattern": "tests/test_preprocess.py",
+      "documents": [
+        "03"
+      ],
+      "keywords": [
+        "预处理",
+        "掩膜"
+      ]
+    },
+    {
+      "pattern": "tests/test_workflows.py",
+      "documents": [
+        "03",
+        "08"
+      ],
+      "keywords": [
+        "训练",
+        "评估",
+        "模型"
+      ]
+    },
+    {
+      "pattern": "apps/edge-agent/**",
+      "documents": [
+        "02",
+        "07",
+        "10"
+      ],
+      "keywords": [
+        "采集",
+        "断网",
+        "原图"
+      ]
+    },
+    {
+      "pattern": "services/business-api/**",
+      "documents": [
+        "05",
+        "06",
+        "12"
+      ],
+      "keywords": [
+        "数据库",
+        "权限",
+        "事务"
+      ]
+    },
+    {
+      "pattern": "services/inference-service/**",
+      "documents": [
+        "03",
+        "06",
+        "10"
+      ],
+      "keywords": [
+        "推理",
+        "模型",
+        "异常"
+      ]
+    },
+    {
+      "pattern": "apps/web-console/**",
+      "documents": [
+        "09",
+        "12"
+      ],
+      "keywords": [
+        "前端",
+        "权限"
+      ]
+    },
+    {
+      "pattern": "*",
+      "documents": [
+        "01"
+      ],
+      "keywords": [
+        "可审计",
+        "安全失败"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0.0",
+  "as_of": "2026-07-29",
+  "command": "python tools/baseline/hardcoded_scan.py",
+  "scanned_roots": [
+    "apps/edge-agent",
+    "apps/web-console",
+    "services/business-api",
+    "services/inference-service"
+  ],
+  "excluded_roots": [
+    "app/legacy",
+    "src/tool_defect",
+    "tests",
+    "fixtures",
+    "examples",
+    "generated"
+  ],
+  "finding_count": 0,
+  "result": "通过",
+  "note": "本报告冻结 P0 扫描结果；持续集成应重新执行命令，不能只信任静态报告。"
+}

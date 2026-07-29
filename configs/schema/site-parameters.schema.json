@@ -1,0 +1,453 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tool-defect.example.invalid/schema/site-parameters-v1.json",
+  "title": "现场参数安全配置模式",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "environment",
+    "production_enabled",
+    "capture",
+    "performance",
+    "offline",
+    "capacity",
+    "disposition",
+    "review",
+    "retention",
+    "recovery",
+    "identity",
+    "storage",
+    "messaging",
+    "monitoring",
+    "compute",
+    "deployment"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "environment": {
+      "type": "string",
+      "const": "基线安全默认"
+    },
+    "production_enabled": {
+      "type": "boolean"
+    },
+    "capture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plc_protocol",
+        "trigger_mode",
+        "camera_model",
+        "camera_sdk",
+        "edge_operating_system",
+        "real_hardware_enabled"
+      ],
+      "properties": {
+        "plc_protocol": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "trigger_mode": {
+          "type": "string",
+          "enum": [
+            "SIMULATOR_ONLY",
+            "PLC",
+            "SENSOR"
+          ]
+        },
+        "camera_model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "camera_sdk": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "edge_operating_system": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "real_hardware_enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "performance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cycle_time_ms",
+        "allowed_latency_ms",
+        "slo_claims_enabled"
+      ],
+      "properties": {
+        "cycle_time_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "allowed_latency_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "slo_claims_enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "offline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maximum_offline_hours",
+        "delete_unsynchronized_images"
+      ],
+      "properties": {
+        "maximum_offline_hours": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "delete_unsynchronized_images": {
+          "type": "boolean"
+        }
+      }
+    },
+    "capacity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "local_disk_capacity_gb",
+        "disk_warning_percent",
+        "disk_critical_percent",
+        "disk_pause_percent"
+      ],
+      "properties": {
+        "local_disk_capacity_gb": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "disk_warning_percent": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "disk_critical_percent": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "disk_pause_percent": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      }
+    },
+    "disposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "automatic_pass_enabled",
+        "qualification_threshold",
+        "unqualification_threshold",
+        "sampling_ratio",
+        "unknown_threshold_action",
+        "technical_failure_action"
+      ],
+      "properties": {
+        "automatic_pass_enabled": {
+          "type": "boolean"
+        },
+        "qualification_threshold": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "unqualification_threshold": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "sampling_ratio": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "unknown_threshold_action": {
+          "type": "string",
+          "const": "HOLD"
+        },
+        "technical_failure_action": {
+          "type": "string",
+          "const": "HOLD"
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sla_minutes",
+        "overdue_action"
+      ],
+      "properties": {
+        "sla_minutes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "overdue_action": {
+          "type": "string",
+          "const": "ESCALATE_AND_HOLD"
+        }
+      }
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_image_days",
+        "review_record_days",
+        "training_data_days",
+        "derived_image_days",
+        "automatic_deletion_enabled"
+      ],
+      "properties": {
+        "raw_image_days": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "review_record_days": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "training_data_days": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "derived_image_days": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "automatic_deletion_enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rpo_minutes",
+        "rto_minutes",
+        "high_availability_enabled",
+        "restore_target_confirmed"
+      ],
+      "properties": {
+        "rpo_minutes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "rto_minutes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "high_availability_enabled": {
+          "type": "boolean"
+        },
+        "restore_target_confirmed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "production_authentication_enabled"
+      ],
+      "properties": {
+        "provider": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "production_authentication_enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol",
+        "product",
+        "endpoint",
+        "signed_url_ttl_seconds",
+        "public_access_enabled"
+      ],
+      "properties": {
+        "protocol": {
+          "type": "string",
+          "const": "S3_COMPATIBLE"
+        },
+        "product": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "endpoint": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "signed_url_ttl_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600
+        },
+        "public_access_enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "messaging": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "product",
+        "high_availability_enabled"
+      ],
+      "properties": {
+        "product": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "high_availability_enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "monitoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "production_alerting_enabled"
+      ],
+      "properties": {
+        "platform": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "production_alerting_enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "compute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inference_device",
+        "server_operating_system"
+      ],
+      "properties": {
+        "inference_device": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "server_operating_system": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "kubernetes_enabled"
+      ],
+      "properties": {
+        "platform": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kubernetes_enabled": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

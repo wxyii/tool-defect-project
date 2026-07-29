@@ -1,0 +1,106 @@
+{
+  "schema_version": "1.0.0",
+  "as_of": "2026-07-29",
+  "status": "存在已登记阻断，安全失败",
+  "failures": [
+    {
+      "code": "P0-ASSET-HISTORICAL-WEIGHTS-MISSING",
+      "severity": "阻断",
+      "latest_gate": "G2",
+      "summary": "历史分类与双任务权重未出现在工作树",
+      "evidence": [
+        "artifacts/classification/weights.h5",
+        "artifacts/multitask/weights.h5"
+      ],
+      "safe_behavior": "相关推理、评估和模型加载保持失败，不得生成占位权重或自动 PASS。"
+    },
+    {
+      "code": "P0-ASSET-LABELME-ANNOTATIONS-MISSING",
+      "severity": "阻断",
+      "latest_gate": "G6",
+      "summary": "README 声称的 82 份 Labelme 标注当前为 0",
+      "evidence": [
+        "data/annotations/labelme_json"
+      ],
+      "safe_behavior": "掩膜可用于当前基线，但不得声称 Labelme 来源完整。"
+    },
+    {
+      "code": "P0-ASSET-MODEL-PROVENANCE-INCOMPLETE",
+      "severity": "阻断",
+      "latest_gate": "G6",
+      "summary": "现有模型缺少完整训练历史、配置副本和环境来源",
+      "evidence": [
+        "artifacts/classification",
+        "artifacts/multitask",
+        "Docs/08-增量训练闭环.md#2.2"
+      ],
+      "safe_behavior": "目录名和研究指标不能用于生产发布，模型仅可作为待核验历史资产。"
+    },
+    {
+      "code": "P0-ASSET-NONPORTABLE-GENERATION-REPORT",
+      "severity": "阻断",
+      "latest_gate": "G1",
+      "summary": "处理数据报告含个人机器绝对路径",
+      "evidence": [
+        "data/processed/adaptive_annular/generation_report.json",
+        "data/processed/boundary_normalized/generation_report.json"
+      ],
+      "safe_behavior": "报告仅作历史证据，不能作为跨环境生成入口。"
+    },
+    {
+      "code": "P0-ASSET-PATH-CASE-MISMATCH",
+      "severity": "阻断",
+      "latest_gate": "G1",
+      "summary": "数据清单路径大小写与磁盘目录不完全一致",
+      "evidence": [
+        "data/images/Qualified 与清单 images/qualified",
+        "data/images/Unqualified 与清单 images/unqualified",
+        "原始与重训练清单合计 352 个图像路径大小写不一致"
+      ],
+      "safe_behavior": "大小写敏感环境不得在未校验路径时启动训练或评估。"
+    },
+    {
+      "code": "P0-ASSET-POLAR-MODEL-INCOMPATIBLE",
+      "severity": "阻断",
+      "latest_gate": "G6",
+      "summary": "极坐标模型版本 1 与代码要求版本 2 不兼容",
+      "evidence": [
+        "artifacts/polar_anomaly/polar_anomaly.json",
+        "src/tool_defect/detection/polar_anomaly.py"
+      ],
+      "safe_behavior": "拒绝登记和加载旧模型，重新缓存并标定前不得部署。"
+    },
+    {
+      "code": "P0-ASSET-THREE-TRAINING-MODELS-MISSING",
+      "severity": "阻断",
+      "latest_gate": "G2",
+      "summary": "文档所列三组双任务训练产物均缺失",
+      "evidence": [
+        "outputs/training/multitask",
+        "outputs/training/multitask_adaptive_annular",
+        "outputs/training/multitask_boundary_normalized"
+      ],
+      "safe_behavior": "不得登记、混配或声称这些候选模型可加载。"
+    },
+    {
+      "code": "P0-ENVIRONMENT-DEPENDENCY-DRIFT",
+      "severity": "阻断",
+      "latest_gate": "G1",
+      "summary": "当前虚拟环境与锁定依赖版本不一致",
+      "evidence": [
+        "Pillow：requirements.txt 声明 10.4.0，当前环境为 12.3.0"
+      ],
+      "safe_behavior": "环境漂移不得作为可重复构建证据；重新锁定或重建前保留失败状态。"
+    },
+    {
+      "code": "P0-TEST-FROZEN-BASELINE-FAILED",
+      "severity": "阻断",
+      "latest_gate": "G1",
+      "summary": "冻结测试结果为 62 项中 1 个失败、9 个错误",
+      "evidence": [
+        "tests/fixtures/baseline/test-baseline.json"
+      ],
+      "safe_behavior": "失败基线必须显式保留；技术失败不得转换为 PASS。"
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "schema_version": "1.0.0",
+  "generator_version": "1.0.0",
+  "requirement_count": 352,
+  "documents": {
+    "01": {
+      "path": "Docs/01-核心设计原则.md",
+      "source_sha256": "10720475dd3179a82f456c0035a79e5081e1f23cfcc61e3a2731bd06148d3a94",
+      "requirement_count": 32,
+      "requirement_ids_sha256": "628bc7589eb929af25331d5b2e54415e1238cfd575f1de7507d001177738b377"
+    },
+    "02": {
+      "path": "Docs/02-完整检测业务流程.md",
+      "source_sha256": "a9934ff0becd3e2b3076c270240c1edd04c681cdc3ed2c7c90935eb53f6c705b",
+      "requirement_count": 26,
+      "requirement_ids_sha256": "27f086d2c14aa6b39796ffc9ddc1cf2bf0586f5e8d7855fbb3bed3edc0cbd762"
+    },
+    "03": {
+      "path": "Docs/03-算法与预处理通用接口设计.md",
+      "source_sha256": "f554c9d5dae3d7164988a9e8df398baadf77cc1384aa0e914f9d0d5b0bce5959",
+      "requirement_count": 29,
+      "requirement_ids_sha256": "103a8fcb61cb6400edb0326b37b70b3dff0d4f74e25621ec1c2171c6eafc0da1"
+    },
+    "04": {
+      "path": "Docs/04-人工复核系统.md",
+      "source_sha256": "2fc578ac04e00a455fd4d1b0b380a58bcd55f881553fdf977ad0bd1c90b8bbfc",
+      "requirement_count": 26,
+      "requirement_ids_sha256": "561bb5a77b62a949c112048b60f3fac09eb2a5056cd88488805f32c1dd703dad"
+    },
+    "05": {
+      "path": "Docs/05-数据库设计.md",
+      "source_sha256": "0ab0fed83adb8d45a0523a1feb6dba237b4bab461d0e487e2687e6235bc7e6e6",
+      "requirement_count": 15,
+      "requirement_ids_sha256": "0cde2c2f3460e628f3aa5cc2e57057cf125c30281514f68b717426bff888a5c0"
+    },
+    "06": {
+      "path": "Docs/06-接口设计.md",
+      "source_sha256": "ec6026ac84df41b5d1d9400da36359bb54bb36da399df5ed46de777475594300",
+      "requirement_count": 18,
+      "requirement_ids_sha256": "fb36be51fa18db8316aa768385234a23736298fee6d695c17ad67a5fe3ef2d55"
+    },
+    "07": {
+      "path": "Docs/07-图片存储方案.md",
+      "source_sha256": "54b9fda889ab0c46892e2b9984cdd2eeae27070bc41acc9c003a5415e45a5643",
+      "requirement_count": 33,
+      "requirement_ids_sha256": "ad39531ec82598d65a7dd4c3838998e7b1b50f7184fbba7ca0af806d9a9684fd"
+    },
+    "08": {
+      "path": "Docs/08-增量训练闭环.md",
+      "source_sha256": "fc00fce6f1c3add0e59985a4c94365f1e0b9ba5332cdc50ef275977bc0241253",
+      "requirement_count": 25,
+      "requirement_ids_sha256": "96e1a5a4fe37d6c972275c91d80e9fc642796b70225c86f67805c6d8da82c63c"
+    },
+    "09": {
+      "path": "Docs/09-前端功能规划.md",
+      "source_sha256": "591ae06a52f25a7c54d2917cc36d68fdb69d886376b549836eef8308ff66784b",
+      "requirement_count": 23,
+      "requirement_ids_sha256": "462842e86acb137239c4045952c92a61750e7c944f763eac6fab4ed46e022408"
+    },
+    "10": {
+      "path": "Docs/10-异常处理.md",
+      "source_sha256": "50ed6562f22360786a3e998ba8fa423fcacd55806367f75418eb528a0aff24cf",
+      "requirement_count": 36,
+      "requirement_ids_sha256": "a8db9a7a81c33338eb8cf44b087b9917c0c8bcf4934e07409813bafb1dc13736"
+    },
+    "11": {
+      "path": "Docs/11-日志与监控.md",
+      "source_sha256": "6d0f9012115f92ebdb8512aa7521d005bcb9039262048cdbb08fbf251728bdfd",
+      "requirement_count": 16,
+      "requirement_ids_sha256": "7d5aee408fb8cb7abb53015e968ac574b81a021f48c177523145bff71464feea"
+    },
+    "12": {
+      "path": "Docs/12-安全权限与角色.md",
+      "source_sha256": "4bd96d10afd0b99c198ce6aafb40b5f396dbcf0170bb9427e466c3f74d15a14d",
+      "requirement_count": 38,
+      "requirement_ids_sha256": "b5a06bb6fdfe10485305d32977e6eb3cf4e0fcc90f68872a8d21385bccef048e"
+    },
+    "13": {
+      "path": "Docs/13-推荐项目代码结构.md",
+      "source_sha256": "43aa52ee775226af6cc849b381812839daab472e336e3b00b55086e632daba8a",
+      "requirement_count": 13,
+      "requirement_ids_sha256": "9549dee9c014af21857399299627166172c641cb12bf87f725792763501e8ec6"
+    },
+    "14": {
+      "path": "Docs/14-技术选型.md",
+      "source_sha256": "1ad11365380080ef518809d1459bc9141ef1e10f80093045af18bd4923fc7b1a",
+      "requirement_count": 22,
+      "requirement_ids_sha256": "ee5ffdf1bda05b70688d10373aed4bd16ecc4ce7d96b9420c61b46a10fae8ba5"
+    }
+  },
+  "stable_requirements_sha256": "7d72c2fb4e89fcd66f00f399b38b1fa12574670a890652b64be1e1743706e37b"
+}

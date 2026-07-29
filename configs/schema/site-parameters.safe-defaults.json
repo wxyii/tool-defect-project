@@ -1,0 +1,81 @@
+{
+  "$schema": "site-parameters.schema.json",
+  "schema_version": "1.0.0",
+  "environment": "基线安全默认",
+  "production_enabled": false,
+  "capture": {
+    "plc_protocol": null,
+    "trigger_mode": "SIMULATOR_ONLY",
+    "camera_model": null,
+    "camera_sdk": null,
+    "edge_operating_system": null,
+    "real_hardware_enabled": false
+  },
+  "performance": {
+    "cycle_time_ms": null,
+    "allowed_latency_ms": null,
+    "slo_claims_enabled": false
+  },
+  "offline": {
+    "maximum_offline_hours": null,
+    "delete_unsynchronized_images": false
+  },
+  "capacity": {
+    "local_disk_capacity_gb": null,
+    "disk_warning_percent": 80,
+    "disk_critical_percent": 90,
+    "disk_pause_percent": 95
+  },
+  "disposition": {
+    "automatic_pass_enabled": false,
+    "qualification_threshold": null,
+    "unqualification_threshold": null,
+    "sampling_ratio": null,
+    "unknown_threshold_action": "HOLD",
+    "technical_failure_action": "HOLD"
+  },
+  "review": {
+    "sla_minutes": null,
+    "overdue_action": "ESCALATE_AND_HOLD"
+  },
+  "retention": {
+    "raw_image_days": null,
+    "review_record_days": null,
+    "training_data_days": null,
+    "derived_image_days": 180,
+    "automatic_deletion_enabled": false
+  },
+  "recovery": {
+    "rpo_minutes": null,
+    "rto_minutes": null,
+    "high_availability_enabled": false,
+    "restore_target_confirmed": false
+  },
+  "identity": {
+    "provider": null,
+    "production_authentication_enabled": false
+  },
+  "storage": {
+    "protocol": "S3_COMPATIBLE",
+    "product": null,
+    "endpoint": null,
+    "signed_url_ttl_seconds": 300,
+    "public_access_enabled": false
+  },
+  "messaging": {
+    "product": null,
+    "high_availability_enabled": false
+  },
+  "monitoring": {
+    "platform": null,
+    "production_alerting_enabled": false
+  },
+  "compute": {
+    "inference_device": null,
+    "server_operating_system": null
+  },
+  "deployment": {
+    "platform": null,
+    "kubernetes_enabled": false
+  }
+}
