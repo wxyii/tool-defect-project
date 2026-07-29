@@ -1,0 +1,184 @@
+{
+  "asyncapi": "3.0.0",
+  "info": {
+    "title": "刀具缺陷推理事件",
+    "version": "1.0.0",
+    "description": "事务发件箱到 RabbitMQ 推理任务及死信的 v1 契约。消息只传对象引用。"
+  },
+  "defaultContentType": "application/json",
+  "servers": {
+    "development": {
+      "host": "rabbitmq:5671",
+      "protocol": "amqps",
+      "description": "地址由环境配置覆盖，服务身份使用双向 TLS",
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/serviceMtls"
+        }
+      ]
+    }
+  },
+  "channels": {
+    "inferenceTasks": {
+      "address": "tool-defect.inference.{environment}.{runtime}.{capability}",
+      "parameters": {
+        "environment": {
+          "description": "production、shadow 或 batch"
+        },
+        "runtime": {
+          "description": "cpu 或 gpu"
+        },
+        "capability": {
+          "description": "multitask 或 polar"
+        }
+      },
+      "messages": {
+        "InferenceTask": {
+          "$ref": "#/components/messages/InferenceTask"
+        }
+      },
+      "bindings": {
+        "amqp": {
+          "is": "routingKey",
+          "exchange": {
+            "name": "tool-defect.inference",
+            "type": "topic",
+            "durable": true,
+            "autoDelete": false
+          },
+          "bindingVersion": "0.3.0"
+        }
+      }
+    },
+    "outboxEvents": {
+      "address": "tool-defect.outbox.inference-requested.v1",
+      "messages": {
+        "OutboxEvent": {
+          "$ref": "#/components/messages/OutboxEvent"
+        }
+      }
+    },
+    "inferenceDeadLetters": {
+      "address": "tool-defect.inference.dead-letter.v1",
+      "messages": {
+        "InferenceTask": {
+          "$ref": "#/components/messages/InferenceTask"
+        }
+      },
+      "description": "死信只允许经过授权、原因和审计后人工回灌，不自动返回原队列。"
+    }
+  },
+  "operations": {
+    "publishInferenceTask": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/inferenceTasks"
+      },
+      "summary": "发件箱发布器在数据库事务提交后发布持久消息",
+      "messages": [
+        {
+          "$ref": "#/channels/inferenceTasks/messages/InferenceTask"
+        }
+      ],
+      "bindings": {
+        "amqp": {
+          "expiration": 0,
+          "mandatory": true,
+          "deliveryMode": 2,
+          "bindingVersion": "0.3.0"
+        }
+      }
+    },
+    "consumeInferenceTask": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/inferenceTasks"
+      },
+      "summary": "消费者手动确认；后端接受结果后方可确认消息",
+      "messages": [
+        {
+          "$ref": "#/channels/inferenceTasks/messages/InferenceTask"
+        }
+      ]
+    },
+    "recordOutboxEvent": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/outboxEvents"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/outboxEvents/messages/OutboxEvent"
+        }
+      ]
+    },
+    "consumeDeadLetter": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/inferenceDeadLetters"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/inferenceDeadLetters/messages/InferenceTask"
+        }
+      ]
+    }
+  },
+  "components": {
+    "messages": {
+      "InferenceTask": {
+        "name": "tool_defect.inference.task.v1",
+        "title": "推理任务",
+        "headers": {
+          "$ref": "../json-schema/trace-headers-v1.schema.json"
+        },
+        "payload": {
+          "$ref": "../json-schema/inference-task-v1.schema.json"
+        },
+        "examples": [
+          {
+            "name": "multitask",
+            "payload": {
+              "$ref": "../examples/events/inference-task-v1.json"
+            }
+          }
+        ]
+      },
+      "OutboxEvent": {
+        "name": "tool_defect.outbox.inference_requested.v1",
+        "title": "事务发件箱事件",
+        "headers": {
+          "$ref": "../json-schema/trace-headers-v1.schema.json"
+        },
+        "payload": {
+          "$ref": "../json-schema/outbox-event-v1.schema.json"
+        }
+      }
+    },
+    "securitySchemes": {
+      "serviceMtls": {
+        "type": "X509",
+        "description": "每个服务使用独立证书和最小 RabbitMQ 权限"
+      }
+    }
+  },
+  "x-delivery-semantics": {
+    "queue_type": "quorum",
+    "queue_durable": true,
+    "message_persistent": true,
+    "publisher_confirms": true,
+    "consumer_acknowledgement": "manual",
+    "delivery_guarantee": "at-least-once",
+    "business_effect": "at-most-once-by-inbox",
+    "deduplication_keys": [
+      "message_id",
+      "detection_task_id"
+    ],
+    "dead_letter_auto_replay": false
+  },
+  "x-tracing": {
+    "format": "W3C trace-context",
+    "header": "traceparent",
+    "consumer_span_kind": "CONSUMER"
+  }
+}

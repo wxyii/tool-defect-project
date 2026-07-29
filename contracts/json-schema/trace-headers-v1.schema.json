@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.tool-defect.local/v1/trace-headers-v1.schema.json",
+  "title": "队列追踪头 v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "message_id",
+    "traceparent",
+    "content_type",
+    "schema_version"
+  ],
+  "properties": {
+    "message_id": {
+      "$ref": "./common-v1.schema.json#/$defs/Uuid"
+    },
+    "traceparent": {
+      "$ref": "./common-v1.schema.json#/$defs/Traceparent"
+    },
+    "content_type": {
+      "const": "application/json"
+    },
+    "schema_version": {
+      "const": "1.0"
+    }
+  }
+}

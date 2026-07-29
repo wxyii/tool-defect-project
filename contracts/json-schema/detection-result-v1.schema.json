@@ -1,0 +1,364 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.tool-defect.local/v1/detection-result-v1.schema.json",
+  "title": "标准检测结果 v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "capture_id",
+    "detection_task_id",
+    "attempt_id",
+    "execution_status",
+    "algorithm_outcome",
+    "confidence",
+    "class_probabilities",
+    "preprocess",
+    "algorithm",
+    "regions",
+    "artifacts",
+    "timings_ms",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "capture_id": {
+      "$ref": "./common-v1.schema.json#/$defs/Uuid"
+    },
+    "detection_task_id": {
+      "$ref": "./common-v1.schema.json#/$defs/Uuid"
+    },
+    "attempt_id": {
+      "$ref": "./common-v1.schema.json#/$defs/Uuid"
+    },
+    "execution_status": {
+      "const": "SUCCEEDED"
+    },
+    "algorithm_outcome": {
+      "$ref": "./common-v1.schema.json#/$defs/AlgorithmOutcome"
+    },
+    "confidence": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "class_probabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "qualified",
+        "unqualified"
+      ],
+      "properties": {
+        "qualified": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "unqualified": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "preprocess": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plugin_id",
+        "plugin_version",
+        "config_sha256",
+        "quality_status",
+        "warnings"
+      ],
+      "properties": {
+        "plugin_id": {
+          "$ref": "./common-v1.schema.json#/$defs/Version"
+        },
+        "plugin_version": {
+          "$ref": "./common-v1.schema.json#/$defs/Version"
+        },
+        "config_sha256": {
+          "$ref": "./common-v1.schema.json#/$defs/Sha256"
+        },
+        "quality_status": {
+          "$ref": "./common-v1.schema.json#/$defs/PreprocessQualityStatus"
+        },
+        "warnings": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 256
+          }
+        }
+      }
+    },
+    "algorithm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plugin_id",
+        "plugin_version",
+        "model_version",
+        "model_sha256"
+      ],
+      "properties": {
+        "plugin_id": {
+          "$ref": "./common-v1.schema.json#/$defs/Version"
+        },
+        "plugin_version": {
+          "$ref": "./common-v1.schema.json#/$defs/Version"
+        },
+        "model_version": {
+          "$ref": "./common-v1.schema.json#/$defs/Version"
+        },
+        "model_sha256": {
+          "$ref": "./common-v1.schema.json#/$defs/Sha256"
+        }
+      }
+    },
+    "regions": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/DefectRegion"
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "$ref": "#/$defs/DerivedArtifact"
+      }
+    },
+    "timings_ms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "download",
+        "decode",
+        "preprocess",
+        "inference",
+        "postprocess",
+        "upload"
+      ],
+      "properties": {
+        "download": {
+          "type": "number",
+          "minimum": 0
+        },
+        "decode": {
+          "type": "number",
+          "minimum": 0
+        },
+        "preprocess": {
+          "type": "number",
+          "minimum": 0
+        },
+        "inference": {
+          "type": "number",
+          "minimum": 0
+        },
+        "postprocess": {
+          "type": "number",
+          "minimum": 0
+        },
+        "upload": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "maxLength": 256
+      }
+    }
+  },
+  "$defs": {
+    "DefectRegion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "region_id",
+        "coordinate_space",
+        "geometry_type",
+        "geometry",
+        "scores",
+        "attributes"
+      ],
+      "properties": {
+        "region_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "coordinate_space": {
+          "type": "string",
+          "enum": [
+            "ORIGINAL",
+            "MODEL",
+            "POLAR"
+          ]
+        },
+        "geometry_type": {
+          "type": "string",
+          "enum": [
+            "MASK_REF",
+            "POLYGON",
+            "BBOX",
+            "POLAR_INTERVAL"
+          ]
+        },
+        "geometry": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "image_id"
+              ],
+              "properties": {
+                "image_id": {
+                  "$ref": "./common-v1.schema.json#/$defs/Uuid"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "points"
+              ],
+              "properties": {
+                "points": {
+                  "type": "array",
+                  "minItems": 3,
+                  "maxItems": 128,
+                  "items": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "x",
+                "y",
+                "width",
+                "height"
+              ],
+              "properties": {
+                "x": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "y": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "width": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "height": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "angle_start_degrees",
+                "angle_end_degrees",
+                "radial_start",
+                "radial_end"
+              ],
+              "properties": {
+                "angle_start_degrees": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 360
+                },
+                "angle_end_degrees": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 360
+                },
+                "radial_start": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "radial_end": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              }
+            }
+          ]
+        },
+        "scores": {
+          "type": "object",
+          "maxProperties": 16,
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "attributes": {
+          "type": "object",
+          "maxProperties": 32,
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "DerivedArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "image_id",
+        "object"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "./common-v1.schema.json#/$defs/ImageKind"
+        },
+        "image_id": {
+          "$ref": "./common-v1.schema.json#/$defs/Uuid"
+        },
+        "object": {
+          "$ref": "./common-v1.schema.json#/$defs/ObjectReference"
+        }
+      }
+    }
+  }
+}

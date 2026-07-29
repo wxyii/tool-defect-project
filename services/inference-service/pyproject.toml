@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tool-defect-inference-service"
+version = "0.1.0"
+description = "P1 package boundary for the tool-defect inference service"
+requires-python = "==3.11.*"
+dependencies = [
+  "cryptography==49.0.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

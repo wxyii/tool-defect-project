@@ -1,0 +1,63 @@
+{
+  "schema_version": "1.0",
+  "capture_id": "019f0000-0000-7000-8000-000000000001",
+  "detection_task_id": "019f0000-0000-7000-8000-000000000002",
+  "attempt_id": "019f0000-0000-7000-8000-000000000003",
+  "execution_status": "SUCCEEDED",
+  "algorithm_outcome": "UNQUALIFIED",
+  "confidence": 0.9821,
+  "class_probabilities": {
+    "qualified": 0.0179,
+    "unqualified": 0.9821
+  },
+  "preprocess": {
+    "plugin_id": "tool-defect.boundary-normalized",
+    "plugin_version": "1.0.0",
+    "config_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "quality_status": "OK",
+    "warnings": []
+  },
+  "algorithm": {
+    "plugin_id": "tool-defect.multitask-xception",
+    "plugin_version": "1.0.0",
+    "model_version": "multitask-boundary-normalized/3",
+    "model_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "regions": [
+    {
+      "region_id": 1,
+      "coordinate_space": "ORIGINAL",
+      "geometry_type": "MASK_REF",
+      "geometry": {
+        "image_id": "019f0000-0000-7000-8000-000000000004"
+      },
+      "scores": {
+        "peak": 0.97
+      },
+      "attributes": {}
+    }
+  ],
+  "artifacts": [
+    {
+      "kind": "DEFECT_MASK",
+      "image_id": "019f0000-0000-7000-8000-000000000004",
+      "object": {
+        "bucket": "td-derived",
+        "object_key": "derived/2026/07/019f0000/mask.png",
+        "object_version": "v1",
+        "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+        "size_bytes": 4096,
+        "media_type": "image/png"
+      }
+    }
+  ],
+  "timings_ms": {
+    "download": 20.3,
+    "decode": 15.2,
+    "preprocess": 84.1,
+    "inference": 196.0,
+    "postprocess": 31.6,
+    "upload": 28.7
+  },
+  "warnings": []
+}

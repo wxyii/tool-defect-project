@@ -1,0 +1,462 @@
+{
+  "schema_version": "1.0",
+  "operations": [
+    {
+      "operation_id": "createCapture",
+      "success_request": {
+        "capture_id": "019f0000-0000-7000-8000-000000000101",
+        "station_id": "019f0000-0000-7000-8000-000000000102",
+        "trigger": {
+          "trigger_id": "plc-20260728-000123",
+          "client_sequence": 123,
+          "occurred_at": "2026-07-28T10:30:00.123Z",
+          "source": "PLC"
+        },
+        "recipe_id": "019f0000-0000-7000-8000-000000000103",
+        "quality": {
+          "status": "OK",
+          "warnings": []
+        },
+        "images": [
+          {
+            "client_image_id": "camera-main",
+            "image_role": "PRIMARY",
+            "file_name": "capture.png",
+            "media_type": "image/png",
+            "size_bytes": 24581234,
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "width": 4096,
+            "height": 4096
+          }
+        ]
+      },
+      "success_response": {
+        "capture_id": "019f0000-0000-7000-8000-000000000101",
+        "status": "UPLOADING",
+        "images": [
+          {
+            "image_id": "019f0000-0000-7000-8000-000000000104",
+            "upload": {
+              "method": "PUT",
+              "url": "https://storage.example.invalid/upload/opaque",
+              "headers": {
+                "Content-Type": "image/png"
+              },
+              "expires_at": "2026-07-28T10:35:00.000Z"
+            }
+          }
+        ]
+      },
+      "cases": {
+        "success": {"status": 201, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 201, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "completeCaptureImage",
+      "success_request": {
+        "size_bytes": 24581234,
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "upload_receipt": "etag-opaque"
+      },
+      "success_response": {
+        "image_id": "019f0000-0000-7000-8000-000000000104",
+        "state": "AVAILABLE",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "cases": {
+        "success": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "submitCapture",
+      "success_request": {
+        "requested_at": "2026-07-28T10:30:02.000Z"
+      },
+      "success_response": {
+        "capture_id": "019f0000-0000-7000-8000-000000000101",
+        "status": "SUBMITTED",
+        "detection_task_id": "019f0000-0000-7000-8000-000000000105",
+        "pipeline_version": "production-r8/12",
+        "poll_after_ms": 500
+      },
+      "cases": {
+        "success": {"status": 202, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 202, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "queryCaptureSync",
+      "success_request": {
+        "capture_ids": [
+          "019f0000-0000-7000-8000-000000000101"
+        ]
+      },
+      "success_response": {
+        "items": [
+          {
+            "capture_id": "019f0000-0000-7000-8000-000000000101",
+            "capture_status": "SUBMITTED",
+            "business_disposition": "HOLD",
+            "poll_after_ms": 3000
+          }
+        ]
+      },
+      "cases": {
+        "success": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "reportDeviceHeartbeat",
+      "success_request": {
+        "agent_version": "edge-agent/0.1.0",
+        "reported_at": "2026-07-28T10:30:02.000Z",
+        "queue_depth": 2,
+        "oldest_task_age_seconds": 3.2,
+        "disk_usage_ratio": 0.42,
+        "camera_status": "ONLINE",
+        "plc_status": "ONLINE",
+        "clock_offset_ms": 1.5
+      },
+      "success_response": {
+        "accepted": true,
+        "request_id": "019f0000-0000-7000-8000-000000000106"
+      },
+      "cases": {
+        "success": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "createImageAccessTicket",
+      "success_request": {
+        "purpose": "VIEW"
+      },
+      "success_response": {
+        "method": "GET",
+        "url": "https://storage.example.invalid/read/opaque",
+        "expires_at": "2026-07-28T10:35:00.000Z"
+      },
+      "cases": {
+        "success": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "retryDetection",
+      "success_request": {
+        "reason": "经授权重新执行原流水线"
+      },
+      "success_response": {
+        "job_id": "019f0000-0000-7000-8000-000000000107",
+        "status": "QUEUED",
+        "poll_after_ms": 1000
+      },
+      "cases": {
+        "success": {"status": 202, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 202, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "claimReviewTask",
+      "success_request": {
+        "client_request_id": "019f0000-0000-7000-8000-000000000108"
+      },
+      "success_response": {
+        "review_task_id": "019f0000-0000-7000-8000-000000000109",
+        "capture_id": "019f0000-0000-7000-8000-000000000101",
+        "status": "CLAIMED",
+        "priority": "P1",
+        "lease_expires_at": "2026-07-28T10:45:00.000Z",
+        "record_version": 8
+      },
+      "cases": {
+        "success": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "releaseReviewTask",
+      "success_request": {
+        "client_request_id": "019f0000-0000-7000-8000-000000000110",
+        "reason": "交接班释放"
+      },
+      "success_response": {
+        "review_task_id": "019f0000-0000-7000-8000-000000000109",
+        "capture_id": "019f0000-0000-7000-8000-000000000101",
+        "status": "PENDING",
+        "priority": "P1",
+        "lease_expires_at": null,
+        "record_version": 9
+      },
+      "cases": {
+        "success": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "submitReview",
+      "success_request": {
+        "decision": "FAIL",
+        "reason_code": "MODEL_FALSE_NEGATIVE",
+        "comment": "外缘存在明显缺口",
+        "defect_type_codes": [
+          "SPALLING"
+        ],
+        "annotation_image_id": null,
+        "client_submitted_at": "2026-07-28T10:40:00.000Z"
+      },
+      "success_response": {
+        "review_record_id": "019f0000-0000-7000-8000-000000000111",
+        "task_status": "RESOLVED",
+        "business_disposition": "FAIL",
+        "record_version": 10
+      },
+      "cases": {
+        "success": {"status": 201, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 201, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "createAnnotationUploadTicket",
+      "success_request": {
+        "media_type": "image/png",
+        "size_bytes": 4096,
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "width": 4096,
+        "height": 4096
+      },
+      "success_response": {
+        "image_id": "019f0000-0000-7000-8000-000000000112",
+        "upload": {
+          "method": "PUT",
+          "url": "https://storage.example.invalid/upload/annotation-opaque",
+          "headers": {
+            "Content-Type": "image/png"
+          },
+          "expires_at": "2026-07-28T10:45:00.000Z"
+        }
+      },
+      "cases": {
+        "success": {"status": 201, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 201, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "createDatasetVersion",
+      "success_request": {
+        "dataset_id": "019f0000-0000-7000-8000-000000000120",
+        "candidate_manifest_id": "019f0000-0000-7000-8000-000000000121",
+        "purpose": "受控增量训练"
+      },
+      "success_response": {
+        "job_id": "019f0000-0000-7000-8000-000000000122",
+        "status": "QUEUED",
+        "poll_after_ms": 3000
+      },
+      "cases": {
+        "success": {"status": 202, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 202, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "createTrainingRun",
+      "success_request": {
+        "dataset_version_id": "019f0000-0000-7000-8000-000000000123",
+        "training_config_version": "multitask/1.0.0",
+        "initial_model_version_id": null
+      },
+      "success_response": {
+        "job_id": "019f0000-0000-7000-8000-000000000124",
+        "status": "QUEUED",
+        "poll_after_ms": 3000
+      },
+      "cases": {
+        "success": {"status": 202, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 202, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "submitModelValidationDecision",
+      "success_request": {
+        "decision": "APPROVE",
+        "reason": "技术门槛通过，仅批准进入影子阶段",
+        "evaluation_report_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "success_response": {
+        "accepted": true,
+        "request_id": "019f0000-0000-7000-8000-000000000125"
+      },
+      "cases": {
+        "success": {"status": 201, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 201, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "createModelDeployment",
+      "success_request": {
+        "model_version_id": "019f0000-0000-7000-8000-000000000126",
+        "environment": "SHADOW",
+        "strategy": "STATION",
+        "station_ids": [
+          "019f0000-0000-7000-8000-000000000102"
+        ],
+        "traffic_ratio": 0,
+        "rollback_model_version_id": "019f0000-0000-7000-8000-000000000127"
+      },
+      "success_response": {
+        "job_id": "019f0000-0000-7000-8000-000000000128",
+        "status": "QUEUED",
+        "poll_after_ms": 3000
+      },
+      "cases": {
+        "success": {"status": 202, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 202, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "approveModelDeployment",
+      "success_request": {
+        "role": "QUALITY_APPROVER",
+        "decision": "APPROVE",
+        "reason": "批准影子观察"
+      },
+      "success_response": {
+        "accepted": true,
+        "request_id": "019f0000-0000-7000-8000-000000000129"
+      },
+      "cases": {
+        "success": {"status": 201, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 201, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "rollbackModelDeployment",
+      "success_request": {
+        "target_model_version_id": "019f0000-0000-7000-8000-000000000127",
+        "reason": "灰度指标触发回滚门槛"
+      },
+      "success_response": {
+        "job_id": "019f0000-0000-7000-8000-000000000130",
+        "status": "QUEUED",
+        "poll_after_ms": 1000
+      },
+      "cases": {
+        "success": {"status": 202, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 202, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "startDetectionAttempt",
+      "success_request": {
+        "message_id": "019f0000-0000-7000-8000-000000000131",
+        "worker_id": "worker-gpu-01",
+        "runtime_version": "inference-service/0.1.0",
+        "model_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "success_response": {
+        "attempt_id": "019f0000-0000-7000-8000-000000000132",
+        "attempt_no": 1,
+        "status": "RUNNING"
+      },
+      "cases": {
+        "success": {"status": 201, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 201, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "submitDetectionResult",
+      "success_request": {
+        "$example_ref": "../detection-result-v1.json"
+      },
+      "success_response": {
+        "accepted": true,
+        "result_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      "cases": {
+        "success": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "submitDetectionFailure",
+      "success_request": {
+        "error_code": "TD-INFER-INTERNAL-001",
+        "stage": "INFERENCE",
+        "retryable": true,
+        "message": "推理工作进程暂时失败",
+        "occurred_at": "2026-07-28T10:30:05.000Z"
+      },
+      "success_response": {
+        "accepted": true,
+        "request_id": "019f0000-0000-7000-8000-000000000133"
+      },
+      "cases": {
+        "success": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    }
+  ]
+}

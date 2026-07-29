@@ -1,0 +1,78 @@
+#!/bin/sh
+#
+# 可审计的 Maven Wrapper（only-script 模式）：只下载 properties 中固定的
+# Maven 发行包，强制校验 SHA-256，不执行下载所得发行包之外的引导二进制。
+
+set -eu
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+properties_file="$script_dir/.mvn/wrapper/maven-wrapper.properties"
+
+read_property() {
+  sed -n "s/^$1=//p" "$properties_file" | tr -d '\r' | tail -n 1
+}
+
+distribution_url=$(read_property distributionUrl)
+distribution_sha256=$(read_property distributionSha256Sum)
+
+if [ -z "$distribution_url" ] || [ -z "$distribution_sha256" ]; then
+  echo "Maven Wrapper 配置缺少 distributionUrl 或 distributionSha256Sum" >&2
+  exit 1
+fi
+
+archive_name=${distribution_url##*/}
+distribution_name=${archive_name%-bin.zip}
+maven_user_home=${MAVEN_USER_HOME:-"$HOME/.m2"}
+install_parent="$maven_user_home/wrapper/dists/$distribution_name"
+install_dir="$install_parent/$distribution_sha256"
+maven_command="$install_dir/bin/mvn"
+
+if [ ! -x "$maven_command" ]; then
+  temporary_dir=$(mktemp -d "${TMPDIR:-/tmp}/td-maven-wrapper.XXXXXXXX")
+  cleanup() {
+    rm -rf -- "$temporary_dir"
+  }
+  trap cleanup EXIT HUP INT TERM
+  archive_path="$temporary_dir/$archive_name"
+
+  if command -v curl >/dev/null 2>&1; then
+    curl -fL --retry 3 --connect-timeout 15 \
+      "$distribution_url" -o "$archive_path"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -O "$archive_path" "$distribution_url"
+  else
+    echo "需要 curl 或 wget 下载固定 Maven 发行包" >&2
+    exit 1
+  fi
+
+  if command -v sha256sum >/dev/null 2>&1; then
+    actual_sha256=$(sha256sum "$archive_path" | awk '{print $1}')
+  elif command -v shasum >/dev/null 2>&1; then
+    actual_sha256=$(shasum -a 256 "$archive_path" | awk '{print $1}')
+  else
+    echo "需要 sha256sum 或 shasum 校验 Maven 发行包" >&2
+    exit 1
+  fi
+  if [ "$actual_sha256" != "$distribution_sha256" ]; then
+    echo "Maven 发行包 SHA-256 校验失败" >&2
+    exit 1
+  fi
+
+  command -v unzip >/dev/null 2>&1 || {
+    echo "需要 unzip 解压 Maven 发行包" >&2
+    exit 1
+  }
+  unzip -q "$archive_path" -d "$temporary_dir"
+  extracted_dir="$temporary_dir/$distribution_name"
+  if [ ! -x "$extracted_dir/bin/mvn" ]; then
+    echo "Maven 发行包结构不合法" >&2
+    exit 1
+  fi
+
+  mkdir -p "$install_parent"
+  if [ ! -d "$install_dir" ]; then
+    mv "$extracted_dir" "$install_dir"
+  fi
+fi
+
+exec "$maven_command" "$@"

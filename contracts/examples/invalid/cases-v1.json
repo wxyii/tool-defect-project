@@ -1,0 +1,110 @@
+{
+  "schema_version": "1.0",
+  "cases": [
+    {
+      "case_id": "algorithm-outcome-cannot-be-pass",
+      "schema": "detection-result-v1.schema.json",
+      "base": "../detection-result-v1.json",
+      "operation": "replace",
+      "path": "/algorithm_outcome",
+      "value": "PASS",
+      "expected_keyword": "enum"
+    },
+    {
+      "case_id": "probability-over-one",
+      "schema": "detection-result-v1.schema.json",
+      "base": "../detection-result-v1.json",
+      "operation": "replace",
+      "path": "/confidence",
+      "value": 1.1,
+      "expected_keyword": "maximum"
+    },
+    {
+      "case_id": "probability-sum-invalid",
+      "schema": "detection-result-v1.schema.json",
+      "base": "../detection-result-v1.json",
+      "operation": "replace",
+      "path": "/class_probabilities/qualified",
+      "value": 0.5,
+      "expected_keyword": "probability_sum"
+    },
+    {
+      "case_id": "empty-model-version",
+      "schema": "detection-result-v1.schema.json",
+      "base": "../detection-result-v1.json",
+      "operation": "replace",
+      "path": "/algorithm/model_version",
+      "value": "",
+      "expected_keyword": "minLength"
+    },
+    {
+      "case_id": "mask-reference-missing",
+      "schema": "detection-result-v1.schema.json",
+      "base": "../detection-result-v1.json",
+      "operation": "remove",
+      "path": "/regions/0/geometry/image_id",
+      "expected_keyword": "required"
+    },
+    {
+      "case_id": "local-absolute-path-forbidden",
+      "schema": "detection-result-v1.schema.json",
+      "base": "../detection-result-v1.json",
+      "operation": "replace",
+      "path": "/artifacts/0/object/object_key",
+      "value": "/Users/operator/result.png",
+      "expected_keyword": "pattern"
+    },
+    {
+      "case_id": "event-image-binary-forbidden",
+      "schema": "inference-task-v1.schema.json",
+      "base": "../events/inference-task-v1.json",
+      "operation": "add",
+      "path": "/images/0/binary",
+      "value": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB",
+      "expected_keyword": "additionalProperties"
+    },
+    {
+      "case_id": "event-arbitrary-url-forbidden",
+      "schema": "inference-task-v1.schema.json",
+      "base": "../events/inference-task-v1.json",
+      "operation": "replace",
+      "path": "/images/0/object/object_key",
+      "value": "https://untrusted.example/image.png",
+      "expected_keyword": "pattern"
+    },
+    {
+      "case_id": "event-hash-required",
+      "schema": "inference-task-v1.schema.json",
+      "base": "../events/inference-task-v1.json",
+      "operation": "remove",
+      "path": "/images/0/object/sha256",
+      "expected_keyword": "required"
+    },
+    {
+      "case_id": "event-version-required",
+      "schema": "inference-task-v1.schema.json",
+      "base": "../events/inference-task-v1.json",
+      "operation": "remove",
+      "path": "/pipeline/model_version",
+      "expected_keyword": "required"
+    },
+    {
+      "case_id": "unknown-result-field-rejected",
+      "schema": "detection-result-v1.schema.json",
+      "base": "../detection-result-v1.json",
+      "operation": "add",
+      "path": "/business_disposition",
+      "value": "PASS",
+      "expected_keyword": "additionalProperties"
+    },
+    {
+      "case_id": "illegal-transition-marked-legal",
+      "schema": "state-transition-v1.schema.json",
+      "base": "../state-transitions-v1.json",
+      "operation": "replace",
+      "path": "/cases/5/legal",
+      "value": true,
+      "expected_keyword": "state_transition"
+    }
+  ]
+}

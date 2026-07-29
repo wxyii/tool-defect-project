@@ -1,0 +1,69 @@
+{
+  "schema_version": "1.0",
+  "consumers": [
+    {
+      "consumer_id": "edge-agent",
+      "language": "python",
+      "generated_package": "tool-defect-contracts",
+      "http_operations": [
+        "createCapture",
+        "completeCaptureImage",
+        "submitCapture",
+        "getEdgeCapture",
+        "queryCaptureSync",
+        "reportDeviceHeartbeat"
+      ],
+      "event_operations": []
+    },
+    {
+      "consumer_id": "business-api",
+      "language": "java",
+      "generated_package": "local.tooldefect:java-contracts",
+      "http_operations": [
+        "createCapture",
+        "submitReview",
+        "createDatasetVersion",
+        "createTrainingRun",
+        "createModelDeployment",
+        "submitDetectionResult",
+        "submitDetectionFailure"
+      ],
+      "event_operations": [
+        "publishInferenceTask",
+        "recordOutboxEvent"
+      ]
+    },
+    {
+      "consumer_id": "inference-service",
+      "language": "python",
+      "generated_package": "tool-defect-contracts",
+      "http_operations": [
+        "startDetectionAttempt",
+        "submitDetectionResult",
+        "submitDetectionFailure",
+        "getInferenceReadiness",
+        "listRuntimeModels"
+      ],
+      "event_operations": [
+        "consumeInferenceTask",
+        "consumeDeadLetter"
+      ]
+    },
+    {
+      "consumer_id": "web-console",
+      "language": "typescript",
+      "generated_package": "@tool-defect/contracts",
+      "http_operations": [
+        "listDetections",
+        "getDetection",
+        "listReviewTasks",
+        "claimReviewTask",
+        "releaseReviewTask",
+        "submitReview",
+        "createImageAccessTicket",
+        "streamAuthorizedEvents"
+      ],
+      "event_operations": []
+    }
+  ]
+}

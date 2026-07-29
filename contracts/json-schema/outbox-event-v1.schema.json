@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.tool-defect.local/v1/outbox-event-v1.schema.json",
+  "title": "事务发件箱事件 v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "event_type",
+    "aggregate_type",
+    "aggregate_id",
+    "occurred_at",
+    "message_id",
+    "traceparent",
+    "payload"
+  ],
+  "properties": {
+    "event_id": {
+      "$ref": "./common-v1.schema.json#/$defs/Uuid"
+    },
+    "event_type": {
+      "const": "tool_defect.outbox.inference_requested.v1"
+    },
+    "aggregate_type": {
+      "const": "detection_task"
+    },
+    "aggregate_id": {
+      "$ref": "./common-v1.schema.json#/$defs/Uuid"
+    },
+    "occurred_at": {
+      "$ref": "./common-v1.schema.json#/$defs/UtcTimestamp"
+    },
+    "message_id": {
+      "$ref": "./common-v1.schema.json#/$defs/Uuid"
+    },
+    "traceparent": {
+      "$ref": "./common-v1.schema.json#/$defs/Traceparent"
+    },
+    "payload": {
+      "$ref": "./inference-task-v1.schema.json"
+    }
+  }
+}

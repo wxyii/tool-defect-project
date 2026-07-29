@@ -1,0 +1,34 @@
+{
+  "event_type": "tool_defect.inference.task.v1",
+  "message_id": "019f0000-0000-7000-8000-000000000020",
+  "occurred_at": "2026-07-28T10:30:02.000Z",
+  "traceparent": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01",
+  "detection_task_id": "019f0000-0000-7000-8000-000000000002",
+  "capture_id": "019f0000-0000-7000-8000-000000000001",
+  "pipeline": {
+    "pipeline_id": "019f0000-0000-7000-8000-000000000021",
+    "version": "production-r8/12",
+    "config_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+    "preprocessor_version": "tool-defect.boundary-normalized/1.0.0",
+    "algorithm_version": "tool-defect.multitask-xception/1.0.0",
+    "model_version": "multitask-boundary-normalized/3"
+  },
+  "images": [
+    {
+      "image_id": "019f0000-0000-7000-8000-000000000022",
+      "kind": "RAW",
+      "object": {
+        "bucket": "td-original",
+        "object_key": "raw/station-01/2026/07/28/capture.png",
+        "object_version": "v1",
+        "sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+        "size_bytes": 24581234,
+        "media_type": "image/png"
+      },
+      "width": 4096,
+      "height": 4096,
+      "image_role": "PRIMARY"
+    }
+  ],
+  "deadline_at": "2026-07-28T10:30:10.000Z"
+}

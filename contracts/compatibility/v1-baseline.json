@@ -1,0 +1,1492 @@
+{
+  "asyncapi_channels": [
+    "inferenceDeadLetters",
+    "inferenceTasks",
+    "outboxEvents"
+  ],
+  "asyncapi_operations": [
+    "consumeDeadLetter",
+    "consumeInferenceTask",
+    "publishInferenceTask",
+    "recordOutboxEvent"
+  ],
+  "baseline_format": 1,
+  "consumer_operations": {
+    "business-api": {
+      "events": [
+        "publishInferenceTask",
+        "recordOutboxEvent"
+      ],
+      "http": [
+        "createCapture",
+        "createDatasetVersion",
+        "createModelDeployment",
+        "createTrainingRun",
+        "submitDetectionFailure",
+        "submitDetectionResult",
+        "submitReview"
+      ]
+    },
+    "edge-agent": {
+      "events": [],
+      "http": [
+        "completeCaptureImage",
+        "createCapture",
+        "getEdgeCapture",
+        "queryCaptureSync",
+        "reportDeviceHeartbeat",
+        "submitCapture"
+      ]
+    },
+    "inference-service": {
+      "events": [
+        "consumeDeadLetter",
+        "consumeInferenceTask"
+      ],
+      "http": [
+        "getInferenceReadiness",
+        "listRuntimeModels",
+        "startDetectionAttempt",
+        "submitDetectionFailure",
+        "submitDetectionResult"
+      ]
+    },
+    "web-console": {
+      "events": [],
+      "http": [
+        "claimReviewTask",
+        "createImageAccessTicket",
+        "getDetection",
+        "listDetections",
+        "listReviewTasks",
+        "releaseReviewTask",
+        "streamAuthorizedEvents",
+        "submitReview"
+      ]
+    }
+  },
+  "contract_major": 1,
+  "json_schema_surfaces": {
+    "common-v1.schema.json": {
+      "/$defs/AlgorithmOutcome#enum": [
+        "INCONCLUSIVE",
+        "QUALIFIED",
+        "UNQUALIFIED"
+      ],
+      "/$defs/AlgorithmOutcome#type": "string",
+      "/$defs/AttemptStatus#enum": [
+        "FAILED",
+        "RUNNING",
+        "SUCCEEDED"
+      ],
+      "/$defs/AttemptStatus#type": "string",
+      "/$defs/BusinessDisposition#enum": [
+        "FAIL",
+        "HOLD",
+        "PASS"
+      ],
+      "/$defs/BusinessDisposition#type": "string",
+      "/$defs/CaptureStatus#enum": [
+        "CREATED",
+        "FAILED",
+        "FINALIZED",
+        "PROCESSING",
+        "READY",
+        "REVIEW_PENDING",
+        "SUBMITTED",
+        "UPLOADING"
+      ],
+      "/$defs/CaptureStatus#type": "string",
+      "/$defs/ErrorDetail#required": [
+        "field",
+        "reason"
+      ],
+      "/$defs/ErrorDetail#type": "object",
+      "/$defs/ErrorDetail/field#property": true,
+      "/$defs/ErrorDetail/field#type": "string",
+      "/$defs/ErrorDetail/reason#property": true,
+      "/$defs/ErrorDetail/reason#type": "string",
+      "/$defs/ExecutionStatus#enum": [
+        "DEAD",
+        "QUEUED",
+        "RETRY_WAIT",
+        "RUNNING",
+        "SUCCEEDED"
+      ],
+      "/$defs/ExecutionStatus#type": "string",
+      "/$defs/ImageKind#enum": [
+        "DEFECT_MASK",
+        "HEATMAP",
+        "OVERLAY",
+        "POLAR",
+        "RAW",
+        "REVIEW_MASK",
+        "THUMBNAIL"
+      ],
+      "/$defs/ImageKind#type": "string",
+      "/$defs/ImageReference#required": [
+        "height",
+        "image_id",
+        "kind",
+        "object",
+        "width"
+      ],
+      "/$defs/ImageReference#type": "object",
+      "/$defs/ImageReference/height#property": true,
+      "/$defs/ImageReference/height#type": "integer",
+      "/$defs/ImageReference/image_id#property": true,
+      "/$defs/ImageReference/image_role#property": true,
+      "/$defs/ImageReference/image_role#type": "string",
+      "/$defs/ImageReference/kind#property": true,
+      "/$defs/ImageReference/object#property": true,
+      "/$defs/ImageReference/width#property": true,
+      "/$defs/ImageReference/width#type": "integer",
+      "/$defs/LocalQueueStatus#enum": [
+        "DONE",
+        "LOCAL_DEAD",
+        "PENDING",
+        "RETRY_WAIT",
+        "SUBMITTED",
+        "UPLOADED",
+        "UPLOADING",
+        "WAIT_RESULT"
+      ],
+      "/$defs/LocalQueueStatus#type": "string",
+      "/$defs/ModelStatus#enum": [
+        "APPROVED",
+        "CANARY",
+        "DRAFT",
+        "PRODUCTION",
+        "QUARANTINED",
+        "REJECTED",
+        "RETIRED",
+        "SHADOW",
+        "VALIDATING"
+      ],
+      "/$defs/ModelStatus#type": "string",
+      "/$defs/ObjectReference#required": [
+        "bucket",
+        "media_type",
+        "object_key",
+        "sha256",
+        "size_bytes"
+      ],
+      "/$defs/ObjectReference#type": "object",
+      "/$defs/ObjectReference/bucket#property": true,
+      "/$defs/ObjectReference/bucket#type": "string",
+      "/$defs/ObjectReference/media_type#enum": [
+        "application/json",
+        "application/octet-stream",
+        "image/jpeg",
+        "image/png"
+      ],
+      "/$defs/ObjectReference/media_type#property": true,
+      "/$defs/ObjectReference/media_type#type": "string",
+      "/$defs/ObjectReference/object_key#property": true,
+      "/$defs/ObjectReference/object_key#type": "string",
+      "/$defs/ObjectReference/object_version#property": true,
+      "/$defs/ObjectReference/object_version#type": [
+        "null",
+        "string"
+      ],
+      "/$defs/ObjectReference/sha256#property": true,
+      "/$defs/ObjectReference/size_bytes#property": true,
+      "/$defs/ObjectReference/size_bytes#type": "integer",
+      "/$defs/ObjectState#enum": [
+        "AVAILABLE",
+        "DELETED",
+        "QUARANTINED",
+        "STAGING"
+      ],
+      "/$defs/ObjectState#type": "string",
+      "/$defs/PreprocessQualityStatus#enum": [
+        "OK",
+        "REJECTED",
+        "WARNING"
+      ],
+      "/$defs/PreprocessQualityStatus#type": "string",
+      "/$defs/ReviewStatus#enum": [
+        "CANCELLED",
+        "CLAIMED",
+        "ESCALATED",
+        "PENDING",
+        "RESOLVED",
+        "SECOND_REVIEW_PENDING"
+      ],
+      "/$defs/ReviewStatus#type": "string",
+      "/$defs/Sha256#type": "string",
+      "/$defs/Traceparent#type": "string",
+      "/$defs/UtcTimestamp#type": "string",
+      "/$defs/Uuid#type": "string",
+      "/$defs/Version#type": "string"
+    },
+    "consumer-contract-v1.schema.json": {
+      "/#required": [
+        "consumers",
+        "schema_version"
+      ],
+      "/#type": "object",
+      "/consumers#property": true,
+      "/consumers#type": "array",
+      "/schema_version#const": "1.0",
+      "/schema_version#property": true
+    },
+    "detection-result-v1.schema.json": {
+      "/#required": [
+        "algorithm",
+        "algorithm_outcome",
+        "artifacts",
+        "attempt_id",
+        "capture_id",
+        "class_probabilities",
+        "confidence",
+        "detection_task_id",
+        "execution_status",
+        "preprocess",
+        "regions",
+        "schema_version",
+        "timings_ms",
+        "warnings"
+      ],
+      "/#type": "object",
+      "/$defs/DefectRegion#required": [
+        "attributes",
+        "coordinate_space",
+        "geometry",
+        "geometry_type",
+        "region_id",
+        "scores"
+      ],
+      "/$defs/DefectRegion#type": "object",
+      "/$defs/DefectRegion/attributes#property": true,
+      "/$defs/DefectRegion/attributes#type": "object",
+      "/$defs/DefectRegion/coordinate_space#enum": [
+        "MODEL",
+        "ORIGINAL",
+        "POLAR"
+      ],
+      "/$defs/DefectRegion/coordinate_space#property": true,
+      "/$defs/DefectRegion/coordinate_space#type": "string",
+      "/$defs/DefectRegion/geometry#property": true,
+      "/$defs/DefectRegion/geometry_type#enum": [
+        "BBOX",
+        "MASK_REF",
+        "POLAR_INTERVAL",
+        "POLYGON"
+      ],
+      "/$defs/DefectRegion/geometry_type#property": true,
+      "/$defs/DefectRegion/geometry_type#type": "string",
+      "/$defs/DefectRegion/region_id#property": true,
+      "/$defs/DefectRegion/region_id#type": "integer",
+      "/$defs/DefectRegion/scores#property": true,
+      "/$defs/DefectRegion/scores#type": "object",
+      "/$defs/DerivedArtifact#required": [
+        "image_id",
+        "kind",
+        "object"
+      ],
+      "/$defs/DerivedArtifact#type": "object",
+      "/$defs/DerivedArtifact/image_id#property": true,
+      "/$defs/DerivedArtifact/kind#property": true,
+      "/$defs/DerivedArtifact/object#property": true,
+      "/algorithm#property": true,
+      "/algorithm#required": [
+        "model_sha256",
+        "model_version",
+        "plugin_id",
+        "plugin_version"
+      ],
+      "/algorithm#type": "object",
+      "/algorithm/model_sha256#property": true,
+      "/algorithm/model_version#property": true,
+      "/algorithm/plugin_id#property": true,
+      "/algorithm/plugin_version#property": true,
+      "/algorithm_outcome#property": true,
+      "/artifacts#property": true,
+      "/artifacts#type": "array",
+      "/attempt_id#property": true,
+      "/capture_id#property": true,
+      "/class_probabilities#property": true,
+      "/class_probabilities#required": [
+        "qualified",
+        "unqualified"
+      ],
+      "/class_probabilities#type": "object",
+      "/class_probabilities/qualified#property": true,
+      "/class_probabilities/qualified#type": "number",
+      "/class_probabilities/unqualified#property": true,
+      "/class_probabilities/unqualified#type": "number",
+      "/confidence#property": true,
+      "/confidence#type": [
+        "null",
+        "number"
+      ],
+      "/detection_task_id#property": true,
+      "/execution_status#const": "SUCCEEDED",
+      "/execution_status#property": true,
+      "/preprocess#property": true,
+      "/preprocess#required": [
+        "config_sha256",
+        "plugin_id",
+        "plugin_version",
+        "quality_status",
+        "warnings"
+      ],
+      "/preprocess#type": "object",
+      "/preprocess/config_sha256#property": true,
+      "/preprocess/plugin_id#property": true,
+      "/preprocess/plugin_version#property": true,
+      "/preprocess/quality_status#property": true,
+      "/preprocess/warnings#property": true,
+      "/preprocess/warnings#type": "array",
+      "/regions#property": true,
+      "/regions#type": "array",
+      "/schema_version#const": "1.0",
+      "/schema_version#property": true,
+      "/timings_ms#property": true,
+      "/timings_ms#required": [
+        "decode",
+        "download",
+        "inference",
+        "postprocess",
+        "preprocess",
+        "upload"
+      ],
+      "/timings_ms#type": "object",
+      "/timings_ms/decode#property": true,
+      "/timings_ms/decode#type": "number",
+      "/timings_ms/download#property": true,
+      "/timings_ms/download#type": "number",
+      "/timings_ms/inference#property": true,
+      "/timings_ms/inference#type": "number",
+      "/timings_ms/postprocess#property": true,
+      "/timings_ms/postprocess#type": "number",
+      "/timings_ms/preprocess#property": true,
+      "/timings_ms/preprocess#type": "number",
+      "/timings_ms/upload#property": true,
+      "/timings_ms/upload#type": "number",
+      "/warnings#property": true,
+      "/warnings#type": "array"
+    },
+    "http-write-examples-v1.schema.json": {
+      "/#required": [
+        "operations",
+        "schema_version"
+      ],
+      "/#type": "object",
+      "/$defs/Case#required": [
+        "request_ref",
+        "response_ref",
+        "status"
+      ],
+      "/$defs/Case#type": "object",
+      "/$defs/Case/request_ref#property": true,
+      "/$defs/Case/request_ref#type": "string",
+      "/$defs/Case/response_ref#property": true,
+      "/$defs/Case/response_ref#type": "string",
+      "/$defs/Case/status#property": true,
+      "/$defs/Case/status#type": "integer",
+      "/operations#property": true,
+      "/operations#type": "array",
+      "/schema_version#const": "1.0",
+      "/schema_version#property": true
+    },
+    "inference-task-v1.schema.json": {
+      "/#required": [
+        "capture_id",
+        "deadline_at",
+        "detection_task_id",
+        "event_type",
+        "images",
+        "message_id",
+        "occurred_at",
+        "pipeline",
+        "traceparent"
+      ],
+      "/#type": "object",
+      "/capture_id#property": true,
+      "/deadline_at#property": true,
+      "/detection_task_id#property": true,
+      "/event_type#const": "tool_defect.inference.task.v1",
+      "/event_type#property": true,
+      "/images#property": true,
+      "/images#type": "array",
+      "/message_id#property": true,
+      "/occurred_at#property": true,
+      "/pipeline#property": true,
+      "/pipeline#required": [
+        "algorithm_version",
+        "config_sha256",
+        "model_version",
+        "pipeline_id",
+        "preprocessor_version",
+        "version"
+      ],
+      "/pipeline#type": "object",
+      "/pipeline/algorithm_version#property": true,
+      "/pipeline/config_sha256#property": true,
+      "/pipeline/model_version#property": true,
+      "/pipeline/pipeline_id#property": true,
+      "/pipeline/preprocessor_version#property": true,
+      "/pipeline/version#property": true,
+      "/traceparent#property": true
+    },
+    "outbox-event-v1.schema.json": {
+      "/#required": [
+        "aggregate_id",
+        "aggregate_type",
+        "event_id",
+        "event_type",
+        "message_id",
+        "occurred_at",
+        "payload",
+        "traceparent"
+      ],
+      "/#type": "object",
+      "/aggregate_id#property": true,
+      "/aggregate_type#const": "detection_task",
+      "/aggregate_type#property": true,
+      "/event_id#property": true,
+      "/event_type#const": "tool_defect.outbox.inference_requested.v1",
+      "/event_type#property": true,
+      "/message_id#property": true,
+      "/occurred_at#property": true,
+      "/payload#property": true,
+      "/traceparent#property": true
+    },
+    "standard-error-v1.schema.json": {
+      "/#required": [
+        "code",
+        "details",
+        "message",
+        "request_id",
+        "retryable",
+        "trace_id"
+      ],
+      "/#type": "object",
+      "/code#property": true,
+      "/code#type": "string",
+      "/details#property": true,
+      "/details#type": "array",
+      "/message#property": true,
+      "/message#type": "string",
+      "/request_id#property": true,
+      "/retryable#property": true,
+      "/retryable#type": "boolean",
+      "/trace_id#property": true,
+      "/trace_id#type": "string"
+    },
+    "state-transition-v1.schema.json": {
+      "/#required": [
+        "cases",
+        "schema_version"
+      ],
+      "/#type": "object",
+      "/cases#property": true,
+      "/cases#type": "array",
+      "/schema_version#const": "1.0",
+      "/schema_version#property": true
+    },
+    "trace-headers-v1.schema.json": {
+      "/#required": [
+        "content_type",
+        "message_id",
+        "schema_version",
+        "traceparent"
+      ],
+      "/#type": "object",
+      "/content_type#const": "application/json",
+      "/content_type#property": true,
+      "/message_id#property": true,
+      "/schema_version#const": "1.0",
+      "/schema_version#property": true,
+      "/traceparent#property": true
+    }
+  },
+  "openapi_operations": {
+    "GET /api/v1/dataset-versions/{dataset_version_id}": {
+      "has_request_body": false,
+      "operation_id": "getDatasetVersion",
+      "responses": [
+        "200",
+        "401",
+        "403",
+        "404"
+      ]
+    },
+    "GET /api/v1/detections": {
+      "has_request_body": false,
+      "operation_id": "listDetections",
+      "responses": [
+        "200",
+        "401",
+        "403"
+      ]
+    },
+    "GET /api/v1/detections/{detection_task_id}": {
+      "has_request_body": false,
+      "operation_id": "getDetection",
+      "responses": [
+        "200",
+        "401",
+        "403",
+        "404"
+      ]
+    },
+    "GET /api/v1/edge/captures/{capture_id}": {
+      "has_request_body": false,
+      "operation_id": "getEdgeCapture",
+      "responses": [
+        "200",
+        "401",
+        "403",
+        "404"
+      ]
+    },
+    "GET /api/v1/events/stream": {
+      "has_request_body": false,
+      "operation_id": "streamAuthorizedEvents",
+      "responses": [
+        "200",
+        "401",
+        "403"
+      ]
+    },
+    "GET /api/v1/review-tasks": {
+      "has_request_body": false,
+      "operation_id": "listReviewTasks",
+      "responses": [
+        "200",
+        "401",
+        "403"
+      ]
+    },
+    "GET /api/v1/training-runs/{training_run_id}": {
+      "has_request_body": false,
+      "operation_id": "getTrainingRun",
+      "responses": [
+        "200",
+        "401",
+        "403",
+        "404"
+      ]
+    },
+    "GET /internal/v1/runtime/models": {
+      "has_request_body": false,
+      "operation_id": "listRuntimeModels",
+      "responses": [
+        "200"
+      ]
+    },
+    "GET /internal/v1/runtime/ready": {
+      "has_request_body": false,
+      "operation_id": "getInferenceReadiness",
+      "responses": [
+        "200",
+        "503"
+      ]
+    },
+    "POST /api/v1/dataset-versions": {
+      "has_request_body": true,
+      "operation_id": "createDatasetVersion",
+      "responses": [
+        "202",
+        "400",
+        "401",
+        "403",
+        "409",
+        "422"
+      ]
+    },
+    "POST /api/v1/detections/{detection_task_id}/retry": {
+      "has_request_body": true,
+      "operation_id": "retryDetection",
+      "responses": [
+        "202",
+        "400",
+        "401",
+        "403",
+        "409",
+        "422"
+      ]
+    },
+    "POST /api/v1/edge/captures": {
+      "has_request_body": true,
+      "operation_id": "createCapture",
+      "responses": [
+        "201",
+        "400",
+        "401",
+        "403",
+        "409",
+        "422"
+      ]
+    },
+    "POST /api/v1/edge/captures/{capture_id}/images/{image_id}/complete": {
+      "has_request_body": true,
+      "operation_id": "completeCaptureImage",
+      "responses": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "409",
+        "422"
+      ]
+    },
+    "POST /api/v1/edge/captures/{capture_id}/submit": {
+      "has_request_body": true,
+      "operation_id": "submitCapture",
+      "responses": [
+        "202",
+        "400",
+        "401",
+        "403",
+        "409",
+        "422"
+      ]
+    },
+    "POST /api/v1/edge/devices/{device_id}/heartbeat": {
+      "has_request_body": true,
+      "operation_id": "reportDeviceHeartbeat",
+      "responses": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "409",
+        "422"
+      ]
+    },
+    "POST /api/v1/edge/sync/captures/query": {
+      "has_request_body": true,
+      "operation_id": "queryCaptureSync",
+      "responses": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "409",
+        "422"
+      ]
+    },
+    "POST /api/v1/images/{image_id}/access-ticket": {
+      "has_request_body": true,
+      "operation_id": "createImageAccessTicket",
+      "responses": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "409",
+        "422"
+      ]
+    },
+    "POST /api/v1/model-deployments": {
+      "has_request_body": true,
+      "operation_id": "createModelDeployment",
+      "responses": [
+        "202",
+        "400",
+        "401",
+        "403",
+        "409",
+        "422"
+      ]
+    },
+    "POST /api/v1/model-deployments/{model_deployment_id}/approvals": {
+      "has_request_body": true,
+      "operation_id": "approveModelDeployment",
+      "responses": [
+        "201",
+        "400",
+        "401",
+        "403",
+        "409",
+        "422"
+      ]
+    },
+    "POST /api/v1/model-deployments/{model_deployment_id}/rollback": {
+      "has_request_body": true,
+      "operation_id": "rollbackModelDeployment",
+      "responses": [
+        "202",
+        "400",
+        "401",
+        "403",
+        "409",
+        "422"
+      ]
+    },
+    "POST /api/v1/model-versions/{model_version_id}/validation-decisions": {
+      "has_request_body": true,
+      "operation_id": "submitModelValidationDecision",
+      "responses": [
+        "201",
+        "400",
+        "401",
+        "403",
+        "409",
+        "422"
+      ]
+    },
+    "POST /api/v1/review-tasks/{review_task_id}/annotation-upload-ticket": {
+      "has_request_body": true,
+      "operation_id": "createAnnotationUploadTicket",
+      "responses": [
+        "201",
+        "400",
+        "401",
+        "403",
+        "409",
+        "422"
+      ]
+    },
+    "POST /api/v1/review-tasks/{review_task_id}/claim": {
+      "has_request_body": true,
+      "operation_id": "claimReviewTask",
+      "responses": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "409",
+        "422"
+      ]
+    },
+    "POST /api/v1/review-tasks/{review_task_id}/release": {
+      "has_request_body": true,
+      "operation_id": "releaseReviewTask",
+      "responses": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "409",
+        "422"
+      ]
+    },
+    "POST /api/v1/review-tasks/{review_task_id}/submissions": {
+      "has_request_body": true,
+      "operation_id": "submitReview",
+      "responses": [
+        "201",
+        "400",
+        "401",
+        "403",
+        "409",
+        "422"
+      ]
+    },
+    "POST /api/v1/training-runs": {
+      "has_request_body": true,
+      "operation_id": "createTrainingRun",
+      "responses": [
+        "202",
+        "400",
+        "401",
+        "403",
+        "409",
+        "422"
+      ]
+    },
+    "POST /internal/v1/detection-tasks/{detection_task_id}/attempts": {
+      "has_request_body": true,
+      "operation_id": "startDetectionAttempt",
+      "responses": [
+        "201",
+        "400",
+        "401",
+        "403",
+        "409",
+        "422"
+      ]
+    },
+    "PUT /internal/v1/detection-attempts/{attempt_id}/failure": {
+      "has_request_body": true,
+      "operation_id": "submitDetectionFailure",
+      "responses": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "409",
+        "422"
+      ]
+    },
+    "PUT /internal/v1/detection-attempts/{attempt_id}/result": {
+      "has_request_body": true,
+      "operation_id": "submitDetectionResult",
+      "responses": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "409",
+        "422"
+      ]
+    }
+  },
+  "openapi_schema_surfaces": {
+    "Acknowledgement": {
+      "/#required": [
+        "accepted",
+        "request_id"
+      ],
+      "/#type": "object",
+      "/accepted#property": true,
+      "/accepted#type": "boolean",
+      "/request_id#property": true
+    },
+    "ActionRequest": {
+      "/#required": [
+        "client_request_id"
+      ],
+      "/#type": "object",
+      "/client_request_id#property": true,
+      "/reason#property": true,
+      "/reason#type": "string"
+    },
+    "AnnotationUploadTicketRequest": {
+      "/#required": [
+        "height",
+        "media_type",
+        "sha256",
+        "size_bytes",
+        "width"
+      ],
+      "/#type": "object",
+      "/height#property": true,
+      "/height#type": "integer",
+      "/media_type#const": "image/png",
+      "/media_type#property": true,
+      "/sha256#property": true,
+      "/size_bytes#property": true,
+      "/size_bytes#type": "integer",
+      "/width#property": true,
+      "/width#type": "integer"
+    },
+    "ApprovalRequest": {
+      "/#required": [
+        "decision",
+        "reason",
+        "role"
+      ],
+      "/#type": "object",
+      "/decision#enum": [
+        "APPROVE",
+        "REJECT"
+      ],
+      "/decision#property": true,
+      "/decision#type": "string",
+      "/reason#property": true,
+      "/reason#type": "string",
+      "/role#enum": [
+        "MODEL_RELEASE_APPROVER",
+        "QUALITY_APPROVER"
+      ],
+      "/role#property": true,
+      "/role#type": "string"
+    },
+    "AsyncAccepted": {
+      "/#required": [
+        "job_id",
+        "poll_after_ms",
+        "status"
+      ],
+      "/#type": "object",
+      "/job_id#property": true,
+      "/poll_after_ms#property": true,
+      "/poll_after_ms#type": "integer",
+      "/status#const": "QUEUED",
+      "/status#property": true
+    },
+    "AttemptStartRequest": {
+      "/#required": [
+        "message_id",
+        "model_sha256",
+        "runtime_version",
+        "worker_id"
+      ],
+      "/#type": "object",
+      "/message_id#property": true,
+      "/model_sha256#property": true,
+      "/runtime_version#property": true,
+      "/worker_id#property": true,
+      "/worker_id#type": "string"
+    },
+    "AttemptStartResponse": {
+      "/#required": [
+        "attempt_id",
+        "attempt_no",
+        "status"
+      ],
+      "/#type": "object",
+      "/attempt_id#property": true,
+      "/attempt_no#property": true,
+      "/attempt_no#type": "integer",
+      "/status#const": "RUNNING",
+      "/status#property": true
+    },
+    "CaptureCreateRequest": {
+      "/#required": [
+        "capture_id",
+        "images",
+        "quality",
+        "recipe_id",
+        "station_id",
+        "trigger"
+      ],
+      "/#type": "object",
+      "/capture_id#property": true,
+      "/images#property": true,
+      "/images#type": "array",
+      "/quality#property": true,
+      "/recipe_id#property": true,
+      "/station_id#property": true,
+      "/trigger#property": true
+    },
+    "CaptureCreateResponse": {
+      "/#required": [
+        "capture_id",
+        "images",
+        "status"
+      ],
+      "/#type": "object",
+      "/capture_id#property": true,
+      "/images#property": true,
+      "/images#type": "array",
+      "/status#const": "UPLOADING",
+      "/status#property": true
+    },
+    "CaptureStatusResponse": {
+      "/#required": [
+        "business_disposition",
+        "capture_id",
+        "capture_status",
+        "poll_after_ms"
+      ],
+      "/#type": "object",
+      "/business_disposition#property": true,
+      "/capture_id#property": true,
+      "/capture_status#property": true,
+      "/detection#property": true,
+      "/poll_after_ms#property": true,
+      "/poll_after_ms#type": "integer",
+      "/review#property": true
+    },
+    "CaptureSyncQueryRequest": {
+      "/#required": [
+        "capture_ids"
+      ],
+      "/#type": "object",
+      "/capture_ids#property": true,
+      "/capture_ids#type": "array"
+    },
+    "CaptureSyncQueryResponse": {
+      "/#required": [
+        "items"
+      ],
+      "/#type": "object",
+      "/items#property": true,
+      "/items#type": "array"
+    },
+    "ClientImage": {
+      "/#required": [
+        "client_image_id",
+        "file_name",
+        "height",
+        "image_role",
+        "media_type",
+        "sha256",
+        "size_bytes",
+        "width"
+      ],
+      "/#type": "object",
+      "/client_image_id#property": true,
+      "/client_image_id#type": "string",
+      "/file_name#property": true,
+      "/file_name#type": "string",
+      "/height#property": true,
+      "/height#type": "integer",
+      "/image_role#property": true,
+      "/image_role#type": "string",
+      "/media_type#enum": [
+        "image/jpeg",
+        "image/png"
+      ],
+      "/media_type#property": true,
+      "/media_type#type": "string",
+      "/sha256#property": true,
+      "/size_bytes#property": true,
+      "/size_bytes#type": "integer",
+      "/width#property": true,
+      "/width#type": "integer"
+    },
+    "DatasetVersionCreateRequest": {
+      "/#required": [
+        "candidate_manifest_id",
+        "dataset_id",
+        "purpose"
+      ],
+      "/#type": "object",
+      "/candidate_manifest_id#property": true,
+      "/dataset_id#property": true,
+      "/purpose#property": true,
+      "/purpose#type": "string"
+    },
+    "DetectionDetail": {
+      "/#required": [
+        "attempts",
+        "capture",
+        "detection",
+        "disposition_history",
+        "images",
+        "versions"
+      ],
+      "/#type": "object",
+      "/attempts#property": true,
+      "/attempts#type": "array",
+      "/capture#property": true,
+      "/detection#property": true,
+      "/disposition_history#property": true,
+      "/disposition_history#type": "array",
+      "/images#property": true,
+      "/images#type": "array",
+      "/versions#property": true,
+      "/versions#type": "object"
+    },
+    "DetectionFailureRequest": {
+      "/#required": [
+        "error_code",
+        "message",
+        "occurred_at",
+        "retryable",
+        "stage"
+      ],
+      "/#type": "object",
+      "/error_code#property": true,
+      "/error_code#type": "string",
+      "/message#property": true,
+      "/message#type": "string",
+      "/occurred_at#property": true,
+      "/retryable#property": true,
+      "/retryable#type": "boolean",
+      "/stage#enum": [
+        "CALLBACK",
+        "DECODE",
+        "DOWNLOAD",
+        "INFERENCE",
+        "MODEL_LOAD",
+        "POSTPROCESS",
+        "PREPROCESS",
+        "UPLOAD"
+      ],
+      "/stage#property": true,
+      "/stage#type": "string"
+    },
+    "DetectionPage": {
+      "/#required": [
+        "has_more",
+        "items",
+        "next_cursor"
+      ],
+      "/#type": "object",
+      "/has_more#property": true,
+      "/has_more#type": "boolean",
+      "/items#property": true,
+      "/items#type": "array",
+      "/next_cursor#property": true,
+      "/next_cursor#type": [
+        "null",
+        "string"
+      ]
+    },
+    "DetectionSummary": {
+      "/#required": [
+        "detection_task_id",
+        "task_status"
+      ],
+      "/#type": "object",
+      "/algorithm_outcome#property": true,
+      "/confidence#property": true,
+      "/confidence#type": [
+        "null",
+        "number"
+      ],
+      "/detection_task_id#property": true,
+      "/model_version#property": true,
+      "/model_version#type": [
+        "null",
+        "string"
+      ],
+      "/task_status#property": true
+    },
+    "HeartbeatRequest": {
+      "/#required": [
+        "agent_version",
+        "camera_status",
+        "clock_offset_ms",
+        "disk_usage_ratio",
+        "oldest_task_age_seconds",
+        "plc_status",
+        "queue_depth",
+        "reported_at"
+      ],
+      "/#type": "object",
+      "/agent_version#property": true,
+      "/camera_status#enum": [
+        "DEGRADED",
+        "OFFLINE",
+        "ONLINE"
+      ],
+      "/camera_status#property": true,
+      "/camera_status#type": "string",
+      "/clock_offset_ms#property": true,
+      "/clock_offset_ms#type": "number",
+      "/disk_usage_ratio#property": true,
+      "/disk_usage_ratio#type": "number",
+      "/oldest_task_age_seconds#property": true,
+      "/oldest_task_age_seconds#type": "number",
+      "/plc_status#enum": [
+        "DEGRADED",
+        "OFFLINE",
+        "ONLINE"
+      ],
+      "/plc_status#property": true,
+      "/plc_status#type": "string",
+      "/queue_depth#property": true,
+      "/queue_depth#type": "integer",
+      "/reported_at#property": true
+    },
+    "ImageAccessTicketRequest": {
+      "/#required": [
+        "purpose"
+      ],
+      "/#type": "object",
+      "/purpose#enum": [
+        "DOWNLOAD",
+        "VIEW"
+      ],
+      "/purpose#property": true,
+      "/purpose#type": "string"
+    },
+    "ImageAccessTicketResponse": {
+      "/#required": [
+        "expires_at",
+        "method",
+        "url"
+      ],
+      "/#type": "object",
+      "/expires_at#property": true,
+      "/method#const": "GET",
+      "/method#property": true,
+      "/url#property": true,
+      "/url#type": "string"
+    },
+    "ModelDeploymentCreateRequest": {
+      "/#required": [
+        "environment",
+        "model_version_id",
+        "rollback_model_version_id",
+        "station_ids",
+        "strategy",
+        "traffic_ratio"
+      ],
+      "/#type": "object",
+      "/environment#enum": [
+        "CANARY",
+        "PRODUCTION",
+        "SHADOW"
+      ],
+      "/environment#property": true,
+      "/environment#type": "string",
+      "/model_version_id#property": true,
+      "/rollback_model_version_id#property": true,
+      "/station_ids#property": true,
+      "/station_ids#type": "array",
+      "/strategy#enum": [
+        "PERCENTAGE",
+        "STATION"
+      ],
+      "/strategy#property": true,
+      "/strategy#type": "string",
+      "/traffic_ratio#property": true,
+      "/traffic_ratio#type": "number"
+    },
+    "ObjectCompleteRequest": {
+      "/#required": [
+        "sha256",
+        "size_bytes",
+        "upload_receipt"
+      ],
+      "/#type": "object",
+      "/sha256#property": true,
+      "/size_bytes#property": true,
+      "/size_bytes#type": "integer",
+      "/upload_receipt#property": true,
+      "/upload_receipt#type": "string"
+    },
+    "ObjectCompleteResponse": {
+      "/#required": [
+        "image_id",
+        "sha256",
+        "state"
+      ],
+      "/#type": "object",
+      "/image_id#property": true,
+      "/sha256#property": true,
+      "/state#const": "AVAILABLE",
+      "/state#property": true
+    },
+    "QualitySummary": {
+      "/#required": [
+        "status",
+        "warnings"
+      ],
+      "/#type": "object",
+      "/status#property": true,
+      "/warnings#property": true,
+      "/warnings#type": "array"
+    },
+    "ReadinessResponse": {
+      "/#required": [
+        "ready",
+        "runtime_version"
+      ],
+      "/#type": "object",
+      "/ready#const": true,
+      "/ready#property": true,
+      "/runtime_version#property": true
+    },
+    "ReasonRequest": {
+      "/#required": [
+        "reason"
+      ],
+      "/#type": "object",
+      "/reason#property": true,
+      "/reason#type": "string"
+    },
+    "ResultAcceptedResponse": {
+      "/#required": [
+        "accepted",
+        "result_sha256"
+      ],
+      "/#type": "object",
+      "/accepted#const": true,
+      "/accepted#property": true,
+      "/result_sha256#property": true
+    },
+    "ReviewSubmissionRequest": {
+      "/#required": [
+        "annotation_image_id",
+        "client_submitted_at",
+        "comment",
+        "decision",
+        "defect_type_codes",
+        "reason_code"
+      ],
+      "/#type": "object",
+      "/annotation_image_id#property": true,
+      "/client_submitted_at#property": true,
+      "/comment#property": true,
+      "/comment#type": "string",
+      "/decision#property": true,
+      "/defect_type_codes#property": true,
+      "/defect_type_codes#type": "array",
+      "/reason_code#property": true,
+      "/reason_code#type": "string"
+    },
+    "ReviewSubmissionResponse": {
+      "/#required": [
+        "business_disposition",
+        "record_version",
+        "review_record_id",
+        "task_status"
+      ],
+      "/#type": "object",
+      "/business_disposition#property": true,
+      "/record_version#property": true,
+      "/record_version#type": "integer",
+      "/review_record_id#property": true,
+      "/task_status#property": true
+    },
+    "ReviewSummary": {
+      "/#required": [
+        "status"
+      ],
+      "/#type": "object",
+      "/status#property": true
+    },
+    "ReviewTask": {
+      "/#required": [
+        "capture_id",
+        "priority",
+        "record_version",
+        "review_task_id",
+        "status"
+      ],
+      "/#type": "object",
+      "/capture_id#property": true,
+      "/lease_expires_at#property": true,
+      "/priority#enum": [
+        "P0",
+        "P1",
+        "P2",
+        "P3"
+      ],
+      "/priority#property": true,
+      "/priority#type": "string",
+      "/record_version#property": true,
+      "/record_version#type": "integer",
+      "/review_task_id#property": true,
+      "/status#property": true
+    },
+    "ReviewTaskPage": {
+      "/#required": [
+        "has_more",
+        "items",
+        "next_cursor"
+      ],
+      "/#type": "object",
+      "/has_more#property": true,
+      "/has_more#type": "boolean",
+      "/items#property": true,
+      "/items#type": "array",
+      "/next_cursor#property": true,
+      "/next_cursor#type": [
+        "null",
+        "string"
+      ]
+    },
+    "RollbackRequest": {
+      "/#required": [
+        "reason",
+        "target_model_version_id"
+      ],
+      "/#type": "object",
+      "/reason#property": true,
+      "/reason#type": "string",
+      "/target_model_version_id#property": true
+    },
+    "RuntimeModelsResponse": {
+      "/#required": [
+        "models"
+      ],
+      "/#type": "object",
+      "/models#property": true,
+      "/models#type": "array"
+    },
+    "SubmitCaptureRequest": {
+      "/#required": [
+        "requested_at"
+      ],
+      "/#type": "object",
+      "/requested_at#property": true
+    },
+    "SubmitCaptureResponse": {
+      "/#required": [
+        "capture_id",
+        "detection_task_id",
+        "pipeline_version",
+        "poll_after_ms",
+        "status"
+      ],
+      "/#type": "object",
+      "/capture_id#property": true,
+      "/detection_task_id#property": true,
+      "/pipeline_version#property": true,
+      "/poll_after_ms#property": true,
+      "/poll_after_ms#type": "integer",
+      "/status#const": "SUBMITTED",
+      "/status#property": true
+    },
+    "TrainingRunCreateRequest": {
+      "/#required": [
+        "dataset_version_id",
+        "initial_model_version_id",
+        "training_config_version"
+      ],
+      "/#type": "object",
+      "/dataset_version_id#property": true,
+      "/initial_model_version_id#property": true,
+      "/training_config_version#property": true
+    },
+    "Trigger": {
+      "/#required": [
+        "client_sequence",
+        "occurred_at",
+        "source",
+        "trigger_id"
+      ],
+      "/#type": "object",
+      "/client_sequence#property": true,
+      "/client_sequence#type": "integer",
+      "/occurred_at#property": true,
+      "/source#enum": [
+        "HISTORICAL_IMPORT",
+        "MANUAL",
+        "PLC",
+        "SENSOR"
+      ],
+      "/source#property": true,
+      "/source#type": "string",
+      "/trigger_id#property": true,
+      "/trigger_id#type": "string"
+    },
+    "UploadTicketResponse": {
+      "/#required": [
+        "image_id",
+        "upload"
+      ],
+      "/#type": "object",
+      "/image_id#property": true,
+      "/upload#property": true,
+      "/upload#required": [
+        "expires_at",
+        "headers",
+        "method",
+        "url"
+      ],
+      "/upload#type": "object",
+      "/upload/expires_at#property": true,
+      "/upload/headers#property": true,
+      "/upload/headers#type": "object",
+      "/upload/method#const": "PUT",
+      "/upload/method#property": true,
+      "/upload/url#property": true,
+      "/upload/url#type": "string"
+    },
+    "ValidationDecisionRequest": {
+      "/#required": [
+        "decision",
+        "evaluation_report_sha256",
+        "reason"
+      ],
+      "/#type": "object",
+      "/decision#enum": [
+        "APPROVE",
+        "REJECT"
+      ],
+      "/decision#property": true,
+      "/decision#type": "string",
+      "/evaluation_report_sha256#property": true,
+      "/reason#property": true,
+      "/reason#type": "string"
+    },
+    "VersionedResource": {
+      "/#required": [
+        "created_at",
+        "id",
+        "status",
+        "version"
+      ],
+      "/#type": "object",
+      "/created_at#property": true,
+      "/id#property": true,
+      "/status#property": true,
+      "/status#type": "string",
+      "/version#property": true
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "code": "TD-STORAGE-INTEGRITY-001",
+  "message": "图片校验失败，请重新上传",
+  "request_id": "019f0000-0000-7000-8000-000000000010",
+  "trace_id": "0123456789abcdef0123456789abcdef",
+  "retryable": true,
+  "details": [
+    {
+      "field": "sha256",
+      "reason": "MISMATCH"
+    }
+  ]
+}

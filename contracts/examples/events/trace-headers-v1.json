@@ -1,0 +1,6 @@
+{
+  "message_id": "019f0000-0000-7000-8000-000000000020",
+  "traceparent": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01",
+  "content_type": "application/json",
+  "schema_version": "1.0"
+}

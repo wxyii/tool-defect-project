@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.tool-defect.local/v1/inference-task-v1.schema.json",
+  "title": "推理任务事件 v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_type",
+    "message_id",
+    "occurred_at",
+    "traceparent",
+    "detection_task_id",
+    "capture_id",
+    "pipeline",
+    "images",
+    "deadline_at"
+  ],
+  "properties": {
+    "event_type": {
+      "const": "tool_defect.inference.task.v1"
+    },
+    "message_id": {
+      "$ref": "./common-v1.schema.json#/$defs/Uuid"
+    },
+    "occurred_at": {
+      "$ref": "./common-v1.schema.json#/$defs/UtcTimestamp"
+    },
+    "traceparent": {
+      "$ref": "./common-v1.schema.json#/$defs/Traceparent"
+    },
+    "detection_task_id": {
+      "$ref": "./common-v1.schema.json#/$defs/Uuid"
+    },
+    "capture_id": {
+      "$ref": "./common-v1.schema.json#/$defs/Uuid"
+    },
+    "pipeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pipeline_id",
+        "version",
+        "config_sha256",
+        "preprocessor_version",
+        "algorithm_version",
+        "model_version"
+      ],
+      "properties": {
+        "pipeline_id": {
+          "$ref": "./common-v1.schema.json#/$defs/Uuid"
+        },
+        "version": {
+          "$ref": "./common-v1.schema.json#/$defs/Version"
+        },
+        "config_sha256": {
+          "$ref": "./common-v1.schema.json#/$defs/Sha256"
+        },
+        "preprocessor_version": {
+          "$ref": "./common-v1.schema.json#/$defs/Version"
+        },
+        "algorithm_version": {
+          "$ref": "./common-v1.schema.json#/$defs/Version"
+        },
+        "model_version": {
+          "$ref": "./common-v1.schema.json#/$defs/Version"
+        }
+      }
+    },
+    "images": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "$ref": "./common-v1.schema.json#/$defs/ImageReference"
+      }
+    },
+    "deadline_at": {
+      "$ref": "./common-v1.schema.json#/$defs/UtcTimestamp"
+    }
+  }
+}

@@ -41,7 +41,52 @@ artifacts/
 app/legacy/A_chedaoyuce0.exe
 docs/reference/基于机器视觉的刀具缺陷识别研究汇报.pptx
 
-# Alternative dependency manager lock file
-uv.lock
-
 data/processed/
+
+# Node, Java and multi-module build products
+node_modules/
+.pnpm-store/
+target/
+.gradle/
+.mvn/timing.properties
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Generated verification reports
+.build/
+build/reports/
+build/sbom/
+
+# Local environment and secrets. Example files remain trackable.
+.env
+.env.*
+!.env.example
+!*.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+secrets/
+
+# Model weights and runtime packages never belong in Git.
+*.h5
+*.hdf5
+*.keras
+*.ckpt
+*.pt
+*.pth
+*.onnx
+*.pb
+*.tflite
+*.safetensors
+*.sig
+
+# Contract package build products
+packages/python-contracts/*.egg-info/
+packages/python-contracts/.venv/
+packages/typescript-contracts/lib/
+packages/java-contracts/target/

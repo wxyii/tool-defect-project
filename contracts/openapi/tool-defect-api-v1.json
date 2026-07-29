@@ -1,0 +1,3086 @@
+{
+  "openapi": "3.1.0",
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "info": {
+    "title": "刀具缺陷检测系统接口",
+    "version": "1.0.0",
+    "description": "采集、业务查询、复核、数据集、训练、模型发布和内部推理接口的 v1 唯一契约源。"
+  },
+  "servers": [
+    {
+      "url": "https://api.example.invalid",
+      "description": "地址由环境配置提供，示例域名不可用于生产"
+    }
+  ],
+  "tags": [
+    {
+      "name": "edge"
+    },
+    {
+      "name": "detections"
+    },
+    {
+      "name": "reviews"
+    },
+    {
+      "name": "mlops"
+    },
+    {
+      "name": "internal"
+    },
+    {
+      "name": "events"
+    }
+  ],
+  "paths": {
+    "/api/v1/edge/captures": {
+      "post": {
+        "operationId": "createCapture",
+        "tags": [
+          "edge"
+        ],
+        "security": [
+          {
+            "EdgeDeviceMtls": [],
+            "EdgeOAuth": [
+              "capture:write"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/RequestId"
+          },
+          {
+            "$ref": "#/components/parameters/Traceparent"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaptureCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "采集事件已创建",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaptureCreateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "createCapture"
+      }
+    },
+    "/api/v1/edge/captures/{capture_id}/images/{image_id}/complete": {
+      "post": {
+        "operationId": "completeCaptureImage",
+        "tags": [
+          "edge"
+        ],
+        "security": [
+          {
+            "EdgeDeviceMtls": [],
+            "EdgeOAuth": [
+              "capture:write"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CaptureId"
+          },
+          {
+            "$ref": "#/components/parameters/ImageId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ObjectCompleteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "对象已确认，重复确认相同内容返回相同结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectCompleteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "completeCaptureImage"
+      }
+    },
+    "/api/v1/edge/captures/{capture_id}/submit": {
+      "post": {
+        "operationId": "submitCapture",
+        "tags": [
+          "edge"
+        ],
+        "security": [
+          {
+            "EdgeDeviceMtls": [],
+            "EdgeOAuth": [
+              "capture:write"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CaptureId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitCaptureRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "检测任务已排队",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmitCaptureResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "submitCapture"
+      }
+    },
+    "/api/v1/edge/captures/{capture_id}": {
+      "get": {
+        "operationId": "getEdgeCapture",
+        "tags": [
+          "edge"
+        ],
+        "security": [
+          {
+            "EdgeDeviceMtls": [],
+            "EdgeOAuth": [
+              "capture:read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CaptureId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "中央状态和最终业务处置",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaptureStatusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/edge/sync/captures/query": {
+      "post": {
+        "operationId": "queryCaptureSync",
+        "tags": [
+          "edge"
+        ],
+        "security": [
+          {
+            "EdgeDeviceMtls": [],
+            "EdgeOAuth": [
+              "capture:read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaptureSyncQueryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "批量中央投影",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaptureSyncQueryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "queryCaptureSync"
+      }
+    },
+    "/api/v1/edge/devices/{device_id}/heartbeat": {
+      "post": {
+        "operationId": "reportDeviceHeartbeat",
+        "tags": [
+          "edge"
+        ],
+        "security": [
+          {
+            "EdgeDeviceMtls": [],
+            "EdgeOAuth": [
+              "device:heartbeat"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeviceId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeartbeatRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "心跳已接收",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Acknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "reportDeviceHeartbeat"
+      }
+    },
+    "/api/v1/detections": {
+      "get": {
+        "operationId": "listDetections",
+        "tags": [
+          "detections"
+        ],
+        "security": [
+          {
+            "UserOidc": [
+              "detection:read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          },
+          {
+            "name": "business_disposition",
+            "in": "query",
+            "schema": {
+              "$ref": "../json-schema/common-v1.schema.json#/$defs/BusinessDisposition"
+            }
+          },
+          {
+            "name": "algorithm_outcome",
+            "in": "query",
+            "schema": {
+              "$ref": "../json-schema/common-v1.schema.json#/$defs/AlgorithmOutcome"
+            }
+          },
+          {
+            "name": "model_version",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "按用户数据范围过滤的检测列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DetectionPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/v1/detections/{detection_task_id}": {
+      "get": {
+        "operationId": "getDetection",
+        "tags": [
+          "detections"
+        ],
+        "security": [
+          {
+            "UserOidc": [
+              "detection:read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DetectionTaskId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "检测详情、执行尝试、证据与版本",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DetectionDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/images/{image_id}/access-ticket": {
+      "post": {
+        "operationId": "createImageAccessTicket",
+        "tags": [
+          "detections"
+        ],
+        "security": [
+          {
+            "UserOidc": [
+              "image:view"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ImageId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageAccessTicketRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "短时只读访问授权",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageAccessTicketResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "createImageAccessTicket"
+      }
+    },
+    "/api/v1/detections/{detection_task_id}/retry": {
+      "post": {
+        "operationId": "retryDetection",
+        "tags": [
+          "detections"
+        ],
+        "security": [
+          {
+            "UserOidc": [
+              "detection:retry"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DetectionTaskId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "已授权新增执行尝试",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsyncAccepted"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "retryDetection"
+      }
+    },
+    "/api/v1/review-tasks": {
+      "get": {
+        "operationId": "listReviewTasks",
+        "tags": [
+          "reviews"
+        ],
+        "security": [
+          {
+            "UserOidc": [
+              "review:read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "$ref": "../json-schema/common-v1.schema.json#/$defs/ReviewStatus"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "按权限范围过滤的复核任务池",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewTaskPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/v1/review-tasks/{review_task_id}/claim": {
+      "post": {
+        "operationId": "claimReviewTask",
+        "tags": [
+          "reviews"
+        ],
+        "security": [
+          {
+            "UserOidc": [
+              "review:claim"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ReviewTaskId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/ActionRequest"
+        },
+        "responses": {
+          "200": {
+            "description": "任务已认领并返回租约",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "claimReviewTask"
+      }
+    },
+    "/api/v1/review-tasks/{review_task_id}/release": {
+      "post": {
+        "operationId": "releaseReviewTask",
+        "tags": [
+          "reviews"
+        ],
+        "security": [
+          {
+            "UserOidc": [
+              "review:claim"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ReviewTaskId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/ActionRequest"
+        },
+        "responses": {
+          "200": {
+            "description": "租约已释放",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "releaseReviewTask"
+      }
+    },
+    "/api/v1/review-tasks/{review_task_id}/submissions": {
+      "post": {
+        "operationId": "submitReview",
+        "tags": [
+          "reviews"
+        ],
+        "security": [
+          {
+            "UserOidc": [
+              "review:submit"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ReviewTaskId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewSubmissionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "不可变复核记录已创建",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewSubmissionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "submitReview"
+      }
+    },
+    "/api/v1/review-tasks/{review_task_id}/annotation-upload-ticket": {
+      "post": {
+        "operationId": "createAnnotationUploadTicket",
+        "tags": [
+          "reviews"
+        ],
+        "security": [
+          {
+            "UserOidc": [
+              "review:annotate"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ReviewTaskId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnotationUploadTicketRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "短时受控上传授权",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadTicketResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "createAnnotationUploadTicket"
+      }
+    },
+    "/api/v1/dataset-versions": {
+      "post": {
+        "operationId": "createDatasetVersion",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserOidc": [
+              "dataset:create"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatasetVersionCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "不可变数据集构建任务已创建",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsyncAccepted"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "createDatasetVersion"
+      }
+    },
+    "/api/v1/dataset-versions/{dataset_version_id}": {
+      "get": {
+        "operationId": "getDatasetVersion",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserOidc": [
+              "dataset:read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DatasetVersionId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "数据集审计和构建报告",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionedResource"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/training-runs": {
+      "post": {
+        "operationId": "createTrainingRun",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserOidc": [
+              "training:create"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrainingRunCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "离线训练任务已创建",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsyncAccepted"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "createTrainingRun"
+      }
+    },
+    "/api/v1/training-runs/{training_run_id}": {
+      "get": {
+        "operationId": "getTrainingRun",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserOidc": [
+              "training:read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TrainingRunId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "训练运行、指标和制品摘要",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionedResource"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/model-versions/{model_version_id}/validation-decisions": {
+      "post": {
+        "operationId": "submitModelValidationDecision",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserOidc": [
+              "model:validate"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ModelVersionId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidationDecisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "验证结论已追加",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Acknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "submitModelValidationDecision"
+      }
+    },
+    "/api/v1/model-deployments": {
+      "post": {
+        "operationId": "createModelDeployment",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserOidc": [
+              "model:deploy"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelDeploymentCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "部署申请已创建",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsyncAccepted"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "createModelDeployment"
+      }
+    },
+    "/api/v1/model-deployments/{model_deployment_id}/approvals": {
+      "post": {
+        "operationId": "approveModelDeployment",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserOidc": [
+              "model:approve"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ModelDeploymentId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovalRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "独立审批已追加",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Acknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "approveModelDeployment"
+      }
+    },
+    "/api/v1/model-deployments/{model_deployment_id}/rollback": {
+      "post": {
+        "operationId": "rollbackModelDeployment",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserOidc": [
+              "model:rollback"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ModelDeploymentId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RollbackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "回滚任务已创建",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsyncAccepted"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "rollbackModelDeployment"
+      }
+    },
+    "/internal/v1/detection-tasks/{detection_task_id}/attempts": {
+      "post": {
+        "operationId": "startDetectionAttempt",
+        "tags": [
+          "internal"
+        ],
+        "security": [
+          {
+            "ServiceMtls": [],
+            "ServiceOAuth": [
+              "inference:callback"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DetectionTaskId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/Traceparent"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttemptStartRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "执行尝试已创建",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttemptStartResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "startDetectionAttempt"
+      }
+    },
+    "/internal/v1/detection-attempts/{attempt_id}/result": {
+      "put": {
+        "operationId": "submitDetectionResult",
+        "tags": [
+          "internal"
+        ],
+        "security": [
+          {
+            "ServiceMtls": [],
+            "ServiceOAuth": [
+              "inference:callback"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AttemptId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/Traceparent"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../json-schema/detection-result-v1.schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "结果已幂等接受",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultAcceptedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "submitDetectionResult"
+      }
+    },
+    "/internal/v1/detection-attempts/{attempt_id}/failure": {
+      "put": {
+        "operationId": "submitDetectionFailure",
+        "tags": [
+          "internal"
+        ],
+        "security": [
+          {
+            "ServiceMtls": [],
+            "ServiceOAuth": [
+              "inference:callback"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AttemptId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/Traceparent"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DetectionFailureRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "失败事实已接受，重试决策由后端负责",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Acknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "submitDetectionFailure"
+      }
+    },
+    "/internal/v1/runtime/ready": {
+      "get": {
+        "operationId": "getInferenceReadiness",
+        "tags": [
+          "internal"
+        ],
+        "security": [
+          {
+            "ServiceMtls": [],
+            "ServiceOAuth": [
+              "runtime:read"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "所有必需模型已加载并预热",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/internal/v1/runtime/models": {
+      "get": {
+        "operationId": "listRuntimeModels",
+        "tags": [
+          "internal"
+        ],
+        "security": [
+          {
+            "ServiceMtls": [],
+            "ServiceOAuth": [
+              "runtime:read"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "仅返回版本与哈希，不返回存储凭据",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeModelsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/stream": {
+      "get": {
+        "operationId": "streamAuthorizedEvents",
+        "tags": [
+          "events"
+        ],
+        "security": [
+          {
+            "UserOidc": [
+              "event:read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "仅包含调用者有权查看的资源摘要",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "EdgeDeviceMtls": {
+        "type": "mutualTLS"
+      },
+      "EdgeOAuth": {
+        "type": "oauth2",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://identity.example.invalid/oauth2/token",
+            "scopes": {
+              "capture:write": "写入采集事件",
+              "capture:read": "读取采集状态",
+              "device:heartbeat": "上报设备心跳"
+            }
+          }
+        }
+      },
+      "UserOidc": {
+        "type": "openIdConnect",
+        "openIdConnectUrl": "https://identity.example.invalid/.well-known/openid-configuration"
+      },
+      "ServiceMtls": {
+        "type": "mutualTLS"
+      },
+      "ServiceOAuth": {
+        "type": "oauth2",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://identity.example.invalid/oauth2/token",
+            "scopes": {
+              "inference:callback": "提交推理执行结果",
+              "runtime:read": "读取推理运行时健康"
+            }
+          }
+        }
+      }
+    },
+    "parameters": {
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 256
+        }
+      },
+      "IfMatch": {
+        "name": "If-Match",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^\\\"?[0-9]+\\\"?$"
+        }
+      },
+      "RequestId": {
+        "name": "X-Request-Id",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+        }
+      },
+      "Traceparent": {
+        "name": "traceparent",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "$ref": "../json-schema/common-v1.schema.json#/$defs/Traceparent"
+        }
+      },
+      "CaptureId": {
+        "name": "capture_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+        }
+      },
+      "ImageId": {
+        "name": "image_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+        }
+      },
+      "DeviceId": {
+        "name": "device_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+        }
+      },
+      "DetectionTaskId": {
+        "name": "detection_task_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+        }
+      },
+      "AttemptId": {
+        "name": "attempt_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+        }
+      },
+      "ReviewTaskId": {
+        "name": "review_task_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+        }
+      },
+      "DatasetVersionId": {
+        "name": "dataset_version_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+        }
+      },
+      "TrainingRunId": {
+        "name": "training_run_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+        }
+      },
+      "ModelVersionId": {
+        "name": "model_version_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+        }
+      },
+      "ModelDeploymentId": {
+        "name": "model_deployment_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+        }
+      },
+      "Cursor": {
+        "name": "cursor",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 512
+        }
+      },
+      "PageSize": {
+        "name": "page_size",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "default": 50
+        }
+      }
+    },
+    "requestBodies": {
+      "ActionRequest": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ActionRequest"
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "请求格式错误",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../json-schema/standard-error-v1.schema.json"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "身份认证失败",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../json-schema/standard-error-v1.schema.json"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "没有资源或操作权限",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../json-schema/standard-error-v1.schema.json"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "资源不存在或调用者不可见",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../json-schema/standard-error-v1.schema.json"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "幂等摘要或乐观锁冲突",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../json-schema/standard-error-v1.schema.json"
+            }
+          }
+        }
+      },
+      "ValidationError": {
+        "description": "语义或状态校验失败",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../json-schema/standard-error-v1.schema.json"
+            }
+          }
+        }
+      },
+      "ServiceUnavailable": {
+        "description": "服务暂未就绪",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../json-schema/standard-error-v1.schema.json"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "CaptureCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "capture_id",
+          "station_id",
+          "trigger",
+          "recipe_id",
+          "quality",
+          "images"
+        ],
+        "properties": {
+          "capture_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "station_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "trigger": {
+            "$ref": "#/components/schemas/Trigger"
+          },
+          "recipe_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/QualitySummary"
+          },
+          "images": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "items": {
+              "$ref": "#/components/schemas/ClientImage"
+            }
+          }
+        }
+      },
+      "Trigger": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "trigger_id",
+          "client_sequence",
+          "occurred_at",
+          "source"
+        ],
+        "properties": {
+          "trigger_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "client_sequence": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "occurred_at": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "PLC",
+              "SENSOR",
+              "MANUAL",
+              "HISTORICAL_IMPORT"
+            ]
+          }
+        }
+      },
+      "QualitySummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "warnings"
+        ],
+        "properties": {
+          "status": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/PreprocessQualityStatus"
+          },
+          "warnings": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        }
+      },
+      "ClientImage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "client_image_id",
+          "image_role",
+          "file_name",
+          "media_type",
+          "size_bytes",
+          "sha256",
+          "width",
+          "height"
+        ],
+        "properties": {
+          "client_image_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "image_role": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "file_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "pattern": "^[^/\\\\]+$"
+          },
+          "media_type": {
+            "type": "string",
+            "enum": [
+              "image/png",
+              "image/jpeg"
+            ]
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sha256": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Sha256"
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 32768
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 32768
+          }
+        }
+      },
+      "CaptureCreateResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "capture_id",
+          "status",
+          "images"
+        ],
+        "properties": {
+          "capture_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "status": {
+            "const": "UPLOADING"
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UploadTicketResponse"
+            }
+          }
+        }
+      },
+      "ObjectCompleteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "size_bytes",
+          "sha256",
+          "upload_receipt"
+        ],
+        "properties": {
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sha256": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Sha256"
+          },
+          "upload_receipt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        }
+      },
+      "ObjectCompleteResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "image_id",
+          "state",
+          "sha256"
+        ],
+        "properties": {
+          "image_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "state": {
+            "const": "AVAILABLE"
+          },
+          "sha256": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Sha256"
+          }
+        }
+      },
+      "SubmitCaptureRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "requested_at"
+        ],
+        "properties": {
+          "requested_at": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          }
+        }
+      },
+      "SubmitCaptureResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "capture_id",
+          "status",
+          "detection_task_id",
+          "pipeline_version",
+          "poll_after_ms"
+        ],
+        "properties": {
+          "capture_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "status": {
+            "const": "SUBMITTED"
+          },
+          "detection_task_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "pipeline_version": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Version"
+          },
+          "poll_after_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000
+          }
+        }
+      },
+      "CaptureStatusResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "capture_id",
+          "capture_status",
+          "business_disposition",
+          "poll_after_ms"
+        ],
+        "properties": {
+          "capture_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "capture_status": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/CaptureStatus"
+          },
+          "business_disposition": {
+            "oneOf": [
+              {
+                "$ref": "../json-schema/common-v1.schema.json#/$defs/BusinessDisposition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "detection": {
+            "$ref": "#/components/schemas/DetectionSummary"
+          },
+          "review": {
+            "$ref": "#/components/schemas/ReviewSummary"
+          },
+          "poll_after_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 900000
+          }
+        }
+      },
+      "CaptureSyncQueryRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "capture_ids"
+        ],
+        "properties": {
+          "capture_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 200,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+            }
+          }
+        }
+      },
+      "CaptureSyncQueryResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CaptureStatusResponse"
+            }
+          }
+        }
+      },
+      "HeartbeatRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "agent_version",
+          "reported_at",
+          "queue_depth",
+          "oldest_task_age_seconds",
+          "disk_usage_ratio",
+          "camera_status",
+          "plc_status",
+          "clock_offset_ms"
+        ],
+        "properties": {
+          "agent_version": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Version"
+          },
+          "reported_at": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          },
+          "queue_depth": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "oldest_task_age_seconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "disk_usage_ratio": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "camera_status": {
+            "type": "string",
+            "enum": [
+              "ONLINE",
+              "OFFLINE",
+              "DEGRADED"
+            ]
+          },
+          "plc_status": {
+            "type": "string",
+            "enum": [
+              "ONLINE",
+              "OFFLINE",
+              "DEGRADED"
+            ]
+          },
+          "clock_offset_ms": {
+            "type": "number"
+          }
+        }
+      },
+      "DetectionSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "detection_task_id",
+          "task_status"
+        ],
+        "properties": {
+          "detection_task_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "task_status": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/ExecutionStatus"
+          },
+          "algorithm_outcome": {
+            "oneOf": [
+              {
+                "$ref": "../json-schema/common-v1.schema.json#/$defs/AlgorithmOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "confidence": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "model_version": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128
+          }
+        }
+      },
+      "ReviewSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/ReviewStatus"
+          }
+        }
+      },
+      "DetectionPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DetectionSummary"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DetectionDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "capture",
+          "detection",
+          "attempts",
+          "disposition_history",
+          "images",
+          "versions"
+        ],
+        "properties": {
+          "capture": {
+            "$ref": "#/components/schemas/CaptureStatusResponse"
+          },
+          "detection": {
+            "$ref": "#/components/schemas/DetectionSummary"
+          },
+          "attempts": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "disposition_history": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "../json-schema/common-v1.schema.json#/$defs/ImageReference"
+            }
+          },
+          "versions": {
+            "type": "object"
+          }
+        }
+      },
+      "ImageAccessTicketRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "purpose"
+        ],
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "VIEW",
+              "DOWNLOAD"
+            ]
+          }
+        }
+      },
+      "ImageAccessTicketResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "method",
+          "url",
+          "expires_at"
+        ],
+        "properties": {
+          "method": {
+            "const": "GET"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://"
+          },
+          "expires_at": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          }
+        }
+      },
+      "ReasonRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        }
+      },
+      "ActionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "client_request_id"
+        ],
+        "properties": {
+          "client_request_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 512
+          }
+        }
+      },
+      "ReviewTask": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "review_task_id",
+          "capture_id",
+          "status",
+          "priority",
+          "record_version"
+        ],
+        "properties": {
+          "review_task_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "capture_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "status": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/ReviewStatus"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "P0",
+              "P1",
+              "P2",
+              "P3"
+            ]
+          },
+          "lease_expires_at": {
+            "oneOf": [
+              {
+                "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "record_version": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "ReviewTaskPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewTask"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ReviewSubmissionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "decision",
+          "reason_code",
+          "comment",
+          "defect_type_codes",
+          "annotation_image_id",
+          "client_submitted_at"
+        ],
+        "properties": {
+          "decision": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/BusinessDisposition"
+          },
+          "reason_code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "comment": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "defect_type_codes": {
+            "type": "array",
+            "uniqueItems": true,
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          "annotation_image_id": {
+            "oneOf": [
+              {
+                "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "client_submitted_at": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          }
+        }
+      },
+      "ReviewSubmissionResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "review_record_id",
+          "task_status",
+          "business_disposition",
+          "record_version"
+        ],
+        "properties": {
+          "review_record_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "task_status": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/ReviewStatus"
+          },
+          "business_disposition": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/BusinessDisposition"
+          },
+          "record_version": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "AnnotationUploadTicketRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "media_type",
+          "size_bytes",
+          "sha256",
+          "width",
+          "height"
+        ],
+        "properties": {
+          "media_type": {
+            "const": "image/png"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sha256": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Sha256"
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 32768
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 32768
+          }
+        }
+      },
+      "UploadTicketResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "image_id",
+          "upload"
+        ],
+        "properties": {
+          "image_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "upload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "method",
+              "url",
+              "headers",
+              "expires_at"
+            ],
+            "properties": {
+              "method": {
+                "const": "PUT"
+              },
+              "url": {
+                "type": "string",
+                "format": "uri",
+                "pattern": "^https://"
+              },
+              "headers": {
+                "type": "object",
+                "maxProperties": 8
+              },
+              "expires_at": {
+                "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+              }
+            }
+          }
+        }
+      },
+      "DatasetVersionCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "dataset_id",
+          "candidate_manifest_id",
+          "purpose"
+        ],
+        "properties": {
+          "dataset_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "candidate_manifest_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      },
+      "TrainingRunCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "dataset_version_id",
+          "training_config_version",
+          "initial_model_version_id"
+        ],
+        "properties": {
+          "dataset_version_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "training_config_version": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Version"
+          },
+          "initial_model_version_id": {
+            "oneOf": [
+              {
+                "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ValidationDecisionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "decision",
+          "reason",
+          "evaluation_report_sha256"
+        ],
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "APPROVE",
+              "REJECT"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "evaluation_report_sha256": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Sha256"
+          }
+        }
+      },
+      "ModelDeploymentCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model_version_id",
+          "environment",
+          "strategy",
+          "station_ids",
+          "traffic_ratio",
+          "rollback_model_version_id"
+        ],
+        "properties": {
+          "model_version_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "SHADOW",
+              "CANARY",
+              "PRODUCTION"
+            ]
+          },
+          "strategy": {
+            "type": "string",
+            "enum": [
+              "STATION",
+              "PERCENTAGE"
+            ]
+          },
+          "station_ids": {
+            "type": "array",
+            "maxItems": 1000,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+            }
+          },
+          "traffic_ratio": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "rollback_model_version_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          }
+        }
+      },
+      "ApprovalRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "decision",
+          "reason"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "QUALITY_APPROVER",
+              "MODEL_RELEASE_APPROVER"
+            ]
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "APPROVE",
+              "REJECT"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        }
+      },
+      "RollbackRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_model_version_id",
+          "reason"
+        ],
+        "properties": {
+          "target_model_version_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        }
+      },
+      "AttemptStartRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "message_id",
+          "worker_id",
+          "runtime_version",
+          "model_sha256"
+        ],
+        "properties": {
+          "message_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "worker_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "runtime_version": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Version"
+          },
+          "model_sha256": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Sha256"
+          }
+        }
+      },
+      "AttemptStartResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attempt_id",
+          "attempt_no",
+          "status"
+        ],
+        "properties": {
+          "attempt_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "attempt_no": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "status": {
+            "const": "RUNNING"
+          }
+        }
+      },
+      "DetectionFailureRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error_code",
+          "stage",
+          "retryable",
+          "message",
+          "occurred_at"
+        ],
+        "properties": {
+          "error_code": {
+            "type": "string",
+            "pattern": "^TD-[A-Z]+-[A-Z]+-[0-9]{3}$"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "DOWNLOAD",
+              "DECODE",
+              "PREPROCESS",
+              "MODEL_LOAD",
+              "INFERENCE",
+              "POSTPROCESS",
+              "UPLOAD",
+              "CALLBACK"
+            ]
+          },
+          "retryable": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "occurred_at": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          }
+        }
+      },
+      "ResultAcceptedResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "accepted",
+          "result_sha256"
+        ],
+        "properties": {
+          "accepted": {
+            "const": true
+          },
+          "result_sha256": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Sha256"
+          }
+        }
+      },
+      "Acknowledgement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "accepted",
+          "request_id"
+        ],
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          },
+          "request_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          }
+        }
+      },
+      "AsyncAccepted": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "job_id",
+          "status",
+          "poll_after_ms"
+        ],
+        "properties": {
+          "job_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "status": {
+            "const": "QUEUED"
+          },
+          "poll_after_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 60000
+          }
+        }
+      },
+      "VersionedResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "version",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "version": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Version"
+          },
+          "status": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "created_at": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          }
+        }
+      },
+      "ReadinessResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ready",
+          "runtime_version"
+        ],
+        "properties": {
+          "ready": {
+            "const": true
+          },
+          "runtime_version": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Version"
+          }
+        }
+      },
+      "RuntimeModelsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "models"
+        ],
+        "properties": {
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "model_version",
+                "sha256",
+                "ready"
+              ],
+              "properties": {
+                "model_version": {
+                  "$ref": "../json-schema/common-v1.schema.json#/$defs/Version"
+                },
+                "sha256": {
+                  "$ref": "../json-schema/common-v1.schema.json#/$defs/Sha256"
+                },
+                "ready": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-contract-version": "v1",
+  "x-unknown-request-fields": "reject",
+  "x-image-transfer": "object-reference-only"
+}

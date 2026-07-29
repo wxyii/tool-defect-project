@@ -1,0 +1,63 @@
+name: P1 契约与仓库门禁
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-contracts:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.9"
+          cache: pip
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+      - name: 安装固定 uv
+        run: python -m pip install uv==0.9.17
+      - name: 离线可执行的结构与契约门禁
+        run: make verify-p1-offline
+      - name: 生成软件物料清单
+        run: make sbom
+      - uses: actions/upload-artifact@v4
+        with:
+          name: p1-cyclonedx
+          path: .build/reports/p1.cdx.json
+          if-no-files-found: error
+
+  strict-toolchain:
+    runs-on: ubuntu-24.04
+    env:
+      POSTGRES_PASSWORD: ci-only
+      RABBITMQ_PASSWORD: ci-only
+      MINIO_ROOT_USER: ci-only
+      MINIO_ROOT_PASSWORD: ci-only
+      GRAFANA_ADMIN_USER: ci-only
+      GRAFANA_ADMIN_PASSWORD: ci-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.9"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.13.1"
+      - name: 安装固定 uv
+        run: python -m pip install uv==0.9.17
+      - name: 固定并安装 TypeScript 工具链
+        run: |
+          npm install --global pnpm@10.34.5
+          pnpm --dir packages/typescript-contracts install --frozen-lockfile
+      - name: 严格环境、契约与容器配置门禁
+        run: make verify-p1-strict

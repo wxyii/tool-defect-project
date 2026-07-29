@@ -1,0 +1,24 @@
+# 默认所有者
+* @tool-defect-maintainers
+
+# 契约及生成器需要生产方和消费方共同审查
+/contracts/ @tool-defect-contracts @tool-defect-backend @tool-defect-inference
+/tools/generate-contracts/ @tool-defect-contracts
+/packages/python-contracts/ @tool-defect-contracts @tool-defect-inference
+/packages/java-contracts/ @tool-defect-contracts @tool-defect-backend
+/packages/typescript-contracts/ @tool-defect-contracts @tool-defect-frontend
+
+# 部署与安全
+/deploy/ @tool-defect-platform @tool-defect-security
+/.github/ @tool-defect-platform
+/tools/security/ @tool-defect-security
+/tools/sbom/ @tool-defect-security
+
+# 可部署模块
+/apps/edge-agent/ @tool-defect-edge
+/apps/web-console/ @tool-defect-frontend
+/services/business-api/ @tool-defect-backend
+/services/inference-service/ @tool-defect-inference
+/packages/tool-defect-core/ @tool-defect-algorithm
+/jobs/ @tool-defect-mlops
+/database/ @tool-defect-backend

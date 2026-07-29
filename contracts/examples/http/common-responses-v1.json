@@ -1,0 +1,41 @@
+{
+  "errors.conflict": {
+    "code": "TD-API-CONFLICT-001",
+    "message": "幂等摘要或资源版本冲突",
+    "request_id": "019f0000-0000-7000-8000-000000000901",
+    "trace_id": "0123456789abcdef0123456789abcdef",
+    "retryable": false,
+    "details": [
+      {
+        "field": "Idempotency-Key",
+        "reason": "DIGEST_MISMATCH"
+      }
+    ]
+  },
+  "errors.forbidden": {
+    "code": "TD-SECURITY-AUTHORIZATION-001",
+    "message": "没有访问该资源的权限",
+    "request_id": "019f0000-0000-7000-8000-000000000902",
+    "trace_id": "0123456789abcdef0123456789abcdef",
+    "retryable": false,
+    "details": [
+      {
+        "field": "resource",
+        "reason": "OUT_OF_SCOPE"
+      }
+    ]
+  },
+  "errors.validation": {
+    "code": "TD-API-VALIDATION-001",
+    "message": "请求字段或状态不合法",
+    "request_id": "019f0000-0000-7000-8000-000000000903",
+    "trace_id": "0123456789abcdef0123456789abcdef",
+    "retryable": false,
+    "details": [
+      {
+        "field": "unexpected_field",
+        "reason": "UNKNOWN_FIELD"
+      }
+    ]
+  }
+}

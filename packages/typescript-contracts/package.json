@@ -1,0 +1,16 @@
+{
+  "name": "@tool-defect/contracts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --project tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "5.9.2"
+  },
+  "engines": {
+    "node": "20.13.1"
+  },
+  "packageManager": "pnpm@10.34.5"
+}

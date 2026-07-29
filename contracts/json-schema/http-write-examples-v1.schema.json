@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.tool-defect.local/v1/http-write-examples-v1.schema.json",
+  "title": "HTTP 写接口示例索引 v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "operations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation_id",
+          "success_request",
+          "success_response",
+          "cases"
+        ],
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "success_request": {
+            "type": "object"
+          },
+          "success_response": {
+            "type": "object"
+          },
+          "cases": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "success",
+              "duplicate",
+              "conflict",
+              "unauthorized",
+              "validation_error"
+            ],
+            "properties": {
+              "success": {
+                "$ref": "#/$defs/Case"
+              },
+              "duplicate": {
+                "$ref": "#/$defs/Case"
+              },
+              "conflict": {
+                "$ref": "#/$defs/Case"
+              },
+              "unauthorized": {
+                "$ref": "#/$defs/Case"
+              },
+              "validation_error": {
+                "$ref": "#/$defs/Case"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "Case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "request_ref",
+        "response_ref"
+      ],
+      "properties": {
+        "status": {
+          "type": "integer",
+          "minimum": 200,
+          "maximum": 599
+        },
+        "request_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "response_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,110 @@
+{
+  "schema_version": "1.0",
+  "cases": [
+    {
+      "case_id": "capture-created-uploading",
+      "domain": "capture",
+      "from": "CREATED",
+      "to": "UPLOADING",
+      "legal": true
+    },
+    {
+      "case_id": "capture-uploading-ready",
+      "domain": "capture",
+      "from": "UPLOADING",
+      "to": "READY",
+      "legal": true
+    },
+    {
+      "case_id": "capture-ready-submitted",
+      "domain": "capture",
+      "from": "READY",
+      "to": "SUBMITTED",
+      "legal": true
+    },
+    {
+      "case_id": "capture-submitted-processing",
+      "domain": "capture",
+      "from": "SUBMITTED",
+      "to": "PROCESSING",
+      "legal": true
+    },
+    {
+      "case_id": "capture-processing-review",
+      "domain": "capture",
+      "from": "PROCESSING",
+      "to": "REVIEW_PENDING",
+      "legal": true
+    },
+    {
+      "case_id": "capture-finalized-processing-forbidden",
+      "domain": "capture",
+      "from": "FINALIZED",
+      "to": "PROCESSING",
+      "legal": false
+    },
+    {
+      "case_id": "execution-queued-running",
+      "domain": "execution",
+      "from": "QUEUED",
+      "to": "RUNNING",
+      "legal": true
+    },
+    {
+      "case_id": "execution-running-succeeded",
+      "domain": "execution",
+      "from": "RUNNING",
+      "to": "SUCCEEDED",
+      "legal": true
+    },
+    {
+      "case_id": "execution-dead-succeeded-forbidden",
+      "domain": "execution",
+      "from": "DEAD",
+      "to": "SUCCEEDED",
+      "legal": false
+    },
+    {
+      "case_id": "review-pending-claimed",
+      "domain": "review",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "legal": true
+    },
+    {
+      "case_id": "review-resolved-claimed-forbidden",
+      "domain": "review",
+      "from": "RESOLVED",
+      "to": "CLAIMED",
+      "legal": false
+    },
+    {
+      "case_id": "object-staging-available",
+      "domain": "object",
+      "from": "STAGING",
+      "to": "AVAILABLE",
+      "legal": true
+    },
+    {
+      "case_id": "object-deleted-available-forbidden",
+      "domain": "object",
+      "from": "DELETED",
+      "to": "AVAILABLE",
+      "legal": false
+    },
+    {
+      "case_id": "model-approved-shadow",
+      "domain": "model",
+      "from": "APPROVED",
+      "to": "SHADOW",
+      "legal": true
+    },
+    {
+      "case_id": "model-retired-production-forbidden",
+      "domain": "model",
+      "from": "RETIRED",
+      "to": "PRODUCTION",
+      "legal": false
+    }
+  ]
+}
