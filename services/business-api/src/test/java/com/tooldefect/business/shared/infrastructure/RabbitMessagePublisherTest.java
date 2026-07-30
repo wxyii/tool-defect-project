@@ -12,7 +12,7 @@ import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
-import com.tooldefect.business.shared.domain.DomainViolation;
+import com.tooldefect.business.shared.application.NonRetryableMessageException;
 import com.tooldefect.business.shared.messaging.OutboxEvent;
 
 import tools.jackson.databind.ObjectMapper;
@@ -64,15 +64,15 @@ final class RabbitMessagePublisherTest {
         assertThatThrownBy(() -> publisher.publishAndConfirm(event(
             taskId,
             valid.replace("\"images\":", "\"unknown\":true,\"images\":")
-        ))).isInstanceOf(DomainViolation.class);
+        ))).isInstanceOf(NonRetryableMessageException.class);
         assertThatThrownBy(() -> publisher.publishAndConfirm(event(
             taskId,
             valid.replace("\"version\":\"1\"", "\"version\":1")
-        ))).isInstanceOf(DomainViolation.class);
+        ))).isInstanceOf(NonRetryableMessageException.class);
         assertThatThrownBy(() -> publisher.publishAndConfirm(event(
             taskId,
             valid.replace("\"images\":[{", "\"images\":[] , \"removed\":[{")
-        ))).isInstanceOf(DomainViolation.class);
+        ))).isInstanceOf(NonRetryableMessageException.class);
         assertThat(rabbit.message).isNull();
     }
 

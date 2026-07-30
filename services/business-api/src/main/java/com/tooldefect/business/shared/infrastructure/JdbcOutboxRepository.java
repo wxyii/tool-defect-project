@@ -163,6 +163,30 @@ public class JdbcOutboxRepository implements OutboxRepository {
     }
 
     @Override
+    public boolean markDead(
+            UUID eventId,
+            String claimOwner,
+            Instant failedAt,
+            String errorSummary) {
+        return jdbc.update("""
+            UPDATE outbox_event
+            SET status = 'DEAD',
+                next_attempt_at = ?,
+                claim_owner = NULL,
+                lease_until = NULL,
+                last_error = ?
+            WHERE event_id = ?
+              AND status = 'CLAIMED'
+              AND claim_owner = ?
+            """,
+            Timestamp.from(failedAt),
+            errorSummary,
+            eventId,
+            claimOwner
+        ) == 1;
+    }
+
+    @Override
     public boolean exists(UUID eventId) {
         Integer count = jdbc.queryForObject(
             "SELECT COUNT(*) FROM outbox_event WHERE event_id = ?",

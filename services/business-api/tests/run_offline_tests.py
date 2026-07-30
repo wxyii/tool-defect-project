@@ -109,6 +109,10 @@ def verify_migrations() -> list[str]:
         "audit_log",
         "outbox_event",
         "inbox_message",
+        "reliability_issue",
+        "maintenance_action",
+        "recovery_point",
+        "recovery_drill",
     }
     created = set(re.findall(r"CREATE TABLE\s+([a-z_]+)", combined, re.I))
     if required_tables - created:
@@ -155,6 +159,8 @@ def compile_and_run() -> tuple[int, str]:
             / "com/tooldefect/business/storage/application/ObjectKeyPolicy.java",
             JAVA_ROOT
             / "com/tooldefect/business/shared/application/MessagePublisher.java",
+            JAVA_ROOT
+            / "com/tooldefect/business/shared/application/NonRetryableMessageException.java",
             JAVA_ROOT
             / "com/tooldefect/business/shared/application/OutboxRepository.java",
             JAVA_ROOT

@@ -150,19 +150,22 @@ public class CaptureWorkflowService {
             UUID captureId,
             UUID actorStationId,
             String idempotencyKey,
-            Object request) {
+            Object request,
+            String traceparent) {
+        requireTraceparent(traceparent);
         return idempotency.execute(
             "submitCapture:" + captureId,
             actorStationId.toString(),
             idempotencyKey,
             request,
-            () -> submitNew(captureId, actorStationId)
+            () -> submitNew(captureId, actorStationId, traceparent)
         );
     }
 
     private IdempotencyService.Response submitNew(
             UUID captureId,
-            UUID actorStationId) {
+            UUID actorStationId,
+            String traceparent) {
         var context = captures.lockReadySubmission(captureId, actorStationId);
         if (context.images().isEmpty()) {
             throw new DomainViolation("采集事件没有可用必需图片");
@@ -173,7 +176,6 @@ public class CaptureWorkflowService {
 
         UUID eventId = identifiers.next();
         UUID messageId = identifiers.next();
-        String traceparent = traceparent();
         Map<String, Object> task = inferenceTask(
             context,
             taskId,
@@ -316,11 +318,17 @@ public class CaptureWorkflowService {
         );
     }
 
-    private String traceparent() {
-        String traceId = identifiers.next().toString().replace("-", "");
-        String spanId = identifiers.next().toString().replace("-", "")
-            .substring(0, 16);
-        return "00-" + traceId + "-" + spanId + "-01";
+    private static void requireTraceparent(String traceparent) {
+        if (traceparent == null
+                || !traceparent.matches(
+                    "^00-[0-9a-f]{32}-[0-9a-f]{16}-0[01]$"
+                )
+                || traceparent.substring(3, 35).chars()
+                    .allMatch(value -> value == '0')
+                || traceparent.substring(36, 52).chars()
+                    .allMatch(value -> value == '0')) {
+            throw new DomainViolation("traceparent 不符合 W3C v00 格式");
+        }
     }
 
     private static void requireSameStation(UUID expected, UUID actual) {

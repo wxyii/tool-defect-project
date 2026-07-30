@@ -18,6 +18,7 @@ import com.tooldefect.business.capture.domain.CaptureStatus;
 import com.tooldefect.business.detection.domain.AlgorithmOutcome;
 import com.tooldefect.business.detection.domain.DetectionResult;
 import com.tooldefect.business.shared.application.MessagePublisher;
+import com.tooldefect.business.shared.application.NonRetryableMessageException;
 import com.tooldefect.business.shared.application.OutboxRepository;
 import com.tooldefect.business.shared.application.ReliableMessagingService;
 import com.tooldefect.business.shared.domain.DomainViolation;
@@ -172,6 +173,71 @@ public final class OfflineDomainTest {
         require(attempts[0] == 2, "故障恢复应至少一次投递");
         require(outbox.event(uuid(40)).status() == OutboxStatus.PUBLISHED,
             "只有发布者确认后才能完成");
+
+        MessagePublisher poisonPublisher = ignored -> {
+            throw new NonRetryableMessageException("模拟不可恢复契约错误");
+        };
+        ReliableMessagingService poisonService = new ReliableMessagingService(
+            outbox,
+            poisonPublisher,
+            clock,
+            "offline-poison-test",
+            Duration.ofSeconds(30),
+            3,
+            Duration.ofSeconds(1),
+            Duration.ofSeconds(10),
+            0.0
+        );
+        UUID poisonEventId = uuid(48);
+        outbox.append(OutboxEvent.pending(
+            poisonEventId,
+            "detection_task",
+            uuid(49),
+            "tool_defect.outbox.inference_requested.v1",
+            "production.gpu.multitask",
+            validOutboxPayload(poisonEventId, uuid(49), clock.instant()),
+            clock.instant()
+        ));
+        require(poisonService.publishDue(10) == 0,
+            "不可恢复发布错误不得报告成功");
+        require(outbox.event(poisonEventId).status() == OutboxStatus.DEAD,
+            "不可恢复发布错误必须直接进入终止态");
+
+        int[] boundedAttempts = {0};
+        MessagePublisher unavailablePublisher = ignored -> {
+            boundedAttempts[0]++;
+            throw new RuntimeException("模拟持续不可用");
+        };
+        ReliableMessagingService boundedService = new ReliableMessagingService(
+            outbox,
+            unavailablePublisher,
+            clock,
+            "offline-bounded-test",
+            Duration.ofSeconds(30),
+            2,
+            Duration.ofSeconds(1),
+            Duration.ofSeconds(10),
+            0.0
+        );
+        UUID boundedEventId = uuid(50);
+        UUID boundedTaskId = uuid(51);
+        outbox.append(OutboxEvent.pending(
+            boundedEventId,
+            "detection_task",
+            boundedTaskId,
+            "tool_defect.outbox.inference_requested.v1",
+            "production.gpu.multitask",
+            validOutboxPayload(boundedEventId, boundedTaskId, clock.instant()),
+            clock.instant()
+        ));
+        boundedService.publishDue(10);
+        clock.advance(Duration.ofSeconds(1));
+        boundedService.publishDue(10);
+        clock.advance(Duration.ofHours(1));
+        boundedService.publishDue(10);
+        require(boundedAttempts[0] == 2, "发布重试必须严格受最大次数限制");
+        require(outbox.event(boundedEventId).status() == OutboxStatus.DEAD,
+            "达到上限后必须进入终止态，不能形成重试风暴");
 
         expectViolation(() -> OutboxEvent.pending(
             uuid(42),
@@ -359,6 +425,23 @@ public final class OfflineDomainTest {
                 return false;
             }
             replace(copy(event, OutboxStatus.FAILED, retryAt,
+                null, null, null, errorSummary));
+            return true;
+        }
+
+        @Override
+        public boolean markDead(
+                UUID eventId,
+                String claimOwner,
+                Instant failedAt,
+                String errorSummary) {
+            OutboxEvent event = events.get(eventId);
+            if (event == null
+                    || event.status() != OutboxStatus.CLAIMED
+                    || !claimOwner.equals(event.claimOwner())) {
+                return false;
+            }
+            replace(copy(event, OutboxStatus.DEAD, failedAt,
                 null, null, null, errorSummary));
             return true;
         }

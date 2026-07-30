@@ -1,4 +1,5 @@
 import json
+import hashlib
 from pathlib import Path
 import sys
 import tempfile
@@ -182,6 +183,25 @@ class GeneratedClientAdapterTests(unittest.TestCase):
             api,
         )
         SchemaEngine().validate(request["body"], schema, api_path, "")
+
+    def test_traceparent_is_stable_for_capture_and_propagated_on_submit(self):
+        self.adapter.submit_detection(
+            capture_id=CAPTURE_ID,
+            idempotency_key="submit-trace-key",
+            request_id="request-trace-1",
+        )
+        _, request = self.generated.calls[-1]
+        traceparent = request["headers"]["traceparent"]
+        expected_trace = hashlib.sha256(
+            CAPTURE_ID.encode("utf-8")
+        ).hexdigest()[:32]
+        expected_span = hashlib.sha256(
+            b"request-trace-1"
+        ).hexdigest()[:16]
+        self.assertEqual(
+            f"00-{expected_trace}-{expected_span}-01",
+            traceparent,
+        )
 
     def test_ticket_renewal_upload_confirmation_and_other_generated_operations(self):
         capture = self.queue.get_capture(CAPTURE_ID)

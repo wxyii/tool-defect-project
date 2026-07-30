@@ -26,5 +26,12 @@ public interface OutboxRepository {
         String errorSummary
     );
 
+    boolean markDead(
+        UUID eventId,
+        String claimOwner,
+        Instant failedAt,
+        String errorSummary
+    );
+
     boolean exists(UUID eventId);
 }

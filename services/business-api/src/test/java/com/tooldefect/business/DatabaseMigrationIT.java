@@ -51,7 +51,7 @@ class DatabaseMigrationIT {
 
         var result = flyway.migrate();
 
-        assertThat(result.migrationsExecuted).isEqualTo(5);
+        assertThat(result.migrationsExecuted).isEqualTo(6);
         flyway.validate();
         JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
         assertThat(jdbc.queryForObject(
@@ -61,7 +61,7 @@ class DatabaseMigrationIT {
             WHERE success AND version IS NOT NULL
             """,
             Integer.class
-        )).isEqualTo(5);
+        )).isEqualTo(6);
         assertThat(jdbc.queryForObject(
             """
             SELECT COUNT(*)
@@ -170,7 +170,7 @@ class DatabaseMigrationIT {
         );
 
         Flyway latest = flyway(POSTGRES.getJdbcUrl(), schema, null);
-        assertThat(latest.migrate().migrationsExecuted).isEqualTo(3);
+        assertThat(latest.migrate().migrationsExecuted).isEqualTo(4);
 
         assertThat(jdbc.queryForObject(
             "SELECT organization_id FROM production_line WHERE line_id = ?",
@@ -856,7 +856,7 @@ class DatabaseMigrationIT {
         assertThat(restored.queryForObject(
             "SELECT COUNT(*) FROM flyway_schema_history WHERE success",
             Integer.class
-        )).isEqualTo(5);
+        )).isEqualTo(6);
         flyway(databaseUrl(restoredDatabase), "public", null).validate();
     }
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
 from pathlib import Path
 import time
 from typing import Mapping, Protocol, Sequence, cast
@@ -319,7 +320,27 @@ def _request(
     if path is not None:
         request["path"] = dict(path)
     if headers is not None:
-        request["headers"] = dict(headers)
+        normalized_headers = dict(headers)
+        request_id = normalized_headers.get("X-Request-Id")
+        if (
+            isinstance(request_id, str)
+            and "traceparent" not in normalized_headers
+        ):
+            stable_capture = None
+            if path is not None:
+                stable_capture = path.get("capture_id")
+            if stable_capture is None and body is not None:
+                raw_capture = body.get("capture_id")
+                if isinstance(raw_capture, str):
+                    stable_capture = raw_capture
+            trace_id = hashlib.sha256(
+                (stable_capture or request_id).encode("utf-8")
+            ).hexdigest()[:32]
+            span_id = hashlib.sha256(request_id.encode("utf-8")).hexdigest()[:16]
+            normalized_headers["traceparent"] = (
+                f"00-{trace_id}-{span_id}-01"
+            )
+        request["headers"] = normalized_headers
     if body is not None:
         request["body"] = dict(body)
     return request

@@ -49,6 +49,7 @@ from inference_service.storage.materializer import (
     ObjectMaterializer,
     ObjectReference,
 )
+from inference_service.telemetry import JsonTelemetry, MetricRegistry
 
 
 @dataclass(frozen=True)
@@ -242,6 +243,8 @@ class InferenceOrchestrator:
         runtime_version: str,
         temp_root: Path,
         result_journal: ResultJournal | None = None,
+        telemetry: JsonTelemetry | None = None,
+        metrics: MetricRegistry | None = None,
     ):
         self._materializer = materializer
         self._decoder = decoder
@@ -265,6 +268,16 @@ class InferenceOrchestrator:
         self._result_journal = result_journal or FileResultJournal(
             self._temp_root / ".callback-journal"
         )
+        self._telemetry = telemetry
+        self._metrics = metrics or MetricRegistry(
+            {
+                "result",
+                "error_category",
+                "model_version",
+                "pipeline_version",
+                "stage",
+            }
+        )
         self._preprocessor_lock = asyncio.Lock()
 
     async def execute(self, task: InferenceTask) -> ExecutionAcceptance:
@@ -275,6 +288,13 @@ class InferenceOrchestrator:
             self._runtime_version,
             task.model_sha256,
             task.traceparent,
+        )
+        self._emit(
+            "inference.started",
+            "推理执行开始",
+            task,
+            attempt_id,
+            result="STARTED",
         )
         pending = self._result_journal.load(attempt_id)
         if pending is not None:
@@ -384,6 +404,35 @@ class InferenceOrchestrator:
                         )
                     )
                 upload_ms = _elapsed_ms(started)
+                for stage, duration_ms in (
+                    ("download", download_ms),
+                    ("decode", decode_ms),
+                    ("preprocess", preprocess_ms),
+                    ("inference", inference_ms),
+                    ("postprocess", postprocess_ms),
+                    ("upload", upload_ms),
+                ):
+                    self._metrics.observe_histogram(
+                        "tool_defect_inference_stage_duration_seconds",
+                        duration_ms / 1000.0,
+                        buckets=(
+                            0.01,
+                            0.025,
+                            0.05,
+                            0.1,
+                            0.25,
+                            0.5,
+                            1.0,
+                            2.5,
+                            5.0,
+                            10.0,
+                        ),
+                        labels={
+                            "model_version": task.model_version,
+                            "pipeline_version": task.pipeline_version,
+                            "stage": stage,
+                        },
+                    )
                 payload = dict(normalized.payload)
                 payload.update(
                     {
@@ -453,6 +502,26 @@ class InferenceOrchestrator:
                 except Exception:
                     # 结果已确定但回调状态未知时保留同一结果哈希重试，
                     # 不能另行提交失败事实覆盖可能已接受的成功结果。
+                    self._metrics.increment(
+                        "tool_defect_inference_callbacks_total",
+                        labels={
+                            "result": "deferred",
+                            "error_category": "transient",
+                            "model_version": task.model_version,
+                            "pipeline_version": task.pipeline_version,
+                            "stage": "callback",
+                        },
+                    )
+                    self._emit(
+                        "callback.deferred",
+                        "结果回调状态未知，保留确定结果等待重放",
+                        task,
+                        attempt_id,
+                        level="ERROR",
+                        result="DEFERRED",
+                        error_code="TD-API-TRANSIENT-001",
+                        retryable=True,
+                    )
                     return ExecutionAcceptance(
                         accepted=False,
                         attempt_id=attempt_id,
@@ -465,6 +534,45 @@ class InferenceOrchestrator:
                 # 同一回调，不重新物化原图或执行插件。
                 if acceptance.accepted:
                     self._result_journal.mark_accepted(attempt_id)
+                self._metrics.increment(
+                    "tool_defect_inference_requests_total",
+                    labels={
+                        "result": (
+                            "success" if acceptance.accepted else "rejected"
+                        ),
+                        "error_category": "none",
+                        "model_version": task.model_version,
+                        "pipeline_version": task.pipeline_version,
+                        "stage": "complete",
+                    },
+                )
+                self._emit(
+                    "inference.completed",
+                    "推理执行完成",
+                    task,
+                    attempt_id,
+                    result=(
+                        "SUCCESS" if acceptance.accepted else "REJECTED"
+                    ),
+                    duration_ms=sum(
+                        (
+                            download_ms,
+                            decode_ms,
+                            preprocess_ms,
+                            inference_ms,
+                            postprocess_ms,
+                            upload_ms,
+                        )
+                    ),
+                    timings_ms={
+                        "download": download_ms,
+                        "decode": decode_ms,
+                        "preprocess": preprocess_ms,
+                        "inference": inference_ms,
+                        "postprocess": postprocess_ms,
+                        "upload": upload_ms,
+                    },
+                )
                 return ExecutionAcceptance(
                     accepted=acceptance.accepted,
                     attempt_id=attempt_id,
@@ -473,6 +581,37 @@ class InferenceOrchestrator:
                 )
         except Exception as error:
             plugin_error = classify_unexpected(error, "orchestration")
+            error_code = str(
+                getattr(plugin_error.info, "code", "TD-INFER-INTERNAL-001")
+            )
+            category_parts = error_code.split("-")
+            category = (
+                category_parts[2].lower()
+                if len(category_parts) >= 4
+                else "internal"
+            )
+            self._metrics.increment(
+                "tool_defect_inference_requests_total",
+                labels={
+                    "result": "failure",
+                    "error_category": category,
+                    "model_version": task.model_version,
+                    "pipeline_version": task.pipeline_version,
+                    "stage": "orchestration",
+                },
+            )
+            self._emit(
+                "inference.failed",
+                "推理执行失败",
+                task,
+                attempt_id,
+                level="ERROR",
+                result="FAILURE",
+                error_code=error_code,
+                retryable=bool(
+                    getattr(plugin_error.info, "retryable", False)
+                ),
+            )
             acceptance = await self._callback.put_failure(
                 attempt_id,
                 plugin_error.info,
@@ -505,12 +644,48 @@ class InferenceOrchestrator:
             )
         if acceptance.accepted:
             self._result_journal.mark_accepted(pending.attempt_id)
+        if self._telemetry is not None:
+            self._telemetry.emit(
+                "callback.replayed",
+                "重放已确定结果回调",
+                traceparent=pending.traceparent,
+                capture_id=pending.capture_id,
+                detection_task_id=pending.detection_task_id,
+                attempt_id=pending.attempt_id,
+                result=(
+                    "SUCCESS" if acceptance.accepted else "REJECTED"
+                ),
+            )
         return ExecutionAcceptance(
             accepted=acceptance.accepted,
             attempt_id=pending.attempt_id,
             result_sha256=pending.result_sha256,
             failure=False,
         )
+
+    def _emit(
+        self,
+        event: str,
+        message: str,
+        task: InferenceTask,
+        attempt_id: str,
+        *,
+        level: str = "INFO",
+        **fields: object,
+    ) -> None:
+        if self._telemetry is not None:
+            self._telemetry.emit(
+                event,
+                message,
+                level=level,
+                traceparent=task.traceparent,
+                capture_id=task.capture_id,
+                detection_task_id=task.detection_task_id,
+                attempt_id=attempt_id,
+                pipeline_version=task.pipeline_version,
+                model_version=task.model_version,
+                **fields,
+            )
 
     async def _prepare(
         self,

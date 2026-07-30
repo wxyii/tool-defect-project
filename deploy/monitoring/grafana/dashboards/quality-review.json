@@ -1,0 +1,40 @@
+{
+  "uid": "quality-review",
+  "title": "质量与复核",
+  "description": "所有质量图表必须同时显示时间范围、样本量和真值来源；告警只触发调查或提高抽检，不自动训练或发布。",
+  "schemaVersion": 41,
+  "time": {"from": "now-24h", "to": "now"},
+  "templating": {
+    "list": [
+      {"name": "environment", "type": "query", "query": "label_values(environment)"},
+      {"name": "station", "type": "query", "query": "label_values(tool_defect_edge_captures_total, station)"},
+      {"name": "truth_source", "type": "constant", "query": "human_review"}
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "人工真值样本量（固定 30 日窗口）",
+      "description": "样本量为最近 30 日已提交人工复核记录；真值来源为 truth_source=human_review，不把模型结论当真值。",
+      "type": "stat",
+      "datasource": {"uid": "prometheus"},
+      "targets": [{"expr": "sum(tool_defect_quality_reviewed_samples_30d)"}]
+    },
+    {
+      "id": 2,
+      "title": "最老复核任务年龄（当前时间范围）",
+      "description": "与人工真值样本量联合查看；样本不足时只调查，不形成自动训练或发布结论。",
+      "type": "timeseries",
+      "datasource": {"uid": "prometheus"},
+      "targets": [{"expr": "max(tool_defect_review_oldest_task_age_seconds)"}]
+    },
+    {
+      "id": 3,
+      "title": "复核积压（当前快照）",
+      "description": "待办总量是当前快照；时间趋势由看板当前时间范围控制。",
+      "type": "timeseries",
+      "datasource": {"uid": "prometheus"},
+      "targets": [{"expr": "sum(tool_defect_review_pending_tasks)"}]
+    }
+  ]
+}

@@ -58,6 +58,10 @@ MAKE_TARGETS = (
     "test-faults",
     "test-security",
     "test-performance",
+    "verify-monitoring",
+    "verify-production-security",
+    "verify-runbooks",
+    "verify-p5-offline",
     "verify-data",
     "verify-models",
     "verify-all",
@@ -149,24 +153,14 @@ def main() -> int:
                 "test-web",
                 "test-integration",
                 "test-e2e",
-                "test-security",
+                "verify-p5-offline",
                 "verify-models",
             }
             missing_current = required_current - prerequisites
             if missing_current:
                 errors.append(
-                    "verify-all 缺少当前 P0–P4 门禁："
+                    "verify-all 缺少当前 P0–P5 门禁："
                     f"{sorted(missing_current)}"
-                )
-            future_targets = {
-                "test-faults",
-                "test-performance",
-            }
-            premature = future_targets & prerequisites
-            if premature:
-                errors.append(
-                    "verify-all 提前包含 P5/P7 门禁："
-                    f"{sorted(premature)}"
                 )
 
     gitignore = ROOT / ".gitignore"

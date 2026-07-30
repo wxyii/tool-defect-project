@@ -1,0 +1,38 @@
+{
+  "uid": "inference-performance",
+  "title": "推理性能",
+  "schemaVersion": 41,
+  "time": {"from": "now-6h", "to": "now"},
+  "templating": {
+    "list": [
+      {"name": "environment", "type": "query", "query": "label_values(environment)"},
+      {"name": "model", "type": "query", "query": "label_values(tool_defect_inference_requests_total, model_version)"}
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "生产运行槽就绪",
+      "type": "stat",
+      "datasource": {"uid": "prometheus"},
+      "targets": [{"expr": "max by (model_version) (tool_defect_inference_ready{purpose=\"production\"})"}]
+    },
+    {
+      "id": 2,
+      "title": "分阶段 P95 延迟",
+      "type": "timeseries",
+      "datasource": {"uid": "prometheus"},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le, stage, model_version) (rate(tool_defect_inference_stage_duration_seconds_bucket[5m])))"}]
+    },
+    {
+      "id": 3,
+      "title": "吞吐、失败与回调",
+      "type": "timeseries",
+      "datasource": {"uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (model_version, result) (rate(tool_defect_inference_requests_total[5m]))"},
+        {"expr": "sum by (model_version, result) (rate(tool_defect_inference_callbacks_total[5m]))"}
+      ]
+    }
+  ]
+}

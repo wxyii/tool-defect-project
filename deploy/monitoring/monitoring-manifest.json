@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0",
+  "metric_prefix": "tool_defect_",
+  "forbidden_labels": [
+    "capture_id",
+    "detection_task_id",
+    "attempt_id",
+    "request_id",
+    "trace_id",
+    "user_id",
+    "actor_id",
+    "object_key",
+    "error_message"
+  ],
+  "dashboards": [
+    "site-operations",
+    "central-services",
+    "inference-performance",
+    "quality-review",
+    "training-release"
+  ],
+  "required_alerts": [
+    "ToolDefectProductionModelNotReady",
+    "ToolDefectDeadLetterPresent",
+    "ToolDefectEdgeDiskCritical",
+    "ToolDefectDatabaseUnwritable",
+    "ToolDefectMonitoringBlind",
+    "ToolDefectHashConflict"
+  ],
+  "service_objectives": [
+    {
+      "name": "online_capture_acceptance_availability",
+      "formula": "accepted_valid_requests / valid_requests",
+      "target": "PENDING_SITE_SIGNOFF"
+    },
+    {
+      "name": "automatic_detection_latency_p95",
+      "formula": "central_raw_confirmation_to_automatic_disposition_seconds",
+      "target": "PENDING_SITE_CYCLE_TIME_SIGNOFF"
+    },
+    {
+      "name": "final_disposition_latency",
+      "formula": "capture_to_automatic_or_human_final_disposition_seconds",
+      "target": "PENDING_QUALITY_SIGNOFF"
+    },
+    {
+      "name": "inference_success_rate",
+      "formula": "unique_standard_results / unique_started_attempts",
+      "target": "PENDING_SITE_SIGNOFF"
+    },
+    {
+      "name": "resynchronization_success_rate",
+      "formula": "offline_tasks_synchronized_within_recovery_window / offline_tasks",
+      "target": "PENDING_SITE_RECOVERY_WINDOW_SIGNOFF"
+    },
+    {
+      "name": "review_sla_compliance",
+      "formula": "reviews_closed_within_priority_window / closed_reviews",
+      "target": "PENDING_QUALITY_SIGNOFF"
+    }
+  ]
+}

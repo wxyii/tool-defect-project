@@ -15,6 +15,7 @@ import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
 import com.tooldefect.business.shared.application.MessagePublisher;
+import com.tooldefect.business.shared.application.NonRetryableMessageException;
 import com.tooldefect.business.shared.domain.DomainViolation;
 import com.tooldefect.business.shared.messaging.OutboxEvent;
 
@@ -230,8 +231,13 @@ public final class RabbitMessagePublisher implements MessagePublisher {
                 traceparent,
                 json.writeValueAsString(task)
             );
-        } catch (tools.jackson.core.JacksonException | IllegalArgumentException error) {
-            throw new DomainViolation("发件箱 payload 不符合推理事件 v1", error);
+        } catch (NonRetryableMessageException error) {
+            throw error;
+        } catch (RuntimeException error) {
+            throw new NonRetryableMessageException(
+                "发件箱 payload 不符合推理事件 v1",
+                error
+            );
         }
     }
 

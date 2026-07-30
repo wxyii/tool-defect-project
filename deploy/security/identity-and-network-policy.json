@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "people_identity": {
+    "protocol": "OIDC",
+    "password_storage_in_business_system": false,
+    "high_privilege_mfa_required": true
+  },
+  "device_identity": {
+    "certificate_per_device": true,
+    "bind_claims": ["device_id", "station_id"],
+    "shared_long_lived_key": false,
+    "revocation_list": "/run/secrets/device-ca.crl",
+    "rotation_and_revocation_audited": true
+  },
+  "service_identity": {
+    "mutual_tls": true,
+    "short_lived_token": true,
+    "human_account_forbidden": true,
+    "separate_accounts": [
+      "business-api",
+      "inference-service",
+      "training",
+      "release",
+      "object-cleaner",
+      "monitoring",
+      "backup"
+    ]
+  },
+  "network_default": "DENY",
+  "forbidden_paths": [
+    "edge-agent->database",
+    "edge-agent->rabbitmq",
+    "browser->database",
+    "browser->inference-service",
+    "browser->object-list",
+    "inference-service->database",
+    "inference-service->internet",
+    "training->production-alias"
+  ],
+  "secret_delivery": "external-secret-mount-only"
+}

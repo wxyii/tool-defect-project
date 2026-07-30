@@ -1,0 +1,44 @@
+{
+  "uid": "training-release",
+  "title": "训练与发布",
+  "schemaVersion": 41,
+  "time": {"from": "now-7d", "to": "now"},
+  "templating": {
+    "list": [
+      {"name": "environment", "type": "query", "query": "label_values(environment)"},
+      {"name": "model", "type": "query", "query": "label_values(tool_defect_inference_ready, model_version)"}
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "候选数据与训练状态",
+      "type": "timeseries",
+      "datasource": {"uid": "prometheus"},
+      "targets": [
+        {"expr": "sum(tool_defect_dataset_candidates)"},
+        {"expr": "sum(tool_defect_training_active_runs)"}
+      ]
+    },
+    {
+      "id": 2,
+      "title": "评估门禁与审批",
+      "type": "table",
+      "datasource": {"uid": "prometheus"},
+      "targets": [
+        {"expr": "sum(tool_defect_training_failed_runs_30d)"},
+        {"expr": "sum(tool_defect_model_approval_candidates)"}
+      ]
+    },
+    {
+      "id": 3,
+      "title": "当前生产部署与运行就绪",
+      "type": "timeseries",
+      "datasource": {"uid": "prometheus"},
+      "targets": [
+        {"expr": "sum(tool_defect_model_production_deployments)"},
+        {"expr": "max by (model_version) (tool_defect_inference_ready{purpose=\"production\"})"}
+      ]
+    }
+  ]
+}

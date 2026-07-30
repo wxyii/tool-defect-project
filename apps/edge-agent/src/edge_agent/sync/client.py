@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 from pathlib import Path
 import time
 from typing import Callable, Mapping, Optional, Protocol, Sequence
@@ -13,6 +14,7 @@ from uuid import uuid4
 
 from ..local_queue.database import EdgeQueue, QueueIntegrityError
 from ..local_queue.models import CaptureRecord, LocalCaptureState, LocalImageRecord
+from ..telemetry import JsonTelemetry, MetricRegistry
 from .backoff import BackoffPolicy
 
 
@@ -153,6 +155,8 @@ class SyncService:
         request_id_factory=lambda: str(uuid4()),
         final_result_handler: Callable[[CentralCapture], None],
         confirmed_handler: Callable[[str], None],
+        telemetry: JsonTelemetry | None = None,
+        metrics: MetricRegistry | None = None,
     ) -> None:
         self.queue = queue
         self.client = client
@@ -162,6 +166,10 @@ class SyncService:
         self.request_id_factory = request_id_factory
         self.final_result_handler = final_result_handler
         self.confirmed_handler = confirmed_handler
+        self.telemetry = telemetry
+        self.metrics = metrics or MetricRegistry(
+            {"result", "error_category"}
+        )
         self._tickets: dict[tuple[str, str], UploadTicket] = {}
 
     def run_once(self, *, limit: int = 100) -> dict[str, list[str]]:
@@ -178,13 +186,43 @@ class SyncService:
         failed: list[str] = []
         paused: list[str] = []
         for record in self.queue.due_captures(now=self.clock(), limit=limit):
+            traceparent = _capture_traceparent(
+                record.capture_id,
+                f"{record.state.value}:{record.retry_count}",
+            )
+            self._emit(
+                "sync.started",
+                "开始同步采集事件",
+                traceparent=traceparent,
+                capture_id=record.capture_id,
+                station_id=record.station_id,
+                result="STARTED",
+            )
             try:
                 self._process(record)
                 succeeded.append(record.capture_id)
+                self.metrics.increment(
+                    "tool_defect_edge_sync_attempts_total",
+                    labels={"result": "success", "error_category": "none"},
+                )
+                self._emit(
+                    "sync.completed",
+                    "采集事件同步步骤完成",
+                    traceparent=traceparent,
+                    capture_id=record.capture_id,
+                    station_id=record.station_id,
+                    result="SUCCESS",
+                )
             except SyncClientError as error:
                 if _is_global_auth_failure(error):
                     self._pause_for_auth(error)
                     paused.append(record.capture_id)
+                    self._record_failure(
+                        record,
+                        error,
+                        "paused",
+                        traceparent,
+                    )
                     break
                 if error.retryable:
                     current = self.queue.get_capture(record.capture_id)
@@ -199,6 +237,12 @@ class SyncService:
                         error_code=error.code,
                     )
                     retried.append(record.capture_id)
+                    self._record_failure(
+                        record,
+                        error,
+                        "retry",
+                        traceparent,
+                    )
                 else:
                     self.queue.transition(
                         record.capture_id,
@@ -206,6 +250,12 @@ class SyncService:
                         error_code=error.code,
                     )
                     failed.append(record.capture_id)
+                    self._record_failure(
+                        record,
+                        error,
+                        "dead",
+                        traceparent,
+                    )
             except (OSError, TimeoutError) as error:
                 current = self.queue.get_capture(record.capture_id)
                 assert current is not None
@@ -216,12 +266,66 @@ class SyncService:
                     error_code="TD-EDGE-TRANSIENT-001",
                 )
                 retried.append(record.capture_id)
+                self._record_failure(
+                    record,
+                    SyncClientError(
+                        "本地或网络瞬时故障",
+                        code="TD-EDGE-TRANSIENT-001",
+                        retryable=True,
+                    ),
+                    "retry",
+                    traceparent,
+                )
         return {
             "succeeded": succeeded,
             "retried": retried,
             "failed": failed,
             "paused": paused,
         }
+
+    def _record_failure(
+        self,
+        record: CaptureRecord,
+        error: SyncClientError,
+        result: str,
+        traceparent: str,
+    ) -> None:
+        parts = error.code.split("-")
+        category = parts[2].lower() if len(parts) >= 4 else "unknown"
+        self.metrics.increment(
+            "tool_defect_edge_sync_attempts_total",
+            labels={"result": result, "error_category": category},
+        )
+        self._emit(
+            "sync.failed",
+            "采集事件同步步骤失败",
+            level="ERROR" if not error.retryable else "WARNING",
+            traceparent=traceparent,
+            capture_id=record.capture_id,
+            station_id=record.station_id,
+            result=result.upper(),
+            error_code=error.code,
+            retryable=error.retryable,
+            attempt_count=record.retry_count + 1,
+        )
+
+    def _emit(
+        self,
+        event: str,
+        message: str,
+        *,
+        traceparent: str,
+        level: str = "INFO",
+        **fields: object,
+    ) -> None:
+        if self.telemetry is not None:
+            self.telemetry.emit(
+                event,
+                message,
+                level=level,
+                traceparent=traceparent,
+                **fields,
+            )
 
     def reconcile(self, *, limit: int = 200) -> list[str]:
         self._require_auth_not_paused()
@@ -770,3 +874,11 @@ def _is_global_auth_failure(error: SyncClientError) -> bool:
     if error.code.startswith(("TD-UPLOAD-", "TD-STORAGE-")):
         return False
     return error.code.startswith("TD-AUTH-") or error.status_code in {401, 403}
+
+
+def _capture_traceparent(capture_id: str, span_seed: str) -> str:
+    trace_id = hashlib.sha256(capture_id.encode("utf-8")).hexdigest()[:32]
+    span_id = hashlib.sha256(span_seed.encode("utf-8")).hexdigest()[:16]
+    if set(trace_id) == {"0"} or set(span_id) == {"0"}:
+        raise QueueIntegrityError("追踪标识不能为全零")
+    return f"00-{trace_id}-{span_id}-01"

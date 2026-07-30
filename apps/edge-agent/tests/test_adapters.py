@@ -16,6 +16,7 @@ from edge_agent.capture.coordinator import CaptureCoordinator, TriggerGuard
 from edge_agent.capture.models import CapturedFrame
 from edge_agent.capture.storage import AtomicCaptureStore
 from edge_agent.local_queue.database import EdgeQueue
+from edge_agent.telemetry import MetricRegistry
 from device_fixtures import png_bytes
 
 
@@ -46,6 +47,7 @@ class AdapterTests(unittest.TestCase):
         self.root = Path(self.temporary.name)
         self.queue = EdgeQueue(self.root / "edge_queue.sqlite3")
         self.store = AtomicCaptureStore(self.root, self.queue)
+        self.metrics = MetricRegistry({"station", "result"})
 
     def tearDown(self):
         self.queue.close()
@@ -61,6 +63,7 @@ class AdapterTests(unittest.TestCase):
             recipe_id="recipe-1",
             capture_id_factory=lambda: next(values),
             camera_busy_retries=retries,
+            metrics=self.metrics,
         )
 
     def test_duplicate_trigger_is_debounced_without_second_camera_call(self):
@@ -73,6 +76,13 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual("OK", first.status)
         self.assertEqual("DUPLICATE", second.status)
         self.assertEqual(["same"], camera.calls)
+        self.assertIn(
+            (
+                "tool_defect_edge_captures_total"
+                '{result="ok",station="station-1"} 1'
+            ),
+            self.metrics.render_prometheus(),
+        )
 
     def test_duplicate_trigger_remains_debounced_after_process_restart(self):
         first_camera = SimulatedCameraAdapter(

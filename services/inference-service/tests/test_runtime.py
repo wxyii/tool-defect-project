@@ -20,6 +20,7 @@ for path in (SRC_ROOT, SERVICE_SRC):
         sys.path.insert(0, str(path))
 
 from inference_service.api.health import RuntimeHealthService
+from inference_service.telemetry import MetricRegistry
 from inference_service.model_runtime.slot import (
     RuntimeProfile,
     RuntimeSlot,
@@ -188,8 +189,11 @@ class RuntimeSlotTests(unittest.IsolatedAsyncioTestCase):
                 self.package.package_sha256,
                 "gpu",
             )
+        metrics = MetricRegistry({"model_version", "purpose"})
         health = RuntimeHealthService(
-            supervisor, runtime_version="1.0.0"
+            supervisor,
+            runtime_version="1.0.0",
+            metrics=metrics,
         )
         self.assertEqual(
             health.readiness(),
@@ -199,6 +203,13 @@ class RuntimeSlotTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(
                 set(model), {"model_version", "sha256", "ready"}
             )
+        self.assertIn(
+            (
+                "tool_defect_inference_ready"
+                '{model_version="1",purpose="production"} 1'
+            ),
+            metrics.render_prometheus(),
+        )
         await supervisor.close()
 
 

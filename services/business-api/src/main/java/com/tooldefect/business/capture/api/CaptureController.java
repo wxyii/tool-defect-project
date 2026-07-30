@@ -104,6 +104,7 @@ public final class CaptureController {
     ResponseEntity<Map<String, Object>> submitCapture(
             @PathVariable("capture_id") UUID captureId,
             @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @RequestHeader("traceparent") String traceparent,
             @RequestBody Map<String, Object> body,
             Authentication authentication) {
         Map<String, Object> request = object(body, SUBMIT_FIELDS, "检测提交请求");
@@ -112,7 +113,8 @@ public final class CaptureController {
             captureId,
             stationId(authentication),
             idempotencyKey,
-            request
+            request,
+            traceparent
         );
         return ResponseEntity.status(response.status()).body(response.body());
     }

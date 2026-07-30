@@ -48,7 +48,11 @@ public class MessagingConfiguration {
             publisher,
             clock,
             processOwner("outbox"),
-            properties.publisher().claimLease()
+            properties.publisher().claimLease(),
+            properties.publisher().maximumAttempts(),
+            properties.publisher().initialBackoff(),
+            properties.publisher().maximumBackoff(),
+            properties.publisher().jitterRatio()
         );
     }
 

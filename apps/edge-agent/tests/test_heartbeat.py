@@ -12,6 +12,7 @@ from edge_agent.capture.storage import AtomicCaptureStore
 from edge_agent.adapters import CameraScenario, SimulatedCameraAdapter
 from edge_agent.health.heartbeat import HeartbeatBuilder
 from edge_agent.local_queue.database import EdgeQueue
+from edge_agent.telemetry import MetricRegistry
 from device_fixtures import PNG
 
 
@@ -40,6 +41,7 @@ class HeartbeatTests(unittest.TestCase):
             root = Path(temporary)
             queue = EdgeQueue(root / "edge_queue.sqlite3", clock=lambda: 100.0)
             try:
+                metrics = MetricRegistry({"station", "device_type"})
                 AtomicCaptureStore(root, queue).persist(
                     capture_id="capture-1",
                     station_id="station-1",
@@ -63,6 +65,8 @@ class HeartbeatTests(unittest.TestCase):
                     agent_version="edge-agent/0.1.0",
                     camera_health=lambda: {"status": "ONLINE"},
                     trigger_health=lambda: {"status": "DEGRADED"},
+                    metrics=metrics,
+                    station_id="station-1",
                     clock=lambda: 130.0,
                 ).build(time_offset_ms=3.5)
                 self.assertEqual(
@@ -90,6 +94,25 @@ class HeartbeatTests(unittest.TestCase):
                 self.assertNotIn("token", serialized)
                 self.assertNotIn("password", serialized)
                 self.assertNotIn("business_disposition", serialized)
+                rendered = metrics.render_prometheus()
+                self.assertIn(
+                    'tool_defect_edge_queue_depth{station="station-1"} 1',
+                    rendered,
+                )
+                self.assertIn(
+                    (
+                        "tool_defect_edge_device_online"
+                        '{device_type="camera",station="station-1"} 1'
+                    ),
+                    rendered,
+                )
+                self.assertIn(
+                    (
+                        "tool_defect_edge_device_online"
+                        '{device_type="plc",station="station-1"} 0'
+                    ),
+                    rendered,
+                )
             finally:
                 queue.close()
 

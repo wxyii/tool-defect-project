@@ -97,7 +97,7 @@ public record OutboxEvent(
                     throw new DomainViolation("已发布事件不能保留领取租约");
                 }
             }
-            case NEW, FAILED -> {
+            case NEW, FAILED, DEAD -> {
                 if (publishedAt != null || claimOwner != null || leaseUntil != null) {
                     throw new DomainViolation("待发布事件不能有发布或领取状态");
                 }

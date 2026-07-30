@@ -3,6 +3,7 @@ package com.tooldefect.business.shared.application;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.Objects;
 
 import com.tooldefect.business.shared.domain.DomainViolation;
@@ -10,13 +11,16 @@ import com.tooldefect.business.shared.messaging.OutboxEvent;
 
 public final class ReliableMessagingService {
     private static final int MAXIMUM_BATCH_SIZE = 1_000;
-    private static final Duration MAXIMUM_BACKOFF = Duration.ofMinutes(5);
 
     private final OutboxRepository outbox;
     private final MessagePublisher publisher;
     private final Clock clock;
     private final String claimOwner;
     private final Duration leaseDuration;
+    private final int maximumAttempts;
+    private final Duration initialBackoff;
+    private final Duration maximumBackoff;
+    private final double jitterRatio;
 
     public ReliableMessagingService(
             OutboxRepository outbox,
@@ -24,6 +28,29 @@ public final class ReliableMessagingService {
             Clock clock,
             String claimOwner,
             Duration leaseDuration) {
+        this(
+            outbox,
+            publisher,
+            clock,
+            claimOwner,
+            leaseDuration,
+            10,
+            Duration.ofSeconds(1),
+            Duration.ofMinutes(5),
+            0.0
+        );
+    }
+
+    public ReliableMessagingService(
+            OutboxRepository outbox,
+            MessagePublisher publisher,
+            Clock clock,
+            String claimOwner,
+            Duration leaseDuration,
+            int maximumAttempts,
+            Duration initialBackoff,
+            Duration maximumBackoff,
+            double jitterRatio) {
         this.outbox = Objects.requireNonNull(outbox);
         this.publisher = Objects.requireNonNull(publisher);
         this.clock = Objects.requireNonNull(clock);
@@ -35,6 +62,28 @@ public final class ReliableMessagingService {
             throw new DomainViolation("发件箱领取租约必须位于 0 到 5 分钟");
         }
         this.leaseDuration = leaseDuration;
+        if (maximumAttempts < 1 || maximumAttempts > 100) {
+            throw new DomainViolation("发件箱最大尝试次数必须位于 1 到 100");
+        }
+        if (initialBackoff == null
+                || initialBackoff.isZero()
+                || initialBackoff.isNegative()) {
+            throw new DomainViolation("发件箱初始退避必须大于 0");
+        }
+        if (maximumBackoff == null
+                || maximumBackoff.compareTo(initialBackoff) < 0
+                || maximumBackoff.compareTo(Duration.ofHours(1)) > 0) {
+            throw new DomainViolation("发件箱最大退避必须不小于初始退避且不超过 1 小时");
+        }
+        if (!Double.isFinite(jitterRatio)
+                || jitterRatio < 0.0
+                || jitterRatio > 0.5) {
+            throw new DomainViolation("发件箱退避抖动比例必须位于 0 到 0.5");
+        }
+        this.maximumAttempts = maximumAttempts;
+        this.initialBackoff = initialBackoff;
+        this.maximumBackoff = maximumBackoff;
+        this.jitterRatio = jitterRatio;
     }
 
     /**
@@ -59,22 +108,56 @@ public final class ReliableMessagingService {
                 }
                 published++;
             } catch (RuntimeException error) {
-                Instant retryAt = Instant.now(clock).plus(backoff(event.attemptCount()));
-                outbox.markFailed(
-                    event.eventId(),
-                    claimOwner,
-                    retryAt,
-                    summarize(error)
-                );
+                Instant failedAt = Instant.now(clock);
+                String summary = summarize(error);
+                if (error instanceof NonRetryableMessageException
+                        || event.attemptCount() >= maximumAttempts) {
+                    outbox.markDead(
+                        event.eventId(),
+                        claimOwner,
+                        failedAt,
+                        summary
+                    );
+                } else {
+                    outbox.markFailed(
+                        event.eventId(),
+                        claimOwner,
+                        failedAt.plus(backoff(event.attemptCount())),
+                        summary
+                    );
+                }
             }
         }
         return published;
     }
 
-    static Duration backoff(int attemptCount) {
-        int exponent = Math.max(0, Math.min(attemptCount - 1, 8));
-        Duration delay = Duration.ofSeconds(1L << exponent);
-        return delay.compareTo(MAXIMUM_BACKOFF) > 0 ? MAXIMUM_BACKOFF : delay;
+    Duration backoff(int attemptCount) {
+        int exponent = Math.max(0, Math.min(attemptCount - 1, 30));
+        long multiplier = 1L << exponent;
+        Duration raw;
+        try {
+            raw = initialBackoff.multipliedBy(multiplier);
+        } catch (ArithmeticException overflow) {
+            raw = maximumBackoff;
+        }
+        Duration bounded = raw.compareTo(maximumBackoff) > 0
+            ? maximumBackoff
+            : raw;
+        if (jitterRatio == 0.0) {
+            return bounded;
+        }
+        double factor = ThreadLocalRandom.current().nextDouble(
+            1.0 - jitterRatio,
+            1.0 + jitterRatio
+        );
+        long millis = Math.max(
+            1,
+            Math.min(
+                maximumBackoff.toMillis(),
+                Math.round(bounded.toMillis() * factor)
+            )
+        );
+        return Duration.ofMillis(millis);
     }
 
     private static String summarize(RuntimeException error) {

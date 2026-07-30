@@ -1,0 +1,58 @@
+{
+  "schema_version": "1.0",
+  "container_images": {
+    "reference_requirement": "repository@sha256:digest",
+    "mutable_tags_forbidden": true,
+    "signature": {
+      "scheme": "sigstore-cosign",
+      "keyless_issuer_allowlist": [
+        "https://token.actions.githubusercontent.com"
+      ],
+      "identity_allowlist": [
+        "repository-release-workflow"
+      ],
+      "offline_public_key_reference": "secret://container-signing-trust-root"
+    },
+    "attestations_required": [
+      "slsa-provenance",
+      "spdx-sbom",
+      "vulnerability-scan"
+    ],
+    "admission_result_on_unknown_or_invalid": "HOLD"
+  },
+  "model_packages": {
+    "signature_algorithm": "ed25519",
+    "trust_root_reference": "secret://model-trust-roots",
+    "required_files": [
+      "manifest.json",
+      "model.json",
+      "weights.h5",
+      "labels.json",
+      "preprocessing.json",
+      "metrics.json",
+      "environment.lock",
+      "checksums.sha256",
+      "signature.sig"
+    ],
+    "forbidden_suffixes": [
+      ".py",
+      ".pyc",
+      ".pyd",
+      ".so",
+      ".dll",
+      ".dylib",
+      ".sh",
+      ".bat",
+      ".ps1"
+    ],
+    "runtime_network": "object-and-approved-callback-only",
+    "runtime_business_credentials": false,
+    "runtime_dependency_download": false,
+    "verification_result_on_unknown_or_invalid": "HOLD"
+  },
+  "training": {
+    "production_alias_write": false,
+    "production_deployment_execute": false,
+    "candidate_registry_write": true
+  }
+}

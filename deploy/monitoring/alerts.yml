@@ -1,0 +1,136 @@
+groups:
+  - name: tool-defect-critical
+    interval: 15s
+    rules:
+      - alert: ToolDefectProductionModelNotReady
+        expr: max(tool_defect_inference_ready{purpose="production"}) < 1
+        for: 1m
+        labels:
+          severity: critical
+          owner: algorithm
+        annotations:
+          summary: 生产模型没有就绪实例
+          runbook: 06-model-not-ready
+
+      - alert: ToolDefectDatabaseUnwritable
+        expr: min(tool_defect_database_writable) < 1
+        for: 30s
+        labels:
+          severity: critical
+          owner: infrastructure
+        annotations:
+          summary: 业务数据库不可写
+          runbook: 04-database-unwritable
+
+      - alert: ToolDefectEdgeDiskCritical
+        expr: max by (station) (tool_defect_edge_disk_usage_ratio) >= 0.95
+        for: 1m
+        labels:
+          severity: critical
+          owner: site-operations
+        annotations:
+          summary: 工控机磁盘达到暂停采集水位
+          runbook: 01-disk-full
+
+      - alert: ToolDefectHashConflict
+        expr: max(tool_defect_integrity_conflicts) > 0
+        for: 0m
+        labels:
+          severity: critical
+          owner: security
+        annotations:
+          summary: 发现对象或模型哈希冲突
+          runbook: 07-hash-conflict
+
+  - name: tool-defect-high
+    interval: 30s
+    rules:
+      - alert: ToolDefectDeadLetterPresent
+        expr: sum(tool_defect_queue_dead_letter_messages) > 0
+        for: 1m
+        labels:
+          severity: high
+          owner: infrastructure
+        annotations:
+          summary: 死信队列非空
+          runbook: 03-dead-letter
+
+      - alert: ToolDefectMonitoringBlind
+        expr: min_over_time(up{job=~"business-api|inference-service|edge-agent|telemetry"}[5m]) == 0
+        for: 2m
+        labels:
+          severity: high
+          owner: infrastructure
+        annotations:
+          summary: 关键组件监控失明
+          runbook: 02-network-outage
+
+      - alert: ToolDefectInferenceFailureBurst
+        expr: |
+          (
+            sum(rate(tool_defect_inference_requests_total{result="failure"}[10m]))
+            /
+            clamp_min(sum(rate(tool_defect_inference_requests_total[10m])), 0.001)
+          ) > 0.05
+          and
+          sum(increase(tool_defect_inference_requests_total[10m])) >= 100
+        for: 5m
+        labels:
+          severity: high
+          owner: algorithm
+        annotations:
+          summary: 推理失败率持续超过基线且样本量充足
+          runbook: 06-model-not-ready
+
+      - alert: ToolDefectReviewBacklogOverdue
+        expr: max(tool_defect_review_oldest_task_age_seconds) > tool_defect_review_sla_seconds
+        for: 5m
+        labels:
+          severity: high
+          owner: quality
+        annotations:
+          summary: 复核最老任务超过已配置时限
+          runbook: 08-review-backlog
+
+  - name: tool-defect-medium
+    interval: 1m
+    rules:
+      - alert: ToolDefectEdgeDiskHigh
+        expr: max by (station) (tool_defect_edge_disk_usage_ratio) >= 0.90
+        for: 5m
+        labels:
+          severity: medium
+          owner: site-operations
+        annotations:
+          summary: 工控机磁盘达到加速清理水位
+          runbook: 01-disk-full
+
+      - alert: ToolDefectOutboxBacklog
+        expr: max(tool_defect_outbox_oldest_event_age_seconds) > 120
+        for: 5m
+        labels:
+          severity: medium
+          owner: backend
+        annotations:
+          summary: 发件箱积压持续增长
+          runbook: 02-network-outage
+
+      - alert: ToolDefectBackupDelayed
+        expr: time() - max(tool_defect_backup_last_success_timestamp_seconds) > 86400
+        for: 15m
+        labels:
+          severity: medium
+          owner: infrastructure
+        annotations:
+          summary: 联合备份恢复点超过允许延迟
+          runbook: 09-backup-restore
+
+      - alert: ToolDefectOrphanGrowth
+        expr: increase(tool_defect_storage_orphan_objects[1h]) > 100
+        for: 10m
+        labels:
+          severity: medium
+          owner: storage
+        annotations:
+          summary: 暂存或孤儿对象异常增长
+          runbook: 05-object-storage

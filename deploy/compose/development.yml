@@ -51,8 +51,11 @@ services:
       retries: 20
 
   telemetry:
-    image: otel/opentelemetry-collector-contrib:0.132.0
+    image: otel/opentelemetry-collector-contrib:0.157.0
     command: ["--config=/etc/otelcol/config.yml"]
+    depends_on:
+      - loki
+      - tempo
     volumes:
       - ../monitoring/otel-collector.yml:/etc/otelcol/config.yml:ro
     ports:
@@ -64,6 +67,7 @@ services:
     command: ["--config.file=/etc/prometheus/prometheus.yml"]
     volumes:
       - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/alerts.yml:/etc/prometheus/rules/tool-defect.yml:ro
     ports:
       - "127.0.0.1:9090:9090"
 
@@ -77,9 +81,31 @@ services:
       - "127.0.0.1:3000:3000"
     volumes:
       - grafana-data:/var/lib/grafana
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+  loki:
+    image: grafana/loki:3.7.0
+    command: ["-config.file=/etc/loki/config.yml"]
+    volumes:
+      - ../monitoring/loki.yml:/etc/loki/config.yml:ro
+      - loki-data:/var/lib/loki
+    ports:
+      - "127.0.0.1:3100:3100"
+
+  tempo:
+    image: grafana/tempo:3.0.0
+    command: ["-config.file=/etc/tempo/config.yml"]
+    volumes:
+      - ../monitoring/tempo.yml:/etc/tempo/config.yml:ro
+      - tempo-data:/var/lib/tempo
+    ports:
+      - "127.0.0.1:3200:3200"
 
 volumes:
   postgres-data-v18:
   rabbitmq-data:
   object-data:
   grafana-data:
+  loki-data:
+  tempo-data:

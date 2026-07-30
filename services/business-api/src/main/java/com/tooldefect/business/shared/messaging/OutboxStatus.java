@@ -4,5 +4,6 @@ public enum OutboxStatus {
     NEW,
     CLAIMED,
     PUBLISHED,
-    FAILED
+    FAILED,
+    DEAD
 }

@@ -1,0 +1,41 @@
+{
+  "uid": "site-operations",
+  "title": "现场运行",
+  "schemaVersion": 41,
+  "time": {"from": "now-6h", "to": "now"},
+  "templating": {
+    "list": [
+      {"name": "environment", "type": "query", "query": "label_values(environment)"},
+      {"name": "station", "type": "query", "query": "label_values(tool_defect_edge_captures_total, station)"}
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "工位采集与失败",
+      "type": "timeseries",
+      "datasource": {"uid": "prometheus"},
+      "targets": [{"expr": "sum by (station, result) (rate(tool_defect_edge_captures_total[5m]))"}]
+    },
+    {
+      "id": 2,
+      "title": "本地队列与最老任务",
+      "type": "timeseries",
+      "datasource": {"uid": "prometheus"},
+      "targets": [
+        {"expr": "max by (station) (tool_defect_edge_queue_depth)"},
+        {"expr": "max by (station) (tool_defect_edge_oldest_task_age_seconds)"}
+      ]
+    },
+    {
+      "id": 3,
+      "title": "磁盘与设备在线",
+      "type": "timeseries",
+      "datasource": {"uid": "prometheus"},
+      "targets": [
+        {"expr": "max by (station) (tool_defect_edge_disk_usage_ratio)"},
+        {"expr": "min by (station, device_type) (tool_defect_edge_device_online)"}
+      ]
+    }
+  ]
+}

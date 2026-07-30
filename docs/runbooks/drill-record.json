@@ -1,0 +1,30 @@
+{
+  "schema_version": "tool-defect-runbook-drill/v1",
+  "drill_id": "p5-isolated-machine-executor-20260730",
+  "executed_at": "2026-07-30T08:00:00+00:00",
+  "environment": "ISOLATED_TEST",
+  "executor": "deterministic-runbook-validator",
+  "author_is_executor": false,
+  "scenarios": [
+    "bounded-retry-exhaustion",
+    "network-backlog-recovery",
+    "joint-recovery-and-rehash",
+    "tampered-recovery-point",
+    "nonempty-restore-target",
+    "six-required-alerts-trigger-and-recover"
+  ],
+  "duration_seconds": 1,
+  "status": "PASSED_WITH_LIMITATIONS",
+  "omissions": [
+    "未使用真实生产数据库、对象存储、设备或生产模型",
+    "未替代 P7 由未参与开发人员完成的现场应急演练"
+  ],
+  "revisions": [
+    "恢复手册明确要求空隔离目录和恢复后重新计算摘要",
+    "死信手册明确禁止不可恢复错误自动回灌"
+  ],
+  "evidence_commands": [
+    "make test-faults",
+    "make verify-runbooks"
+  ]
+}

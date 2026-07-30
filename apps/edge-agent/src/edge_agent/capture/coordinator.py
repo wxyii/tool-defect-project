@@ -14,6 +14,7 @@ from ..adapters.ports import (
     TriggerEvent,
 )
 from ..health.disk_watermark import DiskWatermarkController
+from ..telemetry import MetricRegistry
 from .models import CapturedFrame, PersistedCapture
 from .storage import AtomicCaptureStore, CaptureStorageError
 
@@ -97,6 +98,7 @@ class CaptureCoordinator:
         capture_id_factory: Callable[[], str] = lambda: str(uuid4()),
         camera_busy_retries: int = 1,
         disk_watermark: DiskWatermarkController | None = None,
+        metrics: MetricRegistry | None = None,
     ) -> None:
         if camera_busy_retries < 0:
             raise ValueError("相机繁忙重试次数不能为负数")
@@ -108,6 +110,7 @@ class CaptureCoordinator:
         self.capture_id_factory = capture_id_factory
         self.camera_busy_retries = camera_busy_retries
         self.disk_watermark = disk_watermark
+        self.metrics = metrics
 
     def recover_incomplete_triggers(
         self,
@@ -384,3 +387,11 @@ class CaptureCoordinator:
             warnings=outcome.warnings,
             error_code=outcome.error_code,
         )
+        if self.metrics is not None:
+            self.metrics.increment(
+                "tool_defect_edge_captures_total",
+                labels={
+                    "station": self.station_id,
+                    "result": outcome.status.lower(),
+                },
+            )

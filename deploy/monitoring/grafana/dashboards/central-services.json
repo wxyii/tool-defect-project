@@ -1,0 +1,44 @@
+{
+  "uid": "central-services",
+  "title": "中心服务",
+  "schemaVersion": 41,
+  "time": {"from": "now-6h", "to": "now"},
+  "templating": {
+    "list": [
+      {"name": "environment", "type": "query", "query": "label_values(environment)"}
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "API 请求与延迟",
+      "type": "timeseries",
+      "datasource": {"uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (result) (rate(tool_defect_http_requests_total[5m]))"},
+        {"expr": "histogram_quantile(0.95, sum by (le) (rate(tool_defect_http_server_duration_seconds_bucket[5m])))"}
+      ]
+    },
+    {
+      "id": 2,
+      "title": "数据库与发件箱",
+      "type": "timeseries",
+      "datasource": {"uid": "prometheus"},
+      "targets": [
+        {"expr": "min(tool_defect_database_writable)"},
+        {"expr": "max(tool_defect_outbox_oldest_event_age_seconds)"}
+      ]
+    },
+    {
+      "id": 3,
+      "title": "队列、死信与对象存储",
+      "type": "timeseries",
+      "datasource": {"uid": "prometheus"},
+      "targets": [
+        {"expr": "sum(tool_defect_queue_ready_messages)"},
+        {"expr": "sum(tool_defect_queue_dead_letter_messages)"},
+        {"expr": "sum(tool_defect_storage_orphan_objects)"}
+      ]
+    }
+  ]
+}
