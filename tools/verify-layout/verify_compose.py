@@ -35,6 +35,12 @@ def main() -> int:
     missing = required_secrets - injected
     if missing:
         errors.append(f"密钥未使用必填环境注入：{sorted(missing)}")
+    if "image: postgres:18.4-bookworm" not in text:
+        errors.append("PostgreSQL 开发镜像未锁定为 18.4-bookworm")
+    if "postgres-data-v18:/var/lib/postgresql" not in text:
+        errors.append("PostgreSQL 18 数据卷未挂载到 /var/lib/postgresql")
+    if "postgres-data:/var/lib/postgresql/data" in text:
+        errors.append("PostgreSQL 18 不得沿用 17 及以下的数据卷挂载路径")
     if re.search(r"(?im)^\s*(?:password|secret|token):\s*[A-Za-z0-9]", text):
         errors.append("Compose 包含明文密钥")
     if errors:

@@ -25,6 +25,19 @@
       }
     ]
   },
+  "errors.upload_ticket_expired": {
+    "code": "TD-STORAGE-EXPIRED-001",
+    "message": "上传授权已过期，必须重新申请并重传",
+    "request_id": "019f0000-0000-7000-8000-000000000904",
+    "trace_id": "0123456789abcdef0123456789abcdef",
+    "retryable": true,
+    "details": [
+      {
+        "field": "upload_receipt",
+        "reason": "UPLOAD_TICKET_EXPIRED"
+      }
+    ]
+  },
   "errors.validation": {
     "code": "TD-API-VALIDATION-001",
     "message": "请求字段或状态不合法",

@@ -7,7 +7,13 @@ name = "tool-defect-edge-agent"
 version = "0.1.0"
 description = "刀具缺陷采集端、离线队列与中心同步基础"
 requires-python = "==3.11.*"
-dependencies = []
+dependencies = [
+    "Pillow==12.3.0",
+    "tool-defect-contracts==1.0.0",
+]
+
+[tool.uv.sources]
+tool-defect-contracts = { path = "../../packages/python-contracts", editable = true }
 
 [tool.setuptools]
 package-dir = {"" = "src"}

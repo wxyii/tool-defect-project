@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 import re
 import shutil
 import subprocess
@@ -29,9 +31,102 @@ def run_version(command: list[str]) -> tuple[bool, str]:
     return result.returncode == 0, first[0] if first else "无法读取版本"
 
 
+def run_matching_version(
+    command: list[str],
+    expected_line_fragment: str,
+    environment_overrides: dict[str, str] | None = None,
+) -> tuple[bool, str]:
+    executable = shutil.which(command[0])
+    if executable is None:
+        return False, "未安装"
+    environment = os.environ.copy()
+    if environment_overrides:
+        environment.update(environment_overrides)
+    result = subprocess.run(
+        command,
+        cwd=ROOT,
+        env=environment,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    lines = result.stdout.strip().splitlines()
+    matched = next(
+        (
+            line
+            for line in lines
+            if line == expected_line_fragment
+            or line.startswith(f"{expected_line_fragment} ")
+        ),
+        None,
+    )
+    display = matched or (lines[0] if lines else "无法读取版本")
+    return result.returncode == 0 and matched is not None, display
+
+
 def major(text: str) -> int | None:
     match = re.search(r"(?<!\d)(\d+)(?:\.\d+)+", text)
     return int(match.group(1)) if match else None
+
+
+def executable_candidates(name: str) -> list[Path]:
+    candidates: list[Path] = []
+    resolved = shutil.which(name)
+    if resolved:
+        candidates.append(Path(resolved))
+    for directory in os.environ.get("PATH", "").split(os.pathsep):
+        if directory:
+            candidate = Path(directory) / name
+            if candidate.is_file() and os.access(candidate, os.X_OK):
+                candidates.append(candidate)
+    return list(dict.fromkeys(path.resolve() for path in candidates))
+
+
+def node_with_version(expected: str) -> tuple[Path | None, str]:
+    configured = os.environ.get("TOOL_DEFECT_NODE")
+    candidates = [Path(configured)] if configured else []
+    candidates.extend(executable_candidates("node"))
+    for candidate in candidates:
+        ok, version = run_version([str(candidate), "--version"])
+        if ok and version.lstrip("v") == expected:
+            return candidate, version
+    return None, f"未找到精确版本 {expected}"
+
+
+def pnpm_with_version(
+    node: Path,
+    expected: str,
+) -> tuple[list[str] | None, str]:
+    configured = os.environ.get("TOOL_DEFECT_PNPM")
+    candidates = [Path(configured)] if configured else []
+    candidates.extend(executable_candidates("pnpm"))
+    npm_cache = Path.home() / ".npm/_npx"
+    if npm_cache.is_dir():
+        for package in npm_cache.glob("*/node_modules/pnpm/package.json"):
+            try:
+                metadata = json.loads(package.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if metadata.get("version") == expected:
+                candidates.extend(
+                    (
+                        package.parent / "bin/pnpm.cjs",
+                        package.parent / "bin/pnpm.mjs",
+                    )
+                )
+    for candidate in candidates:
+        if not candidate.is_file():
+            continue
+        command = (
+            [str(node), str(candidate)]
+            if candidate.suffix in {".cjs", ".mjs", ".js"}
+            else [str(candidate)]
+        )
+        ok, version = run_version([*command, "--version"])
+        if ok and version == expected:
+            return command, version
+    return None, f"未找到精确版本 {expected}"
 
 
 def main() -> int:
@@ -59,8 +154,26 @@ def main() -> int:
         checks.append((label, ok and (required_major is None or major(version) == required_major), version))
 
     if profile == "strict":
+        maven_wrapper = ROOT / "services/business-api/mvnw"
+        ok, version = run_matching_version(
+            [str(maven_wrapper), "--version"],
+            "Apache Maven 3.9.15",
+            {
+                "MAVEN_USER_HOME": os.environ.get(
+                    "MAVEN_USER_HOME",
+                    str(ROOT / ".build/maven-user-home"),
+                ),
+            },
+        )
+        checks.append(
+            (
+                "Maven Wrapper 3.9.15",
+                ok,
+                version,
+            )
+        )
+
         for label, command, minimum_major in (
-            ("Maven", ["mvn", "--version"], 3),
             ("npm", ["npm", "--version"], 10),
             ("Docker", ["docker", "--version"], 24),
             ("Docker Compose", ["docker", "compose", "version"], 2),
@@ -74,10 +187,19 @@ def main() -> int:
                     version,
                 )
             )
-        ok, version = run_version(["node", "--version"])
-        checks.append(("Node.js 20.13.1", ok and version.lstrip("v") == "20.13.1", version))
-        ok, version = run_version(["pnpm", "--version"])
-        checks.append(("pnpm 10.34.5", ok and version == "10.34.5", version))
+        web_package = json.loads(
+            (ROOT / "apps/web-console/package.json").read_text(encoding="utf-8")
+        )
+        expected_node = str(web_package["engines"]["node"])
+        node, version = node_with_version(expected_node)
+        checks.append((f"Node.js {expected_node}", node is not None, version))
+
+        expected_pnpm = str(web_package["packageManager"]).removeprefix("pnpm@")
+        if node is None:
+            pnpm_command, version = None, "缺少匹配的 Node.js"
+        else:
+            pnpm_command, version = pnpm_with_version(node, expected_pnpm)
+        checks.append((f"pnpm {expected_pnpm}", pnpm_command is not None, version))
 
         tsc = ROOT / "packages/typescript-contracts/node_modules/.bin/tsc"
         if tsc.exists():

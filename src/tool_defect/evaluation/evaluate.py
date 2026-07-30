@@ -109,6 +109,7 @@ def evaluate(
     split="validation",
     output_dir=None,
     full_metrics=False,
+    manifest_path=None,
 ):
     if task not in {"classification", "multitask"}:
         raise ValueError("task must be 'classification' or 'multitask'")
@@ -120,10 +121,15 @@ def evaluate(
     )
     model = load_saved_model(model_dir or config.path(model_key))
     image_size = int(model.input_shape[1])
+    evaluation_manifest = (
+        Path(manifest_path)
+        if manifest_path is not None
+        else config.path("manifest")
+    )
 
     if task == "classification":
         images, labels, rows = load_dataset(
-            config.path("manifest"),
+            evaluation_manifest,
             config.path("data"),
             split,
             image_size=image_size,
@@ -136,7 +142,7 @@ def evaluate(
         masks = None
     else:
         images, labels, masks, rows = load_dataset(
-            config.path("manifest"),
+            evaluation_manifest,
             config.path("data"),
             split,
             image_size=image_size,

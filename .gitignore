@@ -73,6 +73,8 @@ build/sbom/
 secrets/
 
 # Model weights and runtime packages never belong in Git.
+training/
+jobs/model-evaluator/controlled-output/
 *.h5
 *.hdf5
 *.keras

@@ -1,25 +1,72 @@
 // 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。
-// 契约主版本: 1；源哈希: 186ea774bef9ecad130bacc65e1e35cc88ed59f479bd8ce14ecf19a84b300795
-export const CONTRACT_SOURCE_SHA256 = "186ea774bef9ecad130bacc65e1e35cc88ed59f479bd8ce14ecf19a84b300795" as const;
+// 契约主版本: 1；源哈希: 6fc5d9465464faf374bfa54d8f20849623f912a6c3d88fdbe92ca47fba49e361
+export const CONTRACT_SOURCE_SHA256 = "6fc5d9465464faf374bfa54d8f20849623f912a6c3d88fdbe92ca47fba49e361" as const;
 export const CONTRACT_MAJOR_VERSION = 1 as const;
 
+export type JsonObject = Readonly<Record<string, unknown>>;
+export type Uuid = `${string}-${string}-${string}-${string}-${string}`;
 export type AlgorithmOutcome = "QUALIFIED" | "UNQUALIFIED" | "INCONCLUSIVE";
 export type AttemptStatus = "RUNNING" | "SUCCEEDED" | "FAILED";
 export type BusinessDisposition = "PASS" | "FAIL" | "HOLD";
 export type CaptureStatus = "CREATED" | "UPLOADING" | "READY" | "SUBMITTED" | "PROCESSING" | "REVIEW_PENDING" | "FINALIZED" | "FAILED";
+export type ErrorDetail = Readonly<{ readonly "field": string; readonly "reason": string; }>;
 export type ExecutionStatus = "QUEUED" | "RUNNING" | "SUCCEEDED" | "RETRY_WAIT" | "DEAD";
 export type ImageKind = "RAW" | "THUMBNAIL" | "DEFECT_MASK" | "HEATMAP" | "OVERLAY" | "POLAR" | "REVIEW_MASK";
+export type ImageReference = Readonly<{ readonly "height": number; readonly "image_id": Uuid; readonly "image_role"?: string; readonly "kind": ImageKind; readonly "object": ObjectReference; readonly "width": number; }>;
 export type LocalQueueStatus = "PENDING" | "UPLOADING" | "UPLOADED" | "SUBMITTED" | "WAIT_RESULT" | "DONE" | "RETRY_WAIT" | "LOCAL_DEAD";
 export type ModelStatus = "DRAFT" | "VALIDATING" | "APPROVED" | "SHADOW" | "CANARY" | "PRODUCTION" | "REJECTED" | "QUARANTINED" | "RETIRED";
+export type ObjectReference = Readonly<{ readonly "bucket": string; readonly "media_type": "image/png" | "image/jpeg" | "application/json" | "application/octet-stream"; readonly "object_key": string; readonly "object_version"?: string | null; readonly "sha256": Sha256; readonly "size_bytes": number; }>;
 export type ObjectState = "STAGING" | "AVAILABLE" | "QUARANTINED" | "DELETED";
 export type PreprocessQualityStatus = "OK" | "WARNING" | "REJECTED";
 export type ReviewStatus = "PENDING" | "CLAIMED" | "SECOND_REVIEW_PENDING" | "ESCALATED" | "RESOLVED" | "CANCELLED";
-
-export interface ObjectReference {
-  readonly bucket: string;
-  readonly object_key: string;
-  readonly sha256: string;
-  readonly size_bytes: number;
-  readonly media_type: string;
-  readonly object_version?: string | null;
-}
+export type Sha256 = string;
+export type Traceparent = `00-${string}-${string}-${string}`;
+export type UtcTimestamp = `${string}Z`;
+export type Version = string;
+export type Acknowledgement = Readonly<{ readonly "accepted": boolean; readonly "request_id": Uuid; }>;
+export type ActionRequest = Readonly<{ readonly "client_request_id": Uuid; readonly "reason"?: string; }>;
+export type AnnotationUploadTicketRequest = Readonly<{ readonly "height": number; readonly "media_type": "image/png"; readonly "sha256": Sha256; readonly "size_bytes": number; readonly "width": number; }>;
+export type ApprovalRequest = Readonly<{ readonly "decision": "APPROVE" | "REJECT"; readonly "reason": string; readonly "role": "QUALITY_APPROVER" | "MODEL_RELEASE_APPROVER"; }>;
+export type AsyncAccepted = Readonly<{ readonly "job_id": Uuid; readonly "poll_after_ms": number; readonly "status": "QUEUED"; }>;
+export type AttemptStartRequest = Readonly<{ readonly "message_id": Uuid; readonly "model_sha256": Sha256; readonly "runtime_version": Version; readonly "worker_id": string; }>;
+export type AttemptStartResponse = Readonly<{ readonly "attempt_id": Uuid; readonly "attempt_no": number; readonly "status": "RUNNING"; }>;
+export type CaptureCreateRequest = Readonly<{ readonly "capture_id": Uuid; readonly "images": ReadonlyArray<ClientImage>; readonly "quality": QualitySummary; readonly "recipe_id": Uuid; readonly "station_id": Uuid; readonly "trigger": Trigger; }>;
+export type CaptureCreateResponse = Readonly<{ readonly "capture_id": Uuid; readonly "images": ReadonlyArray<UploadTicketResponse>; readonly "status": "UPLOADING"; }>;
+export type CaptureStatusResponse = Readonly<{ readonly "business_disposition": (BusinessDisposition) | (null); readonly "capture_id": Uuid; readonly "capture_status": CaptureStatus; readonly "detection"?: DetectionSummary; readonly "poll_after_ms": number; readonly "review"?: ReviewSummary; }>;
+export type CaptureSyncQueryRequest = Readonly<{ readonly "capture_ids": ReadonlyArray<Uuid>; }>;
+export type CaptureSyncQueryResponse = Readonly<{ readonly "items": ReadonlyArray<CaptureStatusResponse>; }>;
+export type ClientImage = Readonly<{ readonly "client_image_id": string; readonly "file_name": string; readonly "height": number; readonly "image_role": string; readonly "media_type": "image/png" | "image/jpeg"; readonly "sha256": Sha256; readonly "size_bytes": number; readonly "width": number; }>;
+export type DatasetVersionCreateRequest = Readonly<{ readonly "candidate_manifest_id": Uuid; readonly "dataset_id": Uuid; readonly "purpose": string; }>;
+export type DetectionDetail = Readonly<{ readonly "attempts": ReadonlyArray<JsonObject>; readonly "capture": CaptureStatusResponse; readonly "detection": DetectionSummary; readonly "disposition_history": ReadonlyArray<JsonObject>; readonly "images": ReadonlyArray<ImageReference>; readonly "versions": JsonObject; }>;
+export type DetectionFailureRequest = Readonly<{ readonly "error_code": string; readonly "message": string; readonly "occurred_at": UtcTimestamp; readonly "retryable": boolean; readonly "stage": "DOWNLOAD" | "DECODE" | "PREPROCESS" | "MODEL_LOAD" | "INFERENCE" | "POSTPROCESS" | "UPLOAD" | "CALLBACK"; }>;
+export type DetectionPage = Readonly<{ readonly "has_more": boolean; readonly "items": ReadonlyArray<DetectionSummary>; readonly "next_cursor": string | null; }>;
+export type DetectionSummary = Readonly<{ readonly "algorithm_outcome"?: (AlgorithmOutcome) | (null); readonly "confidence"?: number | null; readonly "detection_task_id": Uuid; readonly "model_version"?: string | null; readonly "task_status": ExecutionStatus; }>;
+export type HeartbeatRequest = Readonly<{ readonly "agent_version": Version; readonly "camera_status": "ONLINE" | "OFFLINE" | "DEGRADED"; readonly "clock_offset_ms": number; readonly "disk_usage_ratio": number; readonly "oldest_task_age_seconds": number; readonly "plc_status": "ONLINE" | "OFFLINE" | "DEGRADED"; readonly "queue_depth": number; readonly "reported_at": UtcTimestamp; }>;
+export type ImageAccessTicketRequest = Readonly<{ readonly "purpose": "VIEW" | "DOWNLOAD"; }>;
+export type ImageAccessTicketResponse = Readonly<{ readonly "expires_at": UtcTimestamp; readonly "method": "GET"; readonly "url": string; }>;
+export type ModelDeploymentCreateRequest = Readonly<{ readonly "environment": "SHADOW" | "CANARY" | "PRODUCTION"; readonly "model_version_id": Uuid; readonly "rollback_model_version_id": Uuid; readonly "station_ids": ReadonlyArray<Uuid>; readonly "strategy": "STATION" | "PERCENTAGE"; readonly "traffic_ratio": number; }>;
+export type ObjectCompleteRequest = Readonly<{ readonly "sha256": Sha256; readonly "size_bytes": number; readonly "upload_receipt": string; }>;
+export type ObjectCompleteResponse = Readonly<{ readonly "image_id": Uuid; readonly "sha256": Sha256; readonly "state": "AVAILABLE"; }>;
+export type QualitySummary = Readonly<{ readonly "status": PreprocessQualityStatus; readonly "warnings": ReadonlyArray<string>; }>;
+export type ReadinessResponse = Readonly<{ readonly "ready": true; readonly "runtime_version": Version; }>;
+export type ReasonRequest = Readonly<{ readonly "reason": string; }>;
+export type ResultAcceptedResponse = Readonly<{ readonly "accepted": true; readonly "result_sha256": Sha256; }>;
+export type ReviewSubmissionRequest = Readonly<{ readonly "annotation_image_id": (Uuid) | (null); readonly "client_submitted_at": UtcTimestamp; readonly "comment": string; readonly "decision": BusinessDisposition; readonly "defect_type_codes": ReadonlyArray<string>; readonly "reason_code": string; }>;
+export type ReviewSubmissionResponse = Readonly<{ readonly "business_disposition": BusinessDisposition; readonly "record_version": number; readonly "review_record_id": Uuid; readonly "task_status": ReviewStatus; }>;
+export type ReviewSummary = Readonly<{ readonly "status": ReviewStatus; }>;
+export type ReviewTask = Readonly<{ readonly "capture_id": Uuid; readonly "lease_expires_at"?: (UtcTimestamp) | (null); readonly "priority": "P0" | "P1" | "P2" | "P3"; readonly "record_version": number; readonly "review_task_id": Uuid; readonly "status": ReviewStatus; }>;
+export type ReviewTaskPage = Readonly<{ readonly "has_more": boolean; readonly "items": ReadonlyArray<ReviewTask>; readonly "next_cursor": string | null; }>;
+export type RollbackRequest = Readonly<{ readonly "reason": string; readonly "target_model_version_id": Uuid; }>;
+export type RuntimeModelsResponse = Readonly<{ readonly "models": ReadonlyArray<Readonly<{ readonly "model_version": Version; readonly "ready": boolean; readonly "sha256": Sha256; }>>; }>;
+export type SubmitCaptureRequest = Readonly<{ readonly "requested_at": UtcTimestamp; }>;
+export type SubmitCaptureResponse = Readonly<{ readonly "capture_id": Uuid; readonly "detection_task_id": Uuid; readonly "pipeline_version": Version; readonly "poll_after_ms": number; readonly "status": "SUBMITTED"; }>;
+export type TrainingRunCreateRequest = Readonly<{ readonly "dataset_version_id": Uuid; readonly "initial_model_version_id": (Uuid) | (null); readonly "training_config_version": Version; }>;
+export type Trigger = Readonly<{ readonly "client_sequence": number; readonly "occurred_at": UtcTimestamp; readonly "source": "PLC" | "SENSOR" | "MANUAL" | "HISTORICAL_IMPORT"; readonly "trigger_id": string; }>;
+export type UploadTicketRenewRequest = Readonly<{ readonly "sha256": Sha256; readonly "size_bytes": number; }>;
+export type UploadTicketResponse = Readonly<{ readonly "image_id": Uuid; readonly "upload": Readonly<{ readonly "expires_at": UtcTimestamp; readonly "headers": JsonObject; readonly "method": "PUT"; readonly "url": string; }>; }>;
+export type ValidationDecisionRequest = Readonly<{ readonly "decision": "APPROVE" | "REJECT"; readonly "evaluation_report_sha256": Sha256; readonly "reason": string; }>;
+export type VersionedResource = Readonly<{ readonly "created_at": UtcTimestamp; readonly "id": Uuid; readonly "status": string; readonly "version": Version; }>;
+export type DetectionResultDefectRegion = Readonly<{ readonly "attributes": Readonly<Record<string, string | number | boolean | null>>; readonly "coordinate_space": "ORIGINAL" | "MODEL" | "POLAR"; readonly "geometry": (Readonly<{ readonly "image_id": Uuid; }>) | (Readonly<{ readonly "points": ReadonlyArray<ReadonlyArray<number>>; }>) | (Readonly<{ readonly "height": number; readonly "width": number; readonly "x": number; readonly "y": number; }>) | (Readonly<{ readonly "angle_end_degrees": number; readonly "angle_start_degrees": number; readonly "radial_end": number; readonly "radial_start": number; }>); readonly "geometry_type": "MASK_REF" | "POLYGON" | "BBOX" | "POLAR_INTERVAL"; readonly "region_id": number; readonly "scores": Readonly<Record<string, number>>; }>;
+export type DetectionResultDerivedArtifact = Readonly<{ readonly "image_id": Uuid; readonly "kind": ImageKind; readonly "object": ObjectReference; }>;
+export type DetectionResult = Readonly<{ readonly "algorithm": Readonly<{ readonly "model_sha256": Sha256; readonly "model_version": Version; readonly "plugin_id": Version; readonly "plugin_version": Version; }>; readonly "algorithm_outcome": AlgorithmOutcome; readonly "artifacts": ReadonlyArray<DetectionResultDerivedArtifact>; readonly "attempt_id": Uuid; readonly "capture_id": Uuid; readonly "class_probabilities": Readonly<{ readonly "qualified": number; readonly "unqualified": number; }>; readonly "confidence": number | null; readonly "detection_task_id": Uuid; readonly "execution_status": "SUCCEEDED"; readonly "preprocess": Readonly<{ readonly "config_sha256": Sha256; readonly "plugin_id": Version; readonly "plugin_version": Version; readonly "quality_status": PreprocessQualityStatus; readonly "warnings": ReadonlyArray<string>; }>; readonly "regions": ReadonlyArray<DetectionResultDefectRegion>; readonly "schema_version": "1.0"; readonly "timings_ms": Readonly<{ readonly "decode": number; readonly "download": number; readonly "inference": number; readonly "postprocess": number; readonly "preprocess": number; readonly "upload": number; }>; readonly "warnings": ReadonlyArray<string>; }>;
+export type StandardError = Readonly<{ readonly "code": string; readonly "details": ReadonlyArray<ErrorDetail>; readonly "message": string; readonly "request_id": Uuid; readonly "retryable": boolean; readonly "trace_id": string; }>;

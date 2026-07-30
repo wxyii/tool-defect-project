@@ -40,7 +40,8 @@
               "method": "PUT",
               "url": "https://storage.example.invalid/upload/opaque",
               "headers": {
-                "Content-Type": "image/png"
+                "Content-Type": "image/png",
+                "X-Tool-Defect-Upload-Receipt": "control-receipt-opaque"
               },
               "expires_at": "2026-07-28T10:35:00.000Z"
             }
@@ -60,12 +61,38 @@
       "success_request": {
         "size_bytes": 24581234,
         "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "upload_receipt": "etag-opaque"
+        "upload_receipt": "control-receipt-opaque"
       },
       "success_response": {
         "image_id": "019f0000-0000-7000-8000-000000000104",
         "state": "AVAILABLE",
         "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "cases": {
+        "success": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.upload_ticket_expired"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "renewCaptureImageUploadTicket",
+      "success_request": {
+        "size_bytes": 24581234,
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "success_response": {
+        "image_id": "019f0000-0000-7000-8000-000000000104",
+        "upload": {
+          "method": "PUT",
+          "url": "https://storage.example.invalid/upload/renewed-opaque",
+          "headers": {
+            "Content-Type": "image/png",
+            "X-Tool-Defect-Upload-Receipt": "renewed-control-receipt-opaque"
+          },
+          "expires_at": "2026-07-28T10:40:00.000Z"
+        }
       },
       "cases": {
         "success": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},

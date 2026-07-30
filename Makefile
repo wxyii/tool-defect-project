@@ -83,6 +83,7 @@ verify-p1-strict: check-environment verify-layout verify-contracts verify-compos
 	MINIO_ROOT_PASSWORD=ci-only GRAFANA_ADMIN_USER=ci-only GRAFANA_ADMIN_PASSWORD=ci-only \
 	docker compose -f deploy/compose/development.yml config --quiet
 
-verify-all: check-environment verify-layout verify-contracts test-core test-edge \
-	test-inference test-backend test-web test-integration test-e2e test-faults \
-	test-security test-performance verify-data verify-models verify-compose verify-sbom
+# 当前建设阶段为 P2。P3 以后的统一入口保留显式失败能力，但在对应任务
+# 落地前不得提前并入“当前阶段全部必需验证”。
+verify-all: verify-p1-strict verify-data test-core test-edge test-inference \
+	test-backend test-web verify-models

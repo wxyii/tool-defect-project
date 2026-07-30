@@ -8,6 +8,7 @@
       "http_operations": [
         "createCapture",
         "completeCaptureImage",
+        "renewCaptureImageUploadTicket",
         "submitCapture",
         "getEdgeCapture",
         "queryCaptureSync",
@@ -21,6 +22,7 @@
       "generated_package": "local.tooldefect:java-contracts",
       "http_operations": [
         "createCapture",
+        "renewCaptureImageUploadTicket",
         "submitReview",
         "createDatasetVersion",
         "createTrainingRun",

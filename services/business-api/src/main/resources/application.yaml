@@ -1,0 +1,74 @@
+spring:
+  application:
+    name: tool-defect-business-api
+  datasource:
+    url: ${TD_DATABASE_URL:}
+    username: ${TD_DATABASE_USERNAME:}
+    password: ${TD_DATABASE_PASSWORD:}
+    hikari:
+      maximum-pool-size: ${TD_DATABASE_POOL_SIZE:10}
+      connection-timeout: ${TD_DATABASE_CONNECTION_TIMEOUT_MS:5000}
+  flyway:
+    enabled: true
+    validate-migration-naming: true
+    clean-disabled: true
+  rabbitmq:
+    addresses: ${TD_RABBITMQ_ADDRESSES:}
+    username: ${TD_RABBITMQ_USERNAME:}
+    password: ${TD_RABBITMQ_PASSWORD:}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    ssl:
+      enabled: ${TD_RABBITMQ_SSL_ENABLED:true}
+    template:
+      mandatory: true
+    listener:
+      simple:
+        acknowledge-mode: manual
+        default-requeue-rejected: false
+
+management:
+  server:
+    port: ${TD_MANAGEMENT_PORT:9091}
+    address: ${TD_MANAGEMENT_ADDRESS:127.0.0.1}
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+  health:
+    rabbit:
+      enabled: ${td.messaging.enabled:false}
+
+td:
+  messaging:
+    enabled: ${TD_MESSAGING_ENABLED:false}
+    publisher:
+      batch-size: ${TD_OUTBOX_BATCH_SIZE:100}
+      claim-lease: ${TD_OUTBOX_CLAIM_LEASE:PT30S}
+      confirm-timeout: ${TD_RABBIT_CONFIRM_TIMEOUT:PT10S}
+      fixed-delay: ${TD_OUTBOX_FIXED_DELAY:1000}
+    consumer:
+      enabled: ${TD_INBOX_CONSUMER_ENABLED:false}
+      queue: ${TD_INBOX_CONSUMER_QUEUE:}
+      name: ${TD_INBOX_CONSUMER_NAME:business-api}
+      claim-lease: ${TD_INBOX_CLAIM_LEASE:PT30S}
+  storage:
+    enabled: ${TD_STORAGE_ENABLED:false}
+    endpoint: ${TD_S3_ENDPOINT:}
+    public-endpoint: ${TD_S3_PUBLIC_ENDPOINT:}
+    region: ${TD_S3_REGION:us-east-1}
+    access-key: ${TD_S3_ACCESS_KEY:}
+    secret-key: ${TD_S3_SECRET_KEY:}
+    path-style-access: ${TD_S3_PATH_STYLE:true}
+    require-tls: ${TD_S3_REQUIRE_TLS:true}
+    raw-bucket: ${TD_S3_RAW_BUCKET:td-raw}
+    upload-ttl: ${TD_S3_UPLOAD_TTL:PT5M}
+    read-ttl: ${TD_S3_READ_TTL:PT5M}
+    maximum-pixels: ${TD_IMAGE_MAX_PIXELS:100000000}
+    maximum-decoded-bytes: ${TD_IMAGE_MAX_DECODED_BYTES:400000000}
+    maximum-object-bytes: ${TD_IMAGE_MAX_OBJECT_BYTES:1073741824}

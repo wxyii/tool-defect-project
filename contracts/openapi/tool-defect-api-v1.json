@@ -163,6 +163,71 @@
         "x-write-example-operation": "completeCaptureImage"
       }
     },
+    "/api/v1/edge/captures/{capture_id}/images/{image_id}/upload-ticket": {
+      "post": {
+        "operationId": "renewCaptureImageUploadTicket",
+        "tags": [
+          "edge"
+        ],
+        "security": [
+          {
+            "EdgeDeviceMtls": [],
+            "EdgeOAuth": [
+              "capture:write"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CaptureId"
+          },
+          {
+            "$ref": "#/components/parameters/ImageId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadTicketRenewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "为同一暂存对象签发新的短时上传票据",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadTicketResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "renewCaptureImageUploadTicket"
+      }
+    },
     "/api/v1/edge/captures/{capture_id}/submit": {
       "post": {
         "operationId": "submitCapture",
@@ -2112,6 +2177,23 @@
           },
           "state": {
             "const": "AVAILABLE"
+          },
+          "sha256": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Sha256"
+          }
+        }
+      },
+      "UploadTicketRenewRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "size_bytes",
+          "sha256"
+        ],
+        "properties": {
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1
           },
           "sha256": {
             "$ref": "../json-schema/common-v1.schema.json#/$defs/Sha256"

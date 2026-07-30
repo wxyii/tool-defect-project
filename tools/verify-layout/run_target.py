@@ -14,10 +14,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def run(command: list[str], cwd: Path = ROOT) -> int:
+def run(
+    command: list[str],
+    cwd: Path = ROOT,
+    environment_overrides: dict[str, str] | None = None,
+) -> int:
     print("+", " ".join(command))
     environment = os.environ.copy()
     environment["PYTHONDONTWRITEBYTECODE"] = "1"
+    if environment_overrides:
+        environment.update(environment_overrides)
     return subprocess.run(command, cwd=cwd, env=environment, check=False).returncode
 
 
@@ -39,6 +45,74 @@ def unittest_directory(path: Path) -> int:
     return run([python_for(path.parent), "-m", "unittest", "discover", "-s", str(path)])
 
 
+def executable_candidates(name: str) -> list[Path]:
+    candidates: list[Path] = []
+    resolved = shutil.which(name)
+    if resolved:
+        candidates.append(Path(resolved))
+    for directory in os.environ.get("PATH", "").split(os.pathsep):
+        if directory:
+            candidate = Path(directory) / name
+            if candidate.is_file() and os.access(candidate, os.X_OK):
+                candidates.append(candidate)
+    return list(dict.fromkeys(path.resolve() for path in candidates))
+
+
+def node_with_version(expected: str) -> Path | None:
+    configured = os.environ.get("TOOL_DEFECT_NODE")
+    candidates = [Path(configured)] if configured else []
+    candidates.extend(executable_candidates("node"))
+    for candidate in candidates:
+        result = subprocess.run(
+            [str(candidate), "--version"],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
+        if result.returncode == 0 and result.stdout.strip().lstrip("v") == expected:
+            return candidate
+    return None
+
+
+def pnpm_with_version(node: Path, expected: str) -> list[str] | None:
+    configured = os.environ.get("TOOL_DEFECT_PNPM")
+    candidates: list[Path] = [Path(configured)] if configured else []
+    candidates.extend(executable_candidates("pnpm"))
+    npm_cache = Path.home() / ".npm/_npx"
+    if npm_cache.is_dir():
+        for package in npm_cache.glob("*/node_modules/pnpm/package.json"):
+            try:
+                metadata = json.loads(package.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if metadata.get("version") == expected:
+                candidates.extend(
+                    (
+                        package.parent / "bin/pnpm.cjs",
+                        package.parent / "bin/pnpm.mjs",
+                    )
+                )
+    for candidate in candidates:
+        if not candidate.is_file():
+            continue
+        command = (
+            [str(node), str(candidate)]
+            if candidate.suffix in {".cjs", ".mjs", ".js"}
+            else [str(candidate)]
+        )
+        result = subprocess.run(
+            [*command, "--version"],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
+        if result.returncode == 0 and result.stdout.strip() == expected:
+            return command
+    return None
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print("用法：run_target.py TARGET", file=sys.stderr)
@@ -55,10 +129,35 @@ def main() -> int:
     if target == "test-inference":
         return unittest_directory(ROOT / "services/inference-service/tests")
     if target == "test-backend":
-        if shutil.which("mvn") is None:
-            print("统一入口失败：Maven 未安装。", file=sys.stderr)
+        wrapper = ROOT / "services/business-api/mvnw"
+        if not wrapper.is_file() or not os.access(wrapper, os.X_OK):
+            print("统一入口失败：Maven Wrapper 不存在或不可执行。", file=sys.stderr)
             return 2
-        return run(["mvn", "-B", "-f", "services/business-api/pom.xml", "test"])
+        maven_user_home = Path(
+            os.environ.get(
+                "MAVEN_USER_HOME",
+                str(ROOT / ".build/maven-user-home"),
+            )
+        ).resolve()
+        maven_repository = Path(
+            os.environ.get(
+                "TOOL_DEFECT_MAVEN_REPO",
+                str(ROOT / ".build/maven-repository"),
+            )
+        ).resolve()
+        return run(
+            [
+                str(wrapper),
+                "-B",
+                f"-Dmaven.repo.local={maven_repository}",
+                "-f",
+                "services/business-api/pom.xml",
+                "verify",
+            ],
+            environment_overrides={
+                "MAVEN_USER_HOME": str(maven_user_home),
+            },
+        )
     if target == "test-web":
         package = ROOT / "apps/web-console/package.json"
         if not package.is_file():
@@ -76,35 +175,27 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 2
-        if shutil.which("pnpm") is None:
-            print("统一入口失败：pnpm 未安装。", file=sys.stderr)
-            return 2
+        expected_node = str(content.get("engines", {}).get("node", ""))
         expected_pnpm = str(content.get("packageManager", "")).removeprefix(
             "pnpm@"
         )
-        actual = subprocess.run(
-            ["pnpm", "--version"],
-            cwd=ROOT,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            check=False,
-        )
-        if (
-            actual.returncode != 0
-            or not expected_pnpm
-            or actual.stdout.strip() != expected_pnpm
-        ):
+        node = node_with_version(expected_node)
+        if node is None:
             print(
-                "统一入口失败：pnpm 版本不匹配；"
-                f"需要 {expected_pnpm or '清单锁定版本'}，"
-                f"实际 {actual.stdout.strip() or '无法读取'}。",
+                f"统一入口失败：需要精确 Node.js {expected_node or '清单版本'}。",
+                file=sys.stderr,
+            )
+            return 2
+        pnpm = pnpm_with_version(node, expected_pnpm)
+        if pnpm is None:
+            print(
+                f"统一入口失败：需要精确 pnpm {expected_pnpm or '清单版本'}。",
                 file=sys.stderr,
             )
             return 2
         for script in required_scripts:
             result = run(
-                ["pnpm", "--dir", "apps/web-console", script],
+                [*pnpm, "--dir", "apps/web-console", script],
                 ROOT,
             )
             if result != 0:

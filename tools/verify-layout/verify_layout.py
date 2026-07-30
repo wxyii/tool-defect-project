@@ -131,6 +131,42 @@ def main() -> int:
         for target in MAKE_TARGETS:
             if not re.search(rf"(?m)^{re.escape(target)}\s*:", make_text):
                 errors.append(f"Makefile 缺少统一入口：{target}")
+        verify_all = re.search(
+            r"(?ms)^verify-all\s*:(.*?)(?=^\S[^\n]*:|\Z)",
+            make_text,
+        )
+        if verify_all is not None:
+            prerequisites = set(
+                re.findall(r"[a-z][a-z0-9-]+", verify_all.group(1))
+            )
+            required_current = {
+                "verify-p1-strict",
+                "verify-data",
+                "test-core",
+                "test-edge",
+                "test-inference",
+                "test-backend",
+                "test-web",
+                "verify-models",
+            }
+            missing_current = required_current - prerequisites
+            if missing_current:
+                errors.append(
+                    "verify-all 缺少当前 P0–P2 门禁："
+                    f"{sorted(missing_current)}"
+                )
+            future_targets = {
+                "test-integration",
+                "test-e2e",
+                "test-faults",
+                "test-performance",
+            }
+            premature = future_targets & prerequisites
+            if premature:
+                errors.append(
+                    "verify-all 提前包含 P3 以后门禁："
+                    f"{sorted(premature)}"
+                )
 
     gitignore = ROOT / ".gitignore"
     if gitignore.is_file():
