@@ -9,7 +9,7 @@ describe('前端安全边界', () => {
   it('认证令牌和签名地址不进入浏览器持久存储', () => {
     const files = [
       'auth/memory-session.ts',
-      'auth/oidc.ts',
+      'auth/local-auth.ts',
       'stores/auth.ts',
       'api/client.ts',
       'api/ephemeral-urls.ts',
@@ -35,7 +35,9 @@ describe('前端安全边界', () => {
     ].join('\n')
     expect(source).not.toMatch(/searchParams\.set\([^)]*token/i)
     expect(source).not.toMatch(/[?&](access_)?token=/i)
-    expect(source).toContain('Authorization')
+    expect(source).toContain("credentials: 'same-origin'")
+    expect(source).toContain('X-TD-CSRF')
+    expect(source).not.toMatch(/Bearer\s/)
   })
 
   it('前端没有算法结论到最终处置的自动映射', () => {

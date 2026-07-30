@@ -1,6 +1,6 @@
 // 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。
-// 契约主版本: 1；源哈希: 3578f82330fbba2e9e500f67fd1b574296707f5b20058cae9d70ed9bc3868ce5
-export const CONTRACT_SOURCE_SHA256 = "3578f82330fbba2e9e500f67fd1b574296707f5b20058cae9d70ed9bc3868ce5" as const;
+// 契约主版本: 1；源哈希: ed7e2561eaf84715c91514cec5e470ae170c3e94819820826fe34286543d7bde
+export const CONTRACT_SOURCE_SHA256 = "ed7e2561eaf84715c91514cec5e470ae170c3e94819820826fe34286543d7bde" as const;
 export const CONTRACT_MAJOR_VERSION = 1 as const;
 
 export type JsonObject = Readonly<Record<string, unknown>>;
@@ -36,6 +36,7 @@ export type CaptureStatusResponse = Readonly<{ readonly "business_disposition": 
 export type CaptureSyncQueryRequest = Readonly<{ readonly "capture_ids": ReadonlyArray<Uuid>; }>;
 export type CaptureSyncQueryResponse = Readonly<{ readonly "items": ReadonlyArray<CaptureStatusResponse>; }>;
 export type ClientImage = Readonly<{ readonly "client_image_id": string; readonly "file_name": string; readonly "height": number; readonly "image_role": string; readonly "media_type": "image/png" | "image/jpeg"; readonly "sha256": Sha256; readonly "size_bytes": number; readonly "width": number; }>;
+export type CsrfTokenResponse = Readonly<{ readonly "header_name": "X-TD-CSRF"; readonly "token": string; }>;
 export type DatasetVersionCreateRequest = Readonly<{ readonly "candidate_manifest_id": Uuid; readonly "dataset_id": Uuid; readonly "purpose": string; }>;
 export type DetectionDetail = Readonly<{ readonly "attempts": ReadonlyArray<JsonObject>; readonly "capture": CaptureStatusResponse; readonly "detection": DetectionSummary; readonly "disposition_history": ReadonlyArray<JsonObject>; readonly "images": ReadonlyArray<ImageReference>; readonly "versions": JsonObject; }>;
 export type DetectionFailureRequest = Readonly<{ readonly "error_code": string; readonly "message": string; readonly "occurred_at": UtcTimestamp; readonly "retryable": boolean; readonly "stage": "DOWNLOAD" | "DECODE" | "PREPROCESS" | "MODEL_LOAD" | "INFERENCE" | "POSTPROCESS" | "UPLOAD" | "CALLBACK"; }>;
@@ -44,9 +45,18 @@ export type DetectionSummary = Readonly<{ readonly "algorithm_outcome"?: (Algori
 export type HeartbeatRequest = Readonly<{ readonly "agent_version": Version; readonly "camera_status": "ONLINE" | "OFFLINE" | "DEGRADED"; readonly "clock_offset_ms": number; readonly "disk_usage_ratio": number; readonly "oldest_task_age_seconds": number; readonly "plc_status": "ONLINE" | "OFFLINE" | "DEGRADED"; readonly "queue_depth": number; readonly "reported_at": UtcTimestamp; }>;
 export type ImageAccessTicketRequest = Readonly<{ readonly "purpose": "VIEW" | "DOWNLOAD"; }>;
 export type ImageAccessTicketResponse = Readonly<{ readonly "expires_at": UtcTimestamp; readonly "method": "GET"; readonly "url": string; }>;
+export type LocalLoginRequest = Readonly<{ readonly "password": string; readonly "username": string; }>;
+export type LocalUserCreateRequest = Readonly<{ readonly "display_name": string; readonly "initial_password": string; readonly "roles": ReadonlyArray<string>; readonly "username": string; }>;
+export type LocalUserList = Readonly<{ readonly "items": ReadonlyArray<LocalUserSummary>; }>;
+export type LocalUserPasswordResetRequest = Readonly<{ readonly "temporary_password": string; }>;
+export type LocalUserRolesRequest = Readonly<{ readonly "roles": ReadonlyArray<string>; }>;
+export type LocalUserSession = Readonly<{ readonly "display_name": string; readonly "password_change_required": boolean; readonly "permissions": ReadonlyArray<string>; readonly "roles": ReadonlyArray<string>; readonly "user_id": Uuid; readonly "username": string; }>;
+export type LocalUserStatusRequest = Readonly<{ readonly "status": "ACTIVE" | "DISABLED"; }>;
+export type LocalUserSummary = Readonly<{ readonly "created_at": string; readonly "display_name": string; readonly "password_change_required": boolean; readonly "roles": ReadonlyArray<string>; readonly "status": "ACTIVE" | "DISABLED"; readonly "updated_at": string; readonly "user_id": Uuid; readonly "username"?: string | null; }>;
 export type ModelDeploymentCreateRequest = Readonly<{ readonly "environment": "SHADOW" | "CANARY" | "PRODUCTION"; readonly "model_version_id": Uuid; readonly "rollback_model_version_id": Uuid; readonly "station_ids": ReadonlyArray<Uuid>; readonly "strategy": "STATION" | "PERCENTAGE"; readonly "traffic_ratio": number; }>;
 export type ObjectCompleteRequest = Readonly<{ readonly "sha256": Sha256; readonly "size_bytes": number; readonly "upload_receipt": string; }>;
 export type ObjectCompleteResponse = Readonly<{ readonly "image_id": Uuid; readonly "sha256": Sha256; readonly "state": "AVAILABLE"; }>;
+export type PasswordChangeRequest = Readonly<{ readonly "current_password": string; readonly "new_password": string; }>;
 export type QualitySummary = Readonly<{ readonly "status": PreprocessQualityStatus; readonly "warnings": ReadonlyArray<string>; }>;
 export type ReadinessResponse = Readonly<{ readonly "ready": true; readonly "runtime_version": Version; }>;
 export type ReasonRequest = Readonly<{ readonly "reason": string; }>;

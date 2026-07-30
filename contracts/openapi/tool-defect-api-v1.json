@@ -33,6 +33,241 @@
     }
   ],
   "paths": {
+    "/api/v1/auth/csrf": {
+      "get": {
+        "operationId": "getCsrfToken",
+        "tags": ["identity"],
+        "security": [{"SameOriginBrowser": []}],
+        "responses": {
+          "200": {
+            "description": "建立同源请求校验令牌",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/CsrfTokenResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "loginLocalUser",
+        "x-write-example-operation": "loginLocalUser",
+        "tags": ["identity"],
+        "security": [{"SameOriginBrowser": []}],
+        "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/LocalLoginRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "登录成功并建立安全会话",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/LocalUserSession"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "422": {"$ref": "#/components/responses/ValidationError"}
+        }
+      }
+    },
+    "/api/v1/auth/session": {
+      "get": {
+        "operationId": "getLocalUserSession",
+        "tags": ["identity"],
+        "security": [{"UserSession": []}],
+        "responses": {
+          "200": {
+            "description": "当前人员会话",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/LocalUserSession"}
+              }
+            }
+          },
+          "401": {"$ref": "#/components/responses/Unauthorized"}
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "logoutLocalUser",
+        "x-write-example-operation": "logoutLocalUser",
+        "tags": ["identity"],
+        "security": [{"UserSession": []}],
+        "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}],
+        "responses": {
+          "204": {"description": "会话已失效"},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "422": {"$ref": "#/components/responses/ValidationError"}
+        }
+      }
+    },
+    "/api/v1/auth/password/change": {
+      "post": {
+        "operationId": "changeLocalPassword",
+        "x-write-example-operation": "changeLocalPassword",
+        "tags": ["identity"],
+        "security": [{"UserSession": []}],
+        "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/PasswordChangeRequest"}
+            }
+          }
+        },
+        "responses": {
+          "204": {"description": "密码已修改，既有会话全部失效"},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "422": {"$ref": "#/components/responses/ValidationError"}
+        }
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "operationId": "listLocalUsers",
+        "tags": ["identity"],
+        "security": [{"UserSession": []}],
+        "responses": {
+          "200": {
+            "description": "本地账号列表",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/LocalUserList"}
+              }
+            }
+          },
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"}
+        }
+      },
+      "post": {
+        "operationId": "createLocalUser",
+        "x-write-example-operation": "createLocalUser",
+        "tags": ["identity"],
+        "security": [{"UserSession": []}],
+        "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/LocalUserCreateRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "账号已创建"},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "422": {"$ref": "#/components/responses/ValidationError"}
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/status": {
+      "patch": {
+        "operationId": "updateLocalUserStatus",
+        "x-write-example-operation": "updateLocalUserStatus",
+        "tags": ["identity"],
+        "security": [{"UserSession": []}],
+        "parameters": [
+          {"$ref": "#/components/parameters/UserId"},
+          {"$ref": "#/components/parameters/IdempotencyKey"}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/LocalUserStatusRequest"}
+            }
+          }
+        },
+        "responses": {
+          "204": {"description": "账号状态已更新"},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "422": {"$ref": "#/components/responses/ValidationError"}
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/roles": {
+      "put": {
+        "operationId": "updateLocalUserRoles",
+        "x-write-example-operation": "updateLocalUserRoles",
+        "tags": ["identity"],
+        "security": [{"UserSession": []}],
+        "parameters": [
+          {"$ref": "#/components/parameters/UserId"},
+          {"$ref": "#/components/parameters/IdempotencyKey"}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/LocalUserRolesRequest"}
+            }
+          }
+        },
+        "responses": {
+          "204": {"description": "账号角色已更新"},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "422": {"$ref": "#/components/responses/ValidationError"}
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/password-reset": {
+      "post": {
+        "operationId": "resetLocalUserPassword",
+        "x-write-example-operation": "resetLocalUserPassword",
+        "tags": ["identity"],
+        "security": [{"UserSession": []}],
+        "parameters": [
+          {"$ref": "#/components/parameters/UserId"},
+          {"$ref": "#/components/parameters/IdempotencyKey"}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/LocalUserPasswordResetRequest"}
+            }
+          }
+        },
+        "responses": {
+          "204": {"description": "临时密码已重置"},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "422": {"$ref": "#/components/responses/ValidationError"}
+        }
+      }
+    },
     "/api/v1/edge/captures": {
       "post": {
         "operationId": "createCapture",
@@ -461,9 +696,7 @@
         ],
         "security": [
           {
-            "UserOidc": [
-              "detection:read"
-            ]
+            "UserSession": []
           }
         ],
         "parameters": [
@@ -524,9 +757,7 @@
         ],
         "security": [
           {
-            "UserOidc": [
-              "detection:read"
-            ]
+            "UserSession": []
           }
         ],
         "parameters": [
@@ -565,9 +796,7 @@
         ],
         "security": [
           {
-            "UserOidc": [
-              "image:view"
-            ]
+            "UserSession": []
           }
         ],
         "parameters": [
@@ -626,9 +855,7 @@
         ],
         "security": [
           {
-            "UserOidc": [
-              "detection:retry"
-            ]
+            "UserSession": []
           }
         ],
         "parameters": [
@@ -687,9 +914,7 @@
         ],
         "security": [
           {
-            "UserOidc": [
-              "review:read"
-            ]
+            "UserSession": []
           }
         ],
         "parameters": [
@@ -735,9 +960,7 @@
         ],
         "security": [
           {
-            "UserOidc": [
-              "review:read"
-            ]
+            "UserSession": []
           }
         ],
         "parameters": [
@@ -776,9 +999,7 @@
         ],
         "security": [
           {
-            "UserOidc": [
-              "review:claim"
-            ]
+            "UserSession": []
           }
         ],
         "parameters": [
@@ -833,9 +1054,7 @@
         ],
         "security": [
           {
-            "UserOidc": [
-              "review:claim"
-            ]
+            "UserSession": []
           }
         ],
         "parameters": [
@@ -890,9 +1109,7 @@
         ],
         "security": [
           {
-            "UserOidc": [
-              "review:submit"
-            ]
+            "UserSession": []
           }
         ],
         "parameters": [
@@ -954,9 +1171,7 @@
         ],
         "security": [
           {
-            "UserOidc": [
-              "review:annotate"
-            ]
+            "UserSession": []
           }
         ],
         "parameters": [
@@ -1015,9 +1230,7 @@
         ],
         "security": [
           {
-            "UserOidc": [
-              "review:annotate"
-            ]
+            "UserSession": []
           }
         ],
         "parameters": [
@@ -1079,9 +1292,7 @@
         ],
         "security": [
           {
-            "UserOidc": [
-              "dataset:create"
-            ]
+            "UserSession": []
           }
         ],
         "parameters": [
@@ -1137,9 +1348,7 @@
         ],
         "security": [
           {
-            "UserOidc": [
-              "dataset:read"
-            ]
+            "UserSession": []
           }
         ],
         "parameters": [
@@ -1178,9 +1387,7 @@
         ],
         "security": [
           {
-            "UserOidc": [
-              "training:create"
-            ]
+            "UserSession": []
           }
         ],
         "parameters": [
@@ -1236,9 +1443,7 @@
         ],
         "security": [
           {
-            "UserOidc": [
-              "training:read"
-            ]
+            "UserSession": []
           }
         ],
         "parameters": [
@@ -1277,9 +1482,7 @@
         ],
         "security": [
           {
-            "UserOidc": [
-              "model:validate"
-            ]
+            "UserSession": []
           }
         ],
         "parameters": [
@@ -1338,9 +1541,7 @@
         ],
         "security": [
           {
-            "UserOidc": [
-              "model:deploy"
-            ]
+            "UserSession": []
           }
         ],
         "parameters": [
@@ -1396,9 +1597,7 @@
         ],
         "security": [
           {
-            "UserOidc": [
-              "model:approve"
-            ]
+            "UserSession": []
           }
         ],
         "parameters": [
@@ -1460,9 +1659,7 @@
         ],
         "security": [
           {
-            "UserOidc": [
-              "model:rollback"
-            ]
+            "UserSession": []
           }
         ],
         "parameters": [
@@ -1778,9 +1975,7 @@
         ],
         "security": [
           {
-            "UserOidc": [
-              "event:read"
-            ]
+            "UserSession": []
           }
         ],
         "parameters": [
@@ -1833,9 +2028,17 @@
           }
         }
       },
-      "UserOidc": {
-        "type": "openIdConnect",
-        "openIdConnectUrl": "https://identity.example.invalid/.well-known/openid-configuration"
+      "UserSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "TDSESSION",
+        "description": "本地账号登录后建立的仅服务器可读安全会话"
+      },
+      "SameOriginBrowser": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Sec-Fetch-Site",
+        "description": "登录引导仅允许同源浏览器请求；改变状态的请求还必须携带 X-TD-CSRF"
       },
       "ServiceMtls": {
         "type": "mutualTLS"
@@ -1854,6 +2057,14 @@
       }
     },
     "parameters": {
+      "UserId": {
+        "name": "user_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+        }
+      },
       "IdempotencyKey": {
         "name": "Idempotency-Key",
         "in": "header",
@@ -2075,6 +2286,113 @@
       }
     },
     "schemas": {
+      "CsrfTokenResponse": {
+        "type": "object",
+        "required": ["token", "header_name"],
+        "properties": {
+          "token": {"type": "string", "minLength": 32, "maxLength": 128},
+          "header_name": {"type": "string", "const": "X-TD-CSRF"}
+        },
+        "additionalProperties": false
+      },
+      "LocalLoginRequest": {
+        "type": "object",
+        "required": ["username", "password"],
+        "properties": {
+          "username": {"type": "string", "minLength": 3, "maxLength": 64},
+          "password": {"type": "string", "minLength": 12, "maxLength": 128}
+        },
+        "additionalProperties": false
+      },
+      "LocalUserSession": {
+        "type": "object",
+        "required": [
+          "user_id", "username", "display_name", "roles", "permissions",
+          "password_change_required"
+        ],
+        "properties": {
+          "user_id": {"$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"},
+          "username": {"type": "string", "minLength": 3, "maxLength": 64},
+          "display_name": {"type": "string", "minLength": 1, "maxLength": 256},
+          "roles": {"type": "array", "items": {"type": "string"}},
+          "permissions": {"type": "array", "items": {"type": "string"}},
+          "password_change_required": {"type": "boolean"}
+        },
+        "additionalProperties": false
+      },
+      "PasswordChangeRequest": {
+        "type": "object",
+        "required": ["current_password", "new_password"],
+        "properties": {
+          "current_password": {"type": "string", "minLength": 1, "maxLength": 128},
+          "new_password": {"type": "string", "minLength": 12, "maxLength": 128}
+        },
+        "additionalProperties": false
+      },
+      "LocalUserCreateRequest": {
+        "type": "object",
+        "required": ["username", "display_name", "initial_password", "roles"],
+        "properties": {
+          "username": {"type": "string", "minLength": 3, "maxLength": 64},
+          "display_name": {"type": "string", "minLength": 1, "maxLength": 256},
+          "initial_password": {"type": "string", "minLength": 12, "maxLength": 128},
+          "roles": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+        },
+        "additionalProperties": false
+      },
+      "LocalUserStatusRequest": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": {"type": "string", "enum": ["ACTIVE", "DISABLED"]}
+        },
+        "additionalProperties": false
+      },
+      "LocalUserRolesRequest": {
+        "type": "object",
+        "required": ["roles"],
+        "properties": {
+          "roles": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+        },
+        "additionalProperties": false
+      },
+      "LocalUserPasswordResetRequest": {
+        "type": "object",
+        "required": ["temporary_password"],
+        "properties": {
+          "temporary_password": {"type": "string", "minLength": 12, "maxLength": 128}
+        },
+        "additionalProperties": false
+      },
+      "LocalUserSummary": {
+        "type": "object",
+        "required": [
+          "user_id", "display_name", "status",
+          "password_change_required", "roles", "created_at", "updated_at"
+        ],
+        "properties": {
+          "user_id": {"$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"},
+          "username": {"type": ["string", "null"]},
+          "display_name": {"type": "string"},
+          "status": {"type": "string", "enum": ["ACTIVE", "DISABLED"]},
+          "password_change_required": {"type": "boolean"},
+          "roles": {"type": "array", "items": {"type": "string"}},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        },
+        "additionalProperties": false
+      },
+      "LocalUserList": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/LocalUserSummary"}
+          }
+        },
+        "additionalProperties": false
+      },
       "CaptureCreateRequest": {
         "type": "object",
         "additionalProperties": false,

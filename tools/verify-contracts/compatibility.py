@@ -156,7 +156,7 @@ def main() -> int:
     errors = compare(baseline, current)
     if args.self_test:
         damaged = copy.deepcopy(current)
-        removed = next(iter(damaged["openapi_operations"]))
+        removed = next(iter(baseline["openapi_operations"]))
         del damaged["openapi_operations"][removed]
         if not compare(baseline, damaged):
             print("兼容检查自测失败：未识别端点删除", file=sys.stderr)

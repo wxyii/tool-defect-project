@@ -8,22 +8,27 @@ import type {
   TokenRefreshProvider,
 } from '@/auth/types'
 
+/** 旧测试隔离容器；生产请求与登录流程不读取其中令牌。 */
 export const memorySession = new MemorySession()
 
 export const useAuthStore = defineStore('auth', () => {
   const identity = shallowRef<AuthIdentity | null>(null)
-  const authenticated = computed(
-    () => identity.value !== null && memorySession.session !== null,
-  )
+  const initialized = shallowRef(false)
+  const authenticated = computed(() => identity.value !== null)
 
-  function establish(session: AuthSession): void {
-    memorySession.set(session)
-    identity.value = session.identity
+  function establish(value: AuthIdentity | AuthSession): void {
+    const resolved = 'identity' in value ? value.identity : value
+    if ('identity' in value) {
+      memorySession.set(value)
+    }
+    identity.value = Object.freeze(resolved)
+    initialized.value = true
   }
 
   function clear(): void {
-    memorySession.clear()
     identity.value = null
+    memorySession.clear()
+    initialized.value = true
   }
 
   function hasPermission(permission: string): boolean {
@@ -38,15 +43,14 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await memorySession.refresh(provider)
     } catch (error) {
-      if (!(error instanceof StaleSessionError)) {
-        clear()
-      }
+      if (!(error instanceof StaleSessionError)) clear()
       throw error
     }
   }
 
   return {
     identity,
+    initialized,
     authenticated,
     establish,
     clear,

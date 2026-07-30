@@ -25,28 +25,32 @@ class P4AuthorizationTest(unittest.TestCase):
             "createAnnotationUploadTicket": "review:annotate",
             "completeReviewAnnotation": "review:annotate",
         }
-        actual: dict[str, str] = {}
+        actual: set[str] = set()
         for path in contract["paths"].values():
             for operation in path.values():
                 if not isinstance(operation, dict):
                     continue
                 operation_id = operation.get("operationId")
                 if operation_id in expected:
-                    actual[operation_id] = operation["security"][0]["UserOidc"][0]
-        self.assertEqual(expected, actual)
+                    self.assertEqual(
+                        [{"UserSession": []}],
+                        operation["security"],
+                    )
+                    actual.add(operation_id)
+        self.assertEqual(set(expected), actual)
 
     def test_http_security_enforces_review_scopes_before_fallback(self) -> None:
         source = (
             ROOT
-            / "services/business-api/src/main/java/com/tooldefect/business/shared/"
+            / "services/business-api/src/main/java/com/tooldefect/business/identity/"
             "infrastructure/SecurityConfiguration.java"
         ).read_text(encoding="utf-8")
-        fallback = source.index(".anyRequest().authenticated()")
+        fallback = source.rindex(".anyRequest().authenticated()")
         for authority in (
-            "SCOPE_review:read",
-            "SCOPE_review:claim",
-            "SCOPE_review:submit",
-            "SCOPE_review:annotate",
+            "review:read",
+            "review:claim",
+            "review:submit",
+            "review:annotate",
         ):
             self.assertGreater(fallback, source.index(authority))
         self.assertIn('"/api/v1/review-tasks/*"', source)

@@ -1,5 +1,4 @@
-import { useOidcRuntime } from '@/auth/runtime'
-import type { SessionEstablisher } from '@/auth/bootstrap'
+import type { useAuthStore } from '@/stores/auth'
 
 import { ApiClient } from './client'
 
@@ -8,12 +7,11 @@ let currentClient: ApiClient | null = null
 export function configureApplicationApiClient(
   environment: ImportMetaEnv,
   origin: string,
-  auth: SessionEstablisher,
+  auth: ReturnType<typeof useAuthStore>,
   fetcher: typeof fetch = fetch,
 ): ApiClient {
   const client = new ApiClient({
     baseUrl: environment.VITE_API_BASE_URL?.trim() || origin,
-    refreshProvider: useOidcRuntime().refreshProvider,
     fetcher,
     onAuthenticationFailure: () => auth.clear(),
   })

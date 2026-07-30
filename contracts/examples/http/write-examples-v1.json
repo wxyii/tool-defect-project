@@ -2,6 +2,104 @@
   "schema_version": "1.0",
   "operations": [
     {
+      "operation_id": "loginLocalUser",
+      "success_request": {"username": "operator", "password": "temporary-password-123"},
+      "success_response": {
+        "user_id": "019f0000-0000-7000-8000-000000000201",
+        "username": "operator",
+        "display_name": "操作员",
+        "roles": ["OPERATOR"],
+        "permissions": ["detection:read"],
+        "password_change_required": true
+      },
+      "cases": {
+        "success": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 401, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "logoutLocalUser",
+      "success_request": {},
+      "success_response": {},
+      "cases": {
+        "success": {"status": 204, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 204, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 401, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "changeLocalPassword",
+      "success_request": {
+        "current_password": "temporary-password-123",
+        "new_password": "replacement-password-456"
+      },
+      "success_response": {},
+      "cases": {
+        "success": {"status": 204, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 204, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 401, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "createLocalUser",
+      "success_request": {
+        "username": "reviewer", "display_name": "复核员",
+        "initial_password": "temporary-password-123",
+        "roles": ["REVIEWER"]
+      },
+      "success_response": {},
+      "cases": {
+        "success": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "updateLocalUserStatus",
+      "success_request": {"status": "DISABLED"},
+      "success_response": {},
+      "cases": {
+        "success": {"status": 204, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 204, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "updateLocalUserRoles",
+      "success_request": {"roles": ["REVIEWER"]},
+      "success_response": {},
+      "cases": {
+        "success": {"status": 204, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 204, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "resetLocalUserPassword",
+      "success_request": {"temporary_password": "temporary-password-789"},
+      "success_response": {},
+      "cases": {
+        "success": {"status": 204, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 204, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
       "operation_id": "createCapture",
       "success_request": {
         "capture_id": "019f0000-0000-7000-8000-000000000101",

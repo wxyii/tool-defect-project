@@ -1,12 +1,12 @@
 # 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。
-# 契约主版本: 1；源哈希: 3578f82330fbba2e9e500f67fd1b574296707f5b20058cae9d70ed9bc3868ce5
+# 契约主版本: 1；源哈希: ed7e2561eaf84715c91514cec5e470ae170c3e94819820826fe34286543d7bde
 from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
 from typing import Mapping, TypeAlias
 
-CONTRACT_SOURCE_SHA256 = "3578f82330fbba2e9e500f67fd1b574296707f5b20058cae9d70ed9bc3868ce5"
+CONTRACT_SOURCE_SHA256 = "ed7e2561eaf84715c91514cec5e470ae170c3e94819820826fe34286543d7bde"
 CONTRACT_MAJOR_VERSION = 1
 
 class AlgorithmOutcome(str, Enum):

@@ -1,6 +1,4 @@
-import type { TokenRefreshProvider } from '@/auth/types'
-import { StaleSessionError } from '@/auth/memory-session'
-import { memorySession } from '@/stores/auth'
+import { ensureCsrf } from '@/auth/local-auth'
 
 import { toApiError } from './errors'
 import type { GeneratedApiClient, JsonObject } from './generated'
@@ -25,7 +23,7 @@ export type WebConsoleGeneratedApiClient = Pick<
 
 export interface ApiClientOptions {
   readonly baseUrl: string
-  readonly refreshProvider: TokenRefreshProvider
+  readonly refreshProvider?: unknown
   readonly fetcher?: typeof fetch
   readonly requestIdFactory?: () => string
   readonly onAuthenticationFailure?: () => void
@@ -118,14 +116,12 @@ const OPERATIONS = {
 
 export class ApiClient implements WebConsoleGeneratedApiClient {
   private readonly baseUrl: string
-  private readonly refreshProvider: TokenRefreshProvider
   private readonly fetcher: typeof fetch
   private readonly requestIdFactory: () => string
   private readonly onAuthenticationFailure: () => void
 
   constructor(options: ApiClientOptions) {
     this.baseUrl = normalizeBaseUrl(options.baseUrl)
-    this.refreshProvider = options.refreshProvider
     this.fetcher = options.fetcher ?? fetch
     this.requestIdFactory =
       options.requestIdFactory ?? (() => crypto.randomUUID())
@@ -173,10 +169,8 @@ export class ApiClient implements WebConsoleGeneratedApiClient {
   }
 
   async streamAuthorizedEvents(request?: JsonObject): Promise<JsonObject> {
-    const sessionGeneration = memorySession.captureGeneration()
     const response = await this.openAuthorizedEventStream(request)
     const content = await response.text()
-    memorySession.assertGeneration(sessionGeneration)
     return Object.freeze({ content })
   }
 
@@ -184,7 +178,6 @@ export class ApiClient implements WebConsoleGeneratedApiClient {
     request?: JsonObject,
     signal?: AbortSignal,
   ): Promise<Response> {
-    const sessionGeneration = memorySession.captureGeneration()
     const response = await this.invokeResponse(
       'streamAuthorizedEvents',
       request,
@@ -192,10 +185,8 @@ export class ApiClient implements WebConsoleGeneratedApiClient {
     )
     if (!response.ok) {
       const error = await toApiError(response)
-      memorySession.assertGeneration(sessionGeneration)
       throw error
     }
-    memorySession.assertGeneration(sessionGeneration)
     if (response.body === null) {
       throw new Error('TD-SSE-BODY-001')
     }
@@ -206,19 +197,15 @@ export class ApiClient implements WebConsoleGeneratedApiClient {
     operation: Exclude<WebConsoleOperation, 'streamAuthorizedEvents'>,
     request?: JsonObject,
   ): Promise<JsonObject> {
-    const sessionGeneration = memorySession.captureGeneration()
     const response = await this.invokeResponse(operation, request)
     if (!response.ok) {
       const error = await toApiError(response)
-      memorySession.assertGeneration(sessionGeneration)
       throw error
     }
     if (response.status === 204) {
-      memorySession.assertGeneration(sessionGeneration)
       return Object.freeze({})
     }
     const value: unknown = await response.json()
-    memorySession.assertGeneration(sessionGeneration)
     if (!isJsonObject(value)) {
       throw new Error('TD-API-RESPONSE-001')
     }
@@ -262,47 +249,24 @@ export class ApiClient implements WebConsoleGeneratedApiClient {
     url: string,
     init: RequestInit,
   ): Promise<Response> {
-    const sessionGeneration = memorySession.captureGeneration()
-    let refreshed = false
-    if (memorySession.session !== null && memorySession.isExpired()) {
-      await this.refreshOrClear()
-      memorySession.assertGeneration(sessionGeneration)
-      refreshed = true
+    const headers = this.authenticatedHeaders(init.headers)
+    const method = (init.method ?? 'GET').toUpperCase()
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+      headers.set('X-TD-CSRF', await ensureCsrf(this.fetcher))
+      headers.set('Idempotency-Key', this.requestIdFactory())
     }
-    let response = await this.fetcher(url, {
+    const response = await this.fetcher(url, {
       ...init,
-      headers: this.authenticatedHeaders(init.headers),
+      credentials: 'same-origin',
+      headers,
     })
-    memorySession.assertGeneration(sessionGeneration)
-    if (response.status === 401 && !refreshed && memorySession.session !== null) {
-      await this.refreshOrClear()
-      memorySession.assertGeneration(sessionGeneration)
-      refreshed = true
-      response = await this.fetcher(url, {
-        ...init,
-        headers: this.authenticatedHeaders(init.headers),
-      })
-      memorySession.assertGeneration(sessionGeneration)
-    }
-    if (response.status === 401 && refreshed) {
+    if (response.status === 401) {
       this.clearAuthentication()
     }
     return response
   }
 
-  private async refreshOrClear(): Promise<void> {
-    try {
-      await memorySession.refresh(this.refreshProvider)
-    } catch (error) {
-      if (!(error instanceof StaleSessionError)) {
-        this.clearAuthentication()
-      }
-      throw new AuthenticationRefreshError(error)
-    }
-  }
-
   private clearAuthentication(): void {
-    memorySession.clear()
     try {
       this.onAuthenticationFailure()
     } catch {
@@ -316,10 +280,6 @@ export class ApiClient implements WebConsoleGeneratedApiClient {
       headers.set('Accept', 'application/json')
     }
     headers.set('X-Request-Id', this.requestIdFactory())
-    const accessToken = memorySession.accessToken
-    if (accessToken !== null) {
-      headers.set('Authorization', `Bearer ${accessToken}`)
-    }
     return headers
   }
 
@@ -370,6 +330,9 @@ function normalizeBaseUrl(value: string): string {
     url.hash.length > 0
   ) {
     throw new Error('TD-API-CONFIG-HTTPS-001')
+  }
+  if (url.origin !== window.location.origin) {
+    throw new Error('TD-API-CONFIG-SAME-ORIGIN-001')
   }
   return url.toString().replace(/\/+$/, '')
 }

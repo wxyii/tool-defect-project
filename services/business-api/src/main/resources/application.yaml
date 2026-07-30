@@ -45,6 +45,12 @@ management:
       enabled: ${td.messaging.enabled:false}
 
 td:
+  auth:
+    secure-cookie: ${TD_AUTH_SECURE_COOKIE:true}
+    bootstrap:
+      username: ${TD_BOOTSTRAP_ADMIN_USERNAME:}
+      display-name: ${TD_BOOTSTRAP_ADMIN_DISPLAY_NAME:}
+      password-file: ${TD_BOOTSTRAP_ADMIN_PASSWORD_FILE:}
   operations:
     enabled: ${TD_OPERATIONS_ENABLED:false}
     scan-enabled: ${TD_OPERATIONS_SCAN_ENABLED:true}

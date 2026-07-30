@@ -294,8 +294,8 @@ sync_postgres_password() {
   if ! {
     printf '%s\n' "${postgres_password}"
     cat <<'SQL'
-\getenv synchronized_password TOOL_DEFECT_SYNCHRONIZED_PASSWORD
-ALTER ROLE tool_defect WITH PASSWORD :'synchronized_password';
+\getenv synchronized_credential TOOL_DEFECT_SYNCHRONIZED_PASSWORD
+ALTER ROLE tool_defect WITH PASSWORD /* injected credential */ :'synchronized_credential';
 SQL
   } | docker exec \
     --interactive \
@@ -428,6 +428,10 @@ start_backend() {
         TD_S3_ACCESS_KEY="${minio_user}" \
         TD_S3_SECRET_KEY="${minio_password}" \
         TD_S3_REQUIRE_TLS='false' \
+        TD_AUTH_SECURE_COOKIE='false' \
+        TD_BOOTSTRAP_ADMIN_USERNAME="${TD_BOOTSTRAP_ADMIN_USERNAME:-}" \
+        TD_BOOTSTRAP_ADMIN_DISPLAY_NAME="${TD_BOOTSTRAP_ADMIN_DISPLAY_NAME:-}" \
+        TD_BOOTSTRAP_ADMIN_PASSWORD_FILE="${TD_BOOTSTRAP_ADMIN_PASSWORD_FILE:-}" \
         TD_ENVIRONMENT='development' \
         TD_SERVICE_VERSION='workspace' \
         ./mvnw spring-boot:run \
@@ -603,7 +607,7 @@ start_all() {
 
 限制：
   推理服务和采集端当前没有可执行主入口，未作为独立进程启动。
-  业务接口默认拒绝未认证请求；完整登录需要外部身份服务配置。
+  首次启动本地账号时，需在启动前设置一次性管理员账号、显示名和密码文件环境变量。
 EOF
 
   if (( DETACH == 1 )); then

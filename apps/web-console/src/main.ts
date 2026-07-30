@@ -1,10 +1,7 @@
 import { createApp } from 'vue'
 
 import App from './App.vue'
-import {
-  configureOidcRuntime,
-  createOidcRuntimeFromEnvironment,
-} from './auth/runtime'
+import { restoreSession } from './auth/local-auth'
 import { configureApplicationApiClient } from './api/runtime'
 import { pinia } from './stores'
 import { useAuthStore } from './stores/auth'
@@ -14,9 +11,6 @@ import './styles/base.css'
 const app = createApp(App)
 const router = createApplicationRouter(pinia)
 
-configureOidcRuntime(
-  createOidcRuntimeFromEnvironment(import.meta.env, window),
-)
 configureApplicationApiClient(
   import.meta.env,
   window.location.origin,
@@ -25,4 +19,14 @@ configureApplicationApiClient(
 
 app.use(pinia)
 app.use(router)
-void router.isReady().then(() => app.mount('#app'))
+void restoreSession()
+  .then((identity) => {
+    const auth = useAuthStore(pinia)
+    if (identity === null) {
+      auth.clear()
+    } else {
+      auth.establish(identity)
+    }
+  })
+  .catch(() => useAuthStore(pinia).clear())
+  .finally(() => router.isReady().then(() => app.mount('#app')))

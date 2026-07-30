@@ -1,6 +1,5 @@
 import { ApiClient, AuthenticationRefreshError } from './client'
 import { ApiError } from './errors'
-import { memorySession } from '@/stores/auth'
 
 export interface ServerEvent<T = unknown> {
   readonly id: string | null
@@ -45,7 +44,7 @@ const MAX_EVENT_ID_CHARACTERS = 128
 const MIN_SERVER_RETRY_MS = 250
 
 /**
- * 使用 Fetch 读取服务器发送事件。令牌只进入请求头；断线后自动携带
+ * 使用同源会话读取服务器发送事件；断线后自动携带
  * `Last-Event-ID` 重连，有限回放窗口失效时先通知调用方重新查询列表。
  */
 export class AuthenticatedEventStream {
@@ -56,7 +55,6 @@ export class AuthenticatedEventStream {
   private readonly random: () => number
   private readonly isReplayWindowExpired: (error: unknown) => boolean
   private lastEventId: string | null = null
-  private lastSessionGeneration: number | null = null
 
   constructor(options: EventStreamOptions) {
     this.api = options.api
@@ -76,23 +74,12 @@ export class AuthenticatedEventStream {
     onEvent: (event: ServerEvent) => void,
     signal: AbortSignal,
   ): Promise<void> {
-    const sessionGeneration = memorySession.captureGeneration()
-    if (this.lastSessionGeneration !== sessionGeneration) {
-      this.lastEventId = null
-      this.lastSessionGeneration = sessionGeneration
-    }
-    const sessionAbort = new AbortController()
-    const unsubscribe = memorySession.onGenerationChange(() => {
-      sessionAbort.abort()
-    })
-    const linked = linkAbortSignals(signal, sessionAbort.signal)
-    const activeSignal = linked.signal
-    try {
+    const activeSignal = signal
+    {
       let reconnectAttempt = 0
       let serverRetryMs: number | null = null
       while (!activeSignal.aborted) {
         try {
-          memorySession.assertGeneration(sessionGeneration)
           const request =
             this.lastEventId === null
               ? undefined
@@ -104,7 +91,6 @@ export class AuthenticatedEventStream {
           const result = await consumeResponse(
             response,
             (event) => {
-              memorySession.assertGeneration(sessionGeneration)
               if (event.id !== null) {
                 this.lastEventId = event.id.length === 0 ? null : event.id
               }
@@ -137,14 +123,12 @@ export class AuthenticatedEventStream {
           if (isAuthenticationFailure(error)) {
             throw error
           }
-          memorySession.assertGeneration(sessionGeneration)
           if (isProtocolFailure(error)) {
             throw error
           } else if (this.isReplayWindowExpired(error)) {
             this.lastEventId = null
             reconnectAttempt = 0
             await this.onReplayWindowExpired()
-            memorySession.assertGeneration(sessionGeneration)
           } else {
             reconnectAttempt += 1
           }
@@ -152,17 +136,10 @@ export class AuthenticatedEventStream {
         if (signal.aborted) {
           return
         }
-        memorySession.assertGeneration(sessionGeneration)
         const delay =
           serverRetryMs ?? this.retryDelay(Math.max(0, reconnectAttempt - 1))
         await this.sleep(delay, activeSignal)
       }
-      if (!signal.aborted) {
-        memorySession.assertGeneration(sessionGeneration)
-      }
-    } finally {
-      linked.dispose()
-      unsubscribe()
     }
   }
 

@@ -44,5 +44,15 @@ ${XDG_CONFIG_HOME:-$HOME/.config}/tool-defect/development.env
 ```
 
 当前 `services/inference-service/` 和 `apps/edge-agent/` 没有可执行主入口，
-因此不能作为独立常驻进程启动。脚本会明确报告该限制。网页端完整登录还需要
-外部身份服务配置；未配置时业务接口保持默认拒绝。
+因此不能作为独立常驻进程启动。脚本会明确报告该限制。
+
+首次创建本地管理员时，在仓库外创建权限为 `600` 的密码文件并设置：
+
+```sh
+export TD_BOOTSTRAP_ADMIN_USERNAME=admin
+export TD_BOOTSTRAP_ADMIN_DISPLAY_NAME=系统管理员
+export TD_BOOTSTRAP_ADMIN_PASSWORD_FILE=/受限路径/首次密码
+./tools/dev/start-all.sh
+```
+
+首次启动成功后必须删除密码文件并取消这三个环境变量；管理员首次登录后必须改密。

@@ -1,7 +1,8 @@
 import type { RouteRecordRaw } from 'vue-router'
 
 const LoginView = () => import('@/views/LoginView.vue')
-const OidcCallbackView = () => import('@/views/OidcCallbackView.vue')
+const ChangePasswordView = () => import('@/views/ChangePasswordView.vue')
+const UserManagementView = () => import('@/views/UserManagementView.vue')
 const PlaceholderView = () => import('@/views/PlaceholderView.vue')
 const UnauthorizedView = () => import('@/views/UnauthorizedView.vue')
 const WorkstationView = () => import('@/views/WorkstationView.vue')
@@ -18,10 +19,21 @@ export const applicationRoutes: readonly RouteRecordRaw[] = [
     meta: { requiresAuth: false, standalone: true },
   },
   {
-    path: '/auth/callback',
-    name: 'oidc-callback',
-    component: OidcCallbackView,
-    meta: { requiresAuth: false, standalone: true },
+    path: '/change-password',
+    name: 'change-password',
+    component: ChangePasswordView,
+    meta: { requiresAuth: true, standalone: true },
+  },
+  {
+    path: '/users',
+    name: 'users',
+    component: UserManagementView,
+    meta: {
+      requiresAuth: true,
+      permissions: ['user:manage'],
+      menuLabel: '账号管理',
+      menuIcon: '◎',
+    },
   },
   {
     path: '/unauthorized',

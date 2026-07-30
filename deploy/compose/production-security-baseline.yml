@@ -75,8 +75,6 @@ services:
         target: TD_S3_ACCESS_KEY
       - source: object_business_secret_key
         target: TD_S3_SECRET_KEY
-      - source: oidc_trust_configuration
-        target: TD_OIDC_TRUST_CONFIGURATION
       - source: telemetry_ca
         target: telemetry-ca.crt
       - source: business_telemetry_certificate
@@ -249,7 +247,6 @@ secrets:
   object_business_secret_key: {external: true}
   object_inference_access_key: {external: true}
   object_inference_secret_key: {external: true}
-  oidc_trust_configuration: {external: true}
   service_ca: {external: true}
   service_ca_crl: {external: true}
   inference_service_certificate: {external: true}

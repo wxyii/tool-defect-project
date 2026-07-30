@@ -1,14 +1,20 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
-import { normalizeInternalRedirect } from '@/auth/oidc'
-import { useOidcRuntime } from '@/auth/runtime'
+import { login } from '@/auth/local-auth'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
+const router = useRouter()
+const auth = useAuthStore()
+const username = ref('')
+const password = ref('')
 const redirect = computed(() =>
   typeof route.query.redirect === 'string'
-    ? normalizeInternalRedirect(route.query.redirect)
+    && route.query.redirect.startsWith('/')
+    && !route.query.redirect.startsWith('//')
+    ? route.query.redirect
     : '/workstation',
 )
 const busy = ref(false)
@@ -18,14 +24,17 @@ async function beginLogin(): Promise<void> {
   busy.value = true
   errorCode.value = null
   try {
-    const target = await useOidcRuntime().createAuthorizationRequest(redirect.value)
-    window.location.assign(target)
+    const identity = await login(username.value, password.value)
+    auth.establish(identity)
+    await router.replace(
+      identity.passwordChangeRequired ? '/change-password' : redirect.value,
+    )
   } catch (error) {
     busy.value = false
     errorCode.value =
       error instanceof Error && error.message.startsWith('TD-AUTH-')
         ? error.message
-        : 'TD-AUTH-START-001'
+        : 'TD-AUTH-LOGIN-001'
   }
 }
 </script>
@@ -35,18 +44,43 @@ async function beginLogin(): Promise<void> {
     <section class="login-card" aria-labelledby="login-title">
       <p class="eyebrow">受控质量系统</p>
       <h1 id="login-title">登录刀具缺陷检测平台</h1>
-      <p>使用企业统一身份登录。令牌不会写入浏览器长期存储。</p>
+      <p>使用本系统账号和密码登录。</p>
       <p v-if="errorCode !== null" class="error-code" role="alert">
-        登录配置或身份服务不可用（{{ errorCode }}）
+        账号或密码不正确，或账号当前不可用（{{ errorCode }}）
       </p>
+      <form @submit.prevent="beginLogin">
+        <label>
+          账号
+          <input
+            v-model="username"
+            name="username"
+            autocomplete="username"
+            minlength="3"
+            maxlength="64"
+            required
+          />
+        </label>
+        <label>
+          密码
+          <input
+            v-model="password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            minlength="12"
+            maxlength="128"
+            required
+          />
+        </label>
       <button
-        type="button"
+        type="submit"
         class="primary-button"
         :disabled="busy"
         @click="beginLogin"
       >
-        {{ busy ? '正在跳转…' : '使用统一身份登录' }}
+        {{ busy ? '正在登录…' : '登录' }}
       </button>
+      </form>
     </section>
   </main>
 </template>

@@ -2,9 +2,9 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { useOidcRuntime } from '@/auth/runtime'
+import { logout } from '@/auth/local-auth'
 import { applicationRoutes } from '@/router/routes'
-import { memorySession, useAuthStore } from '@/stores/auth'
+import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -18,11 +18,13 @@ const menuItems = computed(() =>
   }),
 )
 
-function signOut(): void {
-  const refreshToken = memorySession.session?.tokens.refreshToken
+async function signOut(): Promise<void> {
+  try {
+    await logout()
+  } finally {
   auth.clear()
-  void router.replace({ name: 'login' })
-  void useOidcRuntime().revokeSession(refreshToken).catch(() => undefined)
+    await router.replace({ name: 'login' })
+  }
 }
 </script>
 

@@ -15,6 +15,18 @@ export function createAuthorizationGuard(pinia: Pinia) {
         query: { redirect: safeRedirect(to.fullPath) },
       }
     }
+    if (
+      auth.identity?.passwordChangeRequired
+      && to.name !== 'change-password'
+    ) {
+      return { name: 'change-password' }
+    }
+    if (
+      !auth.identity?.passwordChangeRequired
+      && to.name === 'change-password'
+    ) {
+      return { name: 'workstation' }
+    }
     const permissions = to.meta.permissions ?? []
     if (!auth.hasEveryPermission(permissions)) {
       return to.name === 'unauthorized' ? true : { name: 'unauthorized' }

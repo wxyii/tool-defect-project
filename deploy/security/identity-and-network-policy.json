@@ -1,9 +1,12 @@
 {
   "schema_version": "1.0",
   "people_identity": {
-    "protocol": "OIDC",
-    "password_storage_in_business_system": false,
-    "high_privilege_mfa_required": true
+    "protocol": "LOCAL_PASSWORD_SESSION",
+    "password_storage": "ARGON2ID_HASH_ONLY",
+    "session_idle_minutes": 30,
+    "session_absolute_hours": 8,
+    "same_origin_required": true,
+    "high_privilege_mfa_required": false
   },
   "device_identity": {
     "certificate_per_device": true,

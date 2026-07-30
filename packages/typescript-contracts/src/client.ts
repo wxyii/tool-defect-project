@@ -1,5 +1,5 @@
 // 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。
-// 契约主版本: 1；源哈希: 3578f82330fbba2e9e500f67fd1b574296707f5b20058cae9d70ed9bc3868ce5
+// 契约主版本: 1；源哈希: ed7e2561eaf84715c91514cec5e470ae170c3e94819820826fe34286543d7bde
 import type {
   Acknowledgement,
   ActionRequest,
@@ -18,6 +18,7 @@ import type {
   CaptureSyncQueryRequest,
   CaptureSyncQueryResponse,
   ClientImage,
+  CsrfTokenResponse,
   DatasetVersionCreateRequest,
   DetectionDetail,
   DetectionFailureRequest,
@@ -33,13 +34,22 @@ import type {
   ImageAccessTicketResponse,
   ImageKind,
   ImageReference,
+  LocalLoginRequest,
   LocalQueueStatus,
+  LocalUserCreateRequest,
+  LocalUserList,
+  LocalUserPasswordResetRequest,
+  LocalUserRolesRequest,
+  LocalUserSession,
+  LocalUserStatusRequest,
+  LocalUserSummary,
   ModelDeploymentCreateRequest,
   ModelStatus,
   ObjectCompleteRequest,
   ObjectCompleteResponse,
   ObjectReference,
   ObjectState,
+  PasswordChangeRequest,
   PreprocessQualityStatus,
   QualitySummary,
   ReadinessResponse,
@@ -88,6 +98,12 @@ export const API_OPERATION_METADATA = {
     responseMediaCategory: "json",
     responseMediaTypes: ["application/json"],
   },
+  changeLocalPassword: {
+    method: "POST",
+    path: "/api/v1/auth/password/change",
+    responseMediaCategory: "empty",
+    responseMediaTypes: [],
+  },
   claimReviewTask: {
     method: "POST",
     path: "/api/v1/review-tasks/{review_task_id}/claim",
@@ -130,6 +146,12 @@ export const API_OPERATION_METADATA = {
     responseMediaCategory: "json",
     responseMediaTypes: ["application/json"],
   },
+  createLocalUser: {
+    method: "POST",
+    path: "/api/v1/users",
+    responseMediaCategory: "empty",
+    responseMediaTypes: [],
+  },
   createModelDeployment: {
     method: "POST",
     path: "/api/v1/model-deployments",
@@ -139,6 +161,12 @@ export const API_OPERATION_METADATA = {
   createTrainingRun: {
     method: "POST",
     path: "/api/v1/training-runs",
+    responseMediaCategory: "json",
+    responseMediaTypes: ["application/json"],
+  },
+  getCsrfToken: {
+    method: "GET",
+    path: "/api/v1/auth/csrf",
     responseMediaCategory: "json",
     responseMediaTypes: ["application/json"],
   },
@@ -166,6 +194,12 @@ export const API_OPERATION_METADATA = {
     responseMediaCategory: "json",
     responseMediaTypes: ["application/json"],
   },
+  getLocalUserSession: {
+    method: "GET",
+    path: "/api/v1/auth/session",
+    responseMediaCategory: "json",
+    responseMediaTypes: ["application/json"],
+  },
   getReviewWorkspace: {
     method: "GET",
     path: "/api/v1/review-tasks/{review_task_id}",
@@ -184,6 +218,12 @@ export const API_OPERATION_METADATA = {
     responseMediaCategory: "json",
     responseMediaTypes: ["application/json"],
   },
+  listLocalUsers: {
+    method: "GET",
+    path: "/api/v1/users",
+    responseMediaCategory: "json",
+    responseMediaTypes: ["application/json"],
+  },
   listReviewTasks: {
     method: "GET",
     path: "/api/v1/review-tasks",
@@ -195,6 +235,18 @@ export const API_OPERATION_METADATA = {
     path: "/internal/v1/runtime/models",
     responseMediaCategory: "json",
     responseMediaTypes: ["application/json"],
+  },
+  loginLocalUser: {
+    method: "POST",
+    path: "/api/v1/auth/login",
+    responseMediaCategory: "json",
+    responseMediaTypes: ["application/json"],
+  },
+  logoutLocalUser: {
+    method: "POST",
+    path: "/api/v1/auth/logout",
+    responseMediaCategory: "empty",
+    responseMediaTypes: [],
   },
   queryCaptureSync: {
     method: "POST",
@@ -219,6 +271,12 @@ export const API_OPERATION_METADATA = {
     path: "/api/v1/edge/devices/{device_id}/heartbeat",
     responseMediaCategory: "json",
     responseMediaTypes: ["application/json"],
+  },
+  resetLocalUserPassword: {
+    method: "POST",
+    path: "/api/v1/users/{user_id}/password-reset",
+    responseMediaCategory: "empty",
+    responseMediaTypes: [],
   },
   retryDetection: {
     method: "POST",
@@ -274,6 +332,18 @@ export const API_OPERATION_METADATA = {
     responseMediaCategory: "json",
     responseMediaTypes: ["application/json"],
   },
+  updateLocalUserRoles: {
+    method: "PUT",
+    path: "/api/v1/users/{user_id}/roles",
+    responseMediaCategory: "empty",
+    responseMediaTypes: [],
+  },
+  updateLocalUserStatus: {
+    method: "PATCH",
+    path: "/api/v1/users/{user_id}/status",
+    responseMediaCategory: "empty",
+    responseMediaTypes: [],
+  },
 } as const satisfies Readonly<Record<string, {
   readonly method: string;
   readonly path: string;
@@ -288,6 +358,13 @@ export type ApproveModelDeploymentRequestEnvelope = Readonly<{
   readonly query?: never;
   readonly headers: Readonly<{ readonly "Idempotency-Key": string; readonly "If-Match": string; }>;
   readonly body: (ApprovalRequest);
+}>;
+
+export type ChangeLocalPasswordRequestEnvelope = Readonly<{
+  readonly path?: never;
+  readonly query?: never;
+  readonly headers: Readonly<{ readonly "Idempotency-Key": string; }>;
+  readonly body: (PasswordChangeRequest);
 }>;
 
 export type ClaimReviewTaskRequestEnvelope = Readonly<{
@@ -339,6 +416,13 @@ export type CreateImageAccessTicketRequestEnvelope = Readonly<{
   readonly body: (ImageAccessTicketRequest);
 }>;
 
+export type CreateLocalUserRequestEnvelope = Readonly<{
+  readonly path?: never;
+  readonly query?: never;
+  readonly headers: Readonly<{ readonly "Idempotency-Key": string; }>;
+  readonly body: (LocalUserCreateRequest);
+}>;
+
 export type CreateModelDeploymentRequestEnvelope = Readonly<{
   readonly path?: never;
   readonly query?: never;
@@ -351,6 +435,13 @@ export type CreateTrainingRunRequestEnvelope = Readonly<{
   readonly query?: never;
   readonly headers: Readonly<{ readonly "Idempotency-Key": string; }>;
   readonly body: (TrainingRunCreateRequest);
+}>;
+
+export type GetCsrfTokenRequestEnvelope = Readonly<{
+  readonly path?: never;
+  readonly query?: never;
+  readonly headers?: never;
+  readonly body?: never;
 }>;
 
 export type GetDatasetVersionRequestEnvelope = Readonly<{
@@ -381,6 +472,13 @@ export type GetInferenceReadinessRequestEnvelope = Readonly<{
   readonly body?: never;
 }>;
 
+export type GetLocalUserSessionRequestEnvelope = Readonly<{
+  readonly path?: never;
+  readonly query?: never;
+  readonly headers?: never;
+  readonly body?: never;
+}>;
+
 export type GetReviewWorkspaceRequestEnvelope = Readonly<{
   readonly path: Readonly<{ readonly "review_task_id": Uuid; }>;
   readonly query?: never;
@@ -402,6 +500,13 @@ export type ListDetectionsRequestEnvelope = Readonly<{
   readonly body?: never;
 }>;
 
+export type ListLocalUsersRequestEnvelope = Readonly<{
+  readonly path?: never;
+  readonly query?: never;
+  readonly headers?: never;
+  readonly body?: never;
+}>;
+
 export type ListReviewTasksRequestEnvelope = Readonly<{
   readonly path?: never;
   readonly query?: Readonly<{ readonly "cursor"?: string; readonly "page_size"?: number; readonly "status"?: ReviewStatus; }>;
@@ -413,6 +518,20 @@ export type ListRuntimeModelsRequestEnvelope = Readonly<{
   readonly path?: never;
   readonly query?: never;
   readonly headers?: never;
+  readonly body?: never;
+}>;
+
+export type LoginLocalUserRequestEnvelope = Readonly<{
+  readonly path?: never;
+  readonly query?: never;
+  readonly headers: Readonly<{ readonly "Idempotency-Key": string; }>;
+  readonly body: (LocalLoginRequest);
+}>;
+
+export type LogoutLocalUserRequestEnvelope = Readonly<{
+  readonly path?: never;
+  readonly query?: never;
+  readonly headers: Readonly<{ readonly "Idempotency-Key": string; }>;
   readonly body?: never;
 }>;
 
@@ -442,6 +561,13 @@ export type ReportDeviceHeartbeatRequestEnvelope = Readonly<{
   readonly query?: never;
   readonly headers: Readonly<{ readonly "Idempotency-Key": string; }>;
   readonly body: (HeartbeatRequest);
+}>;
+
+export type ResetLocalUserPasswordRequestEnvelope = Readonly<{
+  readonly path: Readonly<{ readonly "user_id": Uuid; }>;
+  readonly query?: never;
+  readonly headers: Readonly<{ readonly "Idempotency-Key": string; }>;
+  readonly body: (LocalUserPasswordResetRequest);
 }>;
 
 export type RetryDetectionRequestEnvelope = Readonly<{
@@ -507,8 +633,23 @@ export type SubmitReviewRequestEnvelope = Readonly<{
   readonly body: (ReviewSubmissionRequest);
 }>;
 
+export type UpdateLocalUserRolesRequestEnvelope = Readonly<{
+  readonly path: Readonly<{ readonly "user_id": Uuid; }>;
+  readonly query?: never;
+  readonly headers: Readonly<{ readonly "Idempotency-Key": string; }>;
+  readonly body: (LocalUserRolesRequest);
+}>;
+
+export type UpdateLocalUserStatusRequestEnvelope = Readonly<{
+  readonly path: Readonly<{ readonly "user_id": Uuid; }>;
+  readonly query?: never;
+  readonly headers: Readonly<{ readonly "Idempotency-Key": string; }>;
+  readonly body: (LocalUserStatusRequest);
+}>;
+
 export type ApiOperationRequestMap = Readonly<{
   readonly approveModelDeployment: ApproveModelDeploymentRequestEnvelope;
+  readonly changeLocalPassword: ChangeLocalPasswordRequestEnvelope;
   readonly claimReviewTask: ClaimReviewTaskRequestEnvelope;
   readonly completeCaptureImage: CompleteCaptureImageRequestEnvelope;
   readonly completeReviewAnnotation: CompleteReviewAnnotationRequestEnvelope;
@@ -516,21 +657,28 @@ export type ApiOperationRequestMap = Readonly<{
   readonly createCapture: CreateCaptureRequestEnvelope;
   readonly createDatasetVersion: CreateDatasetVersionRequestEnvelope;
   readonly createImageAccessTicket: CreateImageAccessTicketRequestEnvelope;
+  readonly createLocalUser: CreateLocalUserRequestEnvelope;
   readonly createModelDeployment: CreateModelDeploymentRequestEnvelope;
   readonly createTrainingRun: CreateTrainingRunRequestEnvelope;
+  readonly getCsrfToken: GetCsrfTokenRequestEnvelope;
   readonly getDatasetVersion: GetDatasetVersionRequestEnvelope;
   readonly getDetection: GetDetectionRequestEnvelope;
   readonly getEdgeCapture: GetEdgeCaptureRequestEnvelope;
   readonly getInferenceReadiness: GetInferenceReadinessRequestEnvelope;
+  readonly getLocalUserSession: GetLocalUserSessionRequestEnvelope;
   readonly getReviewWorkspace: GetReviewWorkspaceRequestEnvelope;
   readonly getTrainingRun: GetTrainingRunRequestEnvelope;
   readonly listDetections: ListDetectionsRequestEnvelope;
+  readonly listLocalUsers: ListLocalUsersRequestEnvelope;
   readonly listReviewTasks: ListReviewTasksRequestEnvelope;
   readonly listRuntimeModels: ListRuntimeModelsRequestEnvelope;
+  readonly loginLocalUser: LoginLocalUserRequestEnvelope;
+  readonly logoutLocalUser: LogoutLocalUserRequestEnvelope;
   readonly queryCaptureSync: QueryCaptureSyncRequestEnvelope;
   readonly releaseReviewTask: ReleaseReviewTaskRequestEnvelope;
   readonly renewCaptureImageUploadTicket: RenewCaptureImageUploadTicketRequestEnvelope;
   readonly reportDeviceHeartbeat: ReportDeviceHeartbeatRequestEnvelope;
+  readonly resetLocalUserPassword: ResetLocalUserPasswordRequestEnvelope;
   readonly retryDetection: RetryDetectionRequestEnvelope;
   readonly rollbackModelDeployment: RollbackModelDeploymentRequestEnvelope;
   readonly startDetectionAttempt: StartDetectionAttemptRequestEnvelope;
@@ -540,10 +688,13 @@ export type ApiOperationRequestMap = Readonly<{
   readonly submitDetectionResult: SubmitDetectionResultRequestEnvelope;
   readonly submitModelValidationDecision: SubmitModelValidationDecisionRequestEnvelope;
   readonly submitReview: SubmitReviewRequestEnvelope;
+  readonly updateLocalUserRoles: UpdateLocalUserRolesRequestEnvelope;
+  readonly updateLocalUserStatus: UpdateLocalUserStatusRequestEnvelope;
 }>;
 
 export interface ApiClient {
   approveModelDeployment(request: ApproveModelDeploymentRequestEnvelope): Promise<JsonObject>;
+  changeLocalPassword(request: ChangeLocalPasswordRequestEnvelope): Promise<JsonObject>;
   claimReviewTask(request: ClaimReviewTaskRequestEnvelope): Promise<JsonObject>;
   completeCaptureImage(request: CompleteCaptureImageRequestEnvelope): Promise<JsonObject>;
   completeReviewAnnotation(request: CompleteReviewAnnotationRequestEnvelope): Promise<JsonObject>;
@@ -551,21 +702,28 @@ export interface ApiClient {
   createCapture(request: CreateCaptureRequestEnvelope): Promise<JsonObject>;
   createDatasetVersion(request: CreateDatasetVersionRequestEnvelope): Promise<JsonObject>;
   createImageAccessTicket(request: CreateImageAccessTicketRequestEnvelope): Promise<JsonObject>;
+  createLocalUser(request: CreateLocalUserRequestEnvelope): Promise<JsonObject>;
   createModelDeployment(request: CreateModelDeploymentRequestEnvelope): Promise<JsonObject>;
   createTrainingRun(request: CreateTrainingRunRequestEnvelope): Promise<JsonObject>;
+  getCsrfToken(request?: GetCsrfTokenRequestEnvelope): Promise<JsonObject>;
   getDatasetVersion(request: GetDatasetVersionRequestEnvelope): Promise<JsonObject>;
   getDetection(request: GetDetectionRequestEnvelope): Promise<JsonObject>;
   getEdgeCapture(request: GetEdgeCaptureRequestEnvelope): Promise<JsonObject>;
   getInferenceReadiness(request?: GetInferenceReadinessRequestEnvelope): Promise<JsonObject>;
+  getLocalUserSession(request?: GetLocalUserSessionRequestEnvelope): Promise<JsonObject>;
   getReviewWorkspace(request: GetReviewWorkspaceRequestEnvelope): Promise<JsonObject>;
   getTrainingRun(request: GetTrainingRunRequestEnvelope): Promise<JsonObject>;
   listDetections(request?: ListDetectionsRequestEnvelope): Promise<JsonObject>;
+  listLocalUsers(request?: ListLocalUsersRequestEnvelope): Promise<JsonObject>;
   listReviewTasks(request?: ListReviewTasksRequestEnvelope): Promise<JsonObject>;
   listRuntimeModels(request?: ListRuntimeModelsRequestEnvelope): Promise<JsonObject>;
+  loginLocalUser(request: LoginLocalUserRequestEnvelope): Promise<JsonObject>;
+  logoutLocalUser(request: LogoutLocalUserRequestEnvelope): Promise<JsonObject>;
   queryCaptureSync(request: QueryCaptureSyncRequestEnvelope): Promise<JsonObject>;
   releaseReviewTask(request: ReleaseReviewTaskRequestEnvelope): Promise<JsonObject>;
   renewCaptureImageUploadTicket(request: RenewCaptureImageUploadTicketRequestEnvelope): Promise<JsonObject>;
   reportDeviceHeartbeat(request: ReportDeviceHeartbeatRequestEnvelope): Promise<JsonObject>;
+  resetLocalUserPassword(request: ResetLocalUserPasswordRequestEnvelope): Promise<JsonObject>;
   retryDetection(request: RetryDetectionRequestEnvelope): Promise<JsonObject>;
   rollbackModelDeployment(request: RollbackModelDeploymentRequestEnvelope): Promise<JsonObject>;
   startDetectionAttempt(request: StartDetectionAttemptRequestEnvelope): Promise<JsonObject>;
@@ -575,4 +733,6 @@ export interface ApiClient {
   submitDetectionResult(request: SubmitDetectionResultRequestEnvelope): Promise<JsonObject>;
   submitModelValidationDecision(request: SubmitModelValidationDecisionRequestEnvelope): Promise<JsonObject>;
   submitReview(request: SubmitReviewRequestEnvelope): Promise<JsonObject>;
+  updateLocalUserRoles(request: UpdateLocalUserRolesRequestEnvelope): Promise<JsonObject>;
+  updateLocalUserStatus(request: UpdateLocalUserStatusRequestEnvelope): Promise<JsonObject>;
 }
