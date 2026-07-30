@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
@@ -168,8 +169,9 @@ public class LocalIdentityService implements ApplicationRunner {
                 user_agent_digest
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            sha256(raw), identity.userId(), now, now, now.plus(IDLE),
-            now.plus(ABSOLUTE), safeSource(sourceAddress),
+            sha256(raw), identity.userId(), Timestamp.from(now),
+            Timestamp.from(now), Timestamp.from(now.plus(IDLE)),
+            Timestamp.from(now.plus(ABSOLUTE)), safeSource(sourceAddress),
             sha256(userAgent == null ? "" : userAgent)
         );
         return new SessionCredential(raw, now.plus(IDLE), now.plus(ABSOLUTE));
@@ -214,7 +216,7 @@ public class LocalIdentityService implements ApplicationRunner {
             UPDATE auth_session SET last_accessed_at = ?, idle_expires_at = ?
             WHERE session_hash = ? AND revoked_at IS NULL
             """,
-            now, nextIdle, sha256(raw)
+            Timestamp.from(now), Timestamp.from(nextIdle), sha256(raw)
         );
         return identity;
     }

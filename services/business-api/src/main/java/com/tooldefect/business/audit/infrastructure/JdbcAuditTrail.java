@@ -1,5 +1,7 @@
 package com.tooldefect.business.audit.infrastructure;
 
+import java.sql.Timestamp;
+
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -37,7 +39,7 @@ public class JdbcAuditTrail implements AuditTrail {
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             record.auditId(),
-            record.occurredAt(),
+            Timestamp.from(record.occurredAt()),
             record.actorType(),
             record.actorId(),
             record.action(),
