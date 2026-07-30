@@ -283,6 +283,60 @@ wait_for_container() {
   return 1
 }
 
+sync_postgres_password() {
+  local container_id
+  local postgres_password
+  container_id="$(compose ps -q postgres)"
+  postgres_password="$(read_env_value POSTGRES_PASSWORD)"
+  [[ -n "${container_id}" ]] || die "无法定位 PostgreSQL 容器"
+
+  log "同步数据库开发账号密码"
+  if ! {
+    printf '%s\n' "${postgres_password}"
+    cat <<'SQL'
+\getenv synchronized_password TOOL_DEFECT_SYNCHRONIZED_PASSWORD
+ALTER ROLE tool_defect WITH PASSWORD :'synchronized_password';
+SQL
+  } | docker exec \
+    --interactive \
+    --user postgres \
+    "${container_id}" \
+    sh -c '
+      IFS= read -r TOOL_DEFECT_SYNCHRONIZED_PASSWORD
+      export TOOL_DEFECT_SYNCHRONIZED_PASSWORD
+      exec psql \
+        --username tool_defect \
+        --dbname tool_defect \
+        --set ON_ERROR_STOP=1
+    ' >/dev/null
+  then
+    die "数据库开发账号密码同步失败"
+  fi
+}
+
+sync_rabbitmq_password() {
+  local container_id
+  local rabbitmq_password
+  container_id="$(compose ps -q rabbitmq)"
+  rabbitmq_password="$(read_env_value RABBITMQ_PASSWORD)"
+  [[ -n "${container_id}" ]] || die "无法定位 RabbitMQ 容器"
+
+  log "同步消息队列开发账号密码"
+  if ! printf '%s\n' "${rabbitmq_password}" \
+    | docker exec \
+      --interactive \
+      "${container_id}" \
+      sh -c '
+        IFS= read -r TOOL_DEFECT_SYNCHRONIZED_PASSWORD
+        exec rabbitmqctl change_password \
+          tool_defect \
+          "${TOOL_DEFECT_SYNCHRONIZED_PASSWORD}"
+      ' >/dev/null
+  then
+    die "消息队列开发账号密码同步失败"
+  fi
+}
+
 show_log_tail() {
   local log_file="$1"
   if [[ -f "${log_file}" ]]; then
@@ -310,6 +364,9 @@ start_infrastructure() {
       die "容器未就绪：${service}"
     fi
   done
+
+  sync_postgres_password
+  sync_rabbitmq_password
 
   wait_for_url \
     "Prometheus" \
