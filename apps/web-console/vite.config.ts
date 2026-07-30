@@ -3,6 +3,10 @@ import { fileURLToPath, URL } from 'node:url'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vitest/config'
 
+const developmentApiTarget =
+  process.env.TOOL_DEFECT_DEV_API_TARGET?.trim() ||
+  'http://127.0.0.1:8080'
+
 export default defineConfig({
   plugins: [vue()],
   resolve: {
@@ -16,6 +20,12 @@ export default defineConfig({
   server: {
     host: '127.0.0.1',
     port: 5173,
+    proxy: {
+      '/api': {
+        target: developmentApiTarget,
+        changeOrigin: false,
+      },
+    },
   },
   test: {
     environment: 'happy-dom',

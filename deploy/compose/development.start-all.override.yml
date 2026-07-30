@@ -1,0 +1,15 @@
+services:
+  loki:
+    # Loki 3.7 的非特权用户不能初始化全新的命名卷。
+    # 此覆盖仅供本机开发脚本使用，生产清单不加载该设置。
+    user: "0:0"
+
+  tempo:
+    # Tempo 3.0 同样需要在首次启动时初始化命名卷目录。
+    user: "0:0"
+    volumes:
+      - ../../tools/dev/config/tempo.yml:/etc/tempo/config.yml:ro
+
+  telemetry:
+    volumes:
+      - ../../tools/dev/config/otel-collector.yml:/etc/otelcol/config.yml:ro
