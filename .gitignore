@@ -92,3 +92,5 @@ packages/python-contracts/*.egg-info/
 packages/python-contracts/.venv/
 packages/typescript-contracts/lib/
 packages/java-contracts/target/
+
+.understand-anything
