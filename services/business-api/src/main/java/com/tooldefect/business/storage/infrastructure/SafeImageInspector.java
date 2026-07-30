@@ -62,10 +62,13 @@ final class SafeImageInspector {
                     if (actualBytes <= 0 || actualBytes > maximumDecodedBytes) {
                         throw new StorageIntegrityViolation("图片实际解码大小超过限制");
                     }
+                    int bands = decoded.getRaster().getNumBands();
                     return new Inspection(
                         width,
                         height,
-                        Math.max(estimatedBytes, actualBytes)
+                        Math.max(estimatedBytes, actualBytes),
+                        bands,
+                        bands == 1 && hasOnlyBinaryMaskValues(decoded)
                     );
                 } finally {
                     decoded.flush();
@@ -107,6 +110,19 @@ final class SafeImageInspector {
         );
     }
 
+    private static boolean hasOnlyBinaryMaskValues(BufferedImage image) {
+        var raster = image.getRaster();
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                int value = raster.getSample(x, y, 0);
+                if (value != 0 && value != 255) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     private static void requireDeclaredFormat(
             String formatName,
             String declaredMediaType) {
@@ -122,6 +138,12 @@ final class SafeImageInspector {
         }
     }
 
-    record Inspection(int width, int height, long decodedBytes) {
+    record Inspection(
+        int width,
+        int height,
+        long decodedBytes,
+        int bands,
+        boolean binaryMask
+    ) {
     }
 }

@@ -15,11 +15,15 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import com.tooldefect.business.shared.api.StandardErrorFactory;
 import com.tooldefect.business.shared.domain.DomainViolation;
 import com.tooldefect.business.storage.api.StorageTicketController;
+import com.tooldefect.business.storage.api.ImageAccessController;
 import com.tooldefect.business.storage.domain.StorageAccessDenied;
 import com.tooldefect.business.storage.domain.StorageIntegrityViolation;
 import com.tooldefect.business.storage.domain.StorageTicketExpired;
 
-@RestControllerAdvice(assignableTypes = StorageTicketController.class)
+@RestControllerAdvice(assignableTypes = {
+    StorageTicketController.class,
+    ImageAccessController.class
+})
 public final class StorageApiExceptionHandler {
     @ExceptionHandler({
         MissingRequestHeaderException.class,
@@ -51,8 +55,34 @@ public final class StorageApiExceptionHandler {
         );
     }
 
+    @ExceptionHandler(ImageAccessController.ContractInputViolation.class)
+    ResponseEntity<Map<String, Object>> invalidImageAccess(
+            RuntimeException error,
+            HttpServletRequest request) {
+        return error(
+            HttpStatus.UNPROCESSABLE_CONTENT,
+            "TD-API-VALIDATION-001",
+            false,
+            error,
+            request
+        );
+    }
+
     @ExceptionHandler(StorageTicketController.StorageIdentityViolation.class)
     ResponseEntity<Map<String, Object>> missingDeviceScope(
+            RuntimeException error,
+            HttpServletRequest request) {
+        return error(
+            HttpStatus.FORBIDDEN,
+            "TD-SECURITY-AUTHORIZATION-001",
+            false,
+            error,
+            request
+        );
+    }
+
+    @ExceptionHandler(ImageAccessController.StorageIdentityViolation.class)
+    ResponseEntity<Map<String, Object>> missingUserIdentity(
             RuntimeException error,
             HttpServletRequest request) {
         return error(

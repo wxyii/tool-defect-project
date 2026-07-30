@@ -2,8 +2,6 @@
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import hashlib
-import json
 import re
 from typing import Any, Mapping, Protocol
 
@@ -11,6 +9,7 @@ from tool_defect.plugin_api import (
     PluginErrorCode,
     PluginErrorInfo,
 )
+from inference_service.clients.canonical_json import sha256 as _payload_sha256
 
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -247,14 +246,3 @@ def _require_sha256(value: Any) -> str:
     if _SHA256.fullmatch(digest) is None:
         raise ValueError("SHA-256 格式非法")
     return digest
-
-
-def _payload_sha256(payload: Mapping[str, Any]) -> str:
-    encoded = json.dumps(
-        payload,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-        allow_nan=False,
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()

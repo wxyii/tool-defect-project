@@ -147,24 +147,25 @@ def main() -> int:
                 "test-inference",
                 "test-backend",
                 "test-web",
+                "test-integration",
+                "test-e2e",
+                "test-security",
                 "verify-models",
             }
             missing_current = required_current - prerequisites
             if missing_current:
                 errors.append(
-                    "verify-all 缺少当前 P0–P2 门禁："
+                    "verify-all 缺少当前 P0–P4 门禁："
                     f"{sorted(missing_current)}"
                 )
             future_targets = {
-                "test-integration",
-                "test-e2e",
                 "test-faults",
                 "test-performance",
             }
             premature = future_targets & prerequisites
             if premature:
                 errors.append(
-                    "verify-all 提前包含 P3 以后门禁："
+                    "verify-all 提前包含 P5/P7 门禁："
                     f"{sorted(premature)}"
                 )
 

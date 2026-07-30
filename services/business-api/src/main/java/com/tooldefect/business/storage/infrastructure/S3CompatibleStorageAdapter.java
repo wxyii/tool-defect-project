@@ -65,6 +65,8 @@ public final class S3CompatibleStorageAdapter implements ObjectStoragePort {
             result.width(),
             result.height(),
             result.decodedBytes(),
+            result.bands(),
+            result.binaryMask(),
             result.objectVersion(),
             Map.copyOf(result.metadata())
         );

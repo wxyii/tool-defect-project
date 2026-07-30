@@ -27,7 +27,10 @@ import com.tooldefect.business.storage.domain.StoredObject;
 import com.tooldefect.business.storage.domain.UploadSession;
 import com.tooldefect.business.storage.domain.UploadSessionStatus;
 
-public class StorageApplicationService implements UploadTicketRenewal {
+public class StorageApplicationService
+        implements UploadTicketRenewal,
+            DerivedObjectAcceptance,
+            ReviewAnnotationStorage {
     public static final String META_RECEIPT_SHA256 = "td-receipt-sha256";
     public static final String META_CONTENT_SHA256 = "td-content-sha256";
     public static final String META_CAPTURE_ID = "td-capture-id";
@@ -46,6 +49,8 @@ public class StorageApplicationService implements UploadTicketRenewal {
     private final Clock clock;
     private final SecureRandom secureRandom;
     private final String rawBucket;
+    private final String derivedBucket;
+    private final String reviewBucket;
     private final Duration uploadTtl;
     private final Duration readTtl;
     private final long maximumObjectBytes;
@@ -61,6 +66,8 @@ public class StorageApplicationService implements UploadTicketRenewal {
             Clock clock,
             SecureRandom secureRandom,
             String rawBucket,
+            String derivedBucket,
+            String reviewBucket,
             Duration uploadTtl,
             Duration readTtl,
             long maximumObjectBytes,
@@ -74,6 +81,8 @@ public class StorageApplicationService implements UploadTicketRenewal {
         this.clock = Objects.requireNonNull(clock);
         this.secureRandom = Objects.requireNonNull(secureRandom);
         this.rawBucket = requireText(rawBucket, "原图桶");
+        this.derivedBucket = requireText(derivedBucket, "派生对象桶");
+        this.reviewBucket = requireText(reviewBucket, "人工标注桶");
         this.uploadTtl = requireShortTtl(uploadTtl, "上传");
         this.readTtl = requireShortTtl(readTtl, "读取");
         if (maximumObjectBytes <= 0 || maximumPixels <= 0 || maximumDecodedBytes <= 0) {
@@ -179,6 +188,83 @@ public class StorageApplicationService implements UploadTicketRenewal {
         return issueSession(object);
     }
 
+    @Override
+    @Transactional
+    public ReviewAnnotationStorage.UploadTicket issue(
+            UUID imageId,
+            UUID reviewTaskId,
+            UUID captureId,
+            long sizeBytes,
+            String sha256,
+            int width,
+            int height) {
+        if (sizeBytes <= 0 || sizeBytes > maximumObjectBytes) {
+            throw new DomainViolation("人工掩膜大小超过允许范围");
+        }
+        long pixels;
+        try {
+            pixels = Math.multiplyExact((long) width, (long) height);
+        } catch (ArithmeticException invalid) {
+            throw new DomainViolation("人工掩膜尺寸溢出", invalid);
+        }
+        if (width <= 0 || height <= 0 || pixels > maximumPixels) {
+            throw new DomainViolation("人工掩膜尺寸超过允许范围");
+        }
+        var source = repository.reviewMaskSource(reviewTaskId, captureId)
+            .orElseThrow(() ->
+                new DomainViolation("复核任务缺少可用原图或不允许标注")
+            );
+        if (source.width() != width || source.height() != height) {
+            throw new StorageIntegrityViolation("人工掩膜尺寸必须与原图一致");
+        }
+        String key = objectKeyPolicy.reviewMaskKey(
+            LocalDate.now(clock),
+            reviewTaskId,
+            imageId,
+            sha256
+        );
+        StoredObject object = new StoredObject(
+            imageId,
+            captureId,
+            source.stationId(),
+            reviewBucket,
+            key,
+            sizeBytes,
+            sha256,
+            "image/png"
+        );
+        var existing = repository.findById(imageId);
+        if (existing.isEmpty()) {
+            repository.insertReviewMaskStaging(
+                object,
+                reviewTaskId,
+                width,
+                height
+            );
+        } else {
+            requireSameStagingRegistration(existing.get(), object);
+            var expectation = repository.reviewMaskExpectation(imageId)
+                .orElseThrow(() ->
+                    new DomainViolation("同一 imageId 已用于其他图片类型")
+                );
+            if (!expectation.reviewTaskId().equals(reviewTaskId)
+                    || expectation.width() != width
+                    || expectation.height() != height) {
+                throw new DomainViolation("同一 imageId 的人工掩膜登记冲突");
+            }
+            object = existing.get();
+            sessions.revokeIssued(imageId, "REISSUED");
+        }
+        ObjectStoragePort.UploadAuthorization ticket = issueSession(object);
+        return new ReviewAnnotationStorage.UploadTicket(
+            imageId,
+            ticket.method(),
+            ticket.url(),
+            ticket.headers(),
+            ticket.expiresAt()
+        );
+    }
+
     private ObjectStoragePort.UploadAuthorization issueSession(StoredObject object) {
         String receipt = newReceipt();
         String receiptSha256 = sha256(receipt);
@@ -247,12 +333,58 @@ public class StorageApplicationService implements UploadTicketRenewal {
         if (!authorizer.mayWrite(actorStationId, object.stationId())) {
             throw new StorageAccessDenied("设备无权确认其他工位对象");
         }
-        UploadSession session = sessions.findLatestForUpdate(imageId)
+        return confirmStoredObject(
+            object,
+            requestSizeBytes,
+            requestSha256,
+            uploadReceipt,
+            null
+        );
+    }
+
+    @Override
+    @Transactional(noRollbackFor = {
+        StorageIntegrityViolation.class,
+        StorageTicketExpired.class
+    })
+    public ReviewAnnotationStorage.ConfirmedAnnotation confirm(
+            UUID reviewTaskId,
+            UUID imageId,
+            long requestSizeBytes,
+            String requestSha256,
+            String uploadReceipt) {
+        StoredObject object = repository.findByIdForUpdate(imageId)
+            .orElseThrow(() -> new DomainViolation("人工掩膜记录不存在"));
+        var expectation = repository.reviewMaskExpectation(imageId)
+            .orElseThrow(() -> new DomainViolation("图片不是人工掩膜"));
+        if (!expectation.reviewTaskId().equals(reviewTaskId)) {
+            throw new StorageAccessDenied("人工掩膜不属于声明复核任务");
+        }
+        StoredObject confirmed = confirmStoredObject(
+            object,
+            requestSizeBytes,
+            requestSha256,
+            uploadReceipt,
+            expectation
+        );
+        return new ReviewAnnotationStorage.ConfirmedAnnotation(
+            confirmed.imageId(),
+            confirmed.expectedSha256()
+        );
+    }
+
+    private StoredObject confirmStoredObject(
+            StoredObject object,
+            long requestSizeBytes,
+            String requestSha256,
+            String uploadReceipt,
+            StoredObjectRepository.ReviewMaskExpectation maskExpectation) {
+        UploadSession session = sessions.findLatestForUpdate(object.imageId())
             .orElseThrow(() -> new DomainViolation("上传会话不存在"));
         String receiptSha256 = sha256(requireText(uploadReceipt, "上传回执"));
         if (!session.receiptMatches(receiptSha256)
-                || !session.captureId().equals(captureId)
-                || !session.stationId().equals(actorStationId)) {
+                || !session.captureId().equals(object.captureId())
+                || !session.stationId().equals(object.stationId())) {
             throw new DomainViolation("上传回执或资源范围不匹配");
         }
         if (!session.requestMatches(requestSizeBytes, requestSha256)) {
@@ -307,6 +439,23 @@ public class StorageApplicationService implements UploadTicketRenewal {
             recordIntegrityFailure(object, session, "DECODE_LIMIT_EXCEEDED");
             throw new StorageIntegrityViolation("图片解码后尺寸超过限制");
         }
+        if (maskExpectation != null
+                && (
+                    head.width() != maskExpectation.width()
+                    || head.height() != maskExpectation.height()
+                    || head.bands() != 1
+                    || !head.binaryMask()
+                    || !"image/png".equalsIgnoreCase(head.mediaType())
+                )) {
+            recordIntegrityFailure(
+                object,
+                session,
+                "REVIEW_MASK_FORMAT_INVALID"
+            );
+            throw new StorageIntegrityViolation(
+                "人工掩膜必须与原图同尺寸、单通道且值域为 0/255"
+            );
+        }
         long originalVersion = object.recordVersion();
         try {
             object.confirm(
@@ -324,12 +473,12 @@ public class StorageApplicationService implements UploadTicketRenewal {
         if (object.state() == ObjectState.AVAILABLE
                 && object.recordVersion() > originalVersion
                 && !repository.markAvailable(
-                    imageId,
+                    object.imageId(),
                     originalVersion,
                     object.objectVersion(),
                     object.width(),
                     object.height())) {
-            StoredObject concurrent = repository.findById(imageId)
+            StoredObject concurrent = repository.findById(object.imageId())
                 .orElseThrow(() -> new DomainViolation("图片记录并发消失"));
             if (concurrent.state() != ObjectState.AVAILABLE) {
                 throw new DomainViolation("图片确认发生并发冲突");
@@ -339,11 +488,19 @@ public class StorageApplicationService implements UploadTicketRenewal {
                 && !sessions.markConfirmed(session.uploadSessionId(), now)) {
             throw new DomainViolation("上传会话确认发生并发冲突");
         }
-        return repository.findById(imageId).orElse(object);
+        return repository.findById(object.imageId()).orElse(object);
     }
 
     @Transactional(readOnly = true)
     public URI issueRead(UUID imageId, String actorId, String purpose) {
+        return issueReadAuthorization(imageId, actorId, purpose).url();
+    }
+
+    @Transactional(readOnly = true)
+    public ReadAuthorization issueReadAuthorization(
+            UUID imageId,
+            String actorId,
+            String purpose) {
         StoredObject object = repository.findById(imageId)
             .orElseThrow(() -> new DomainViolation("图片记录不存在"));
         object.requireAvailable();
@@ -353,7 +510,73 @@ public class StorageApplicationService implements UploadTicketRenewal {
         if (!authorizer.mayRead(actorId, imageId, purpose)) {
             throw new StorageAccessDenied("对象级访问被拒绝");
         }
-        return storage.authorizeRead(object.bucket(), object.objectKey(), readTtl);
+        return new ReadAuthorization(
+            storage.authorizeRead(
+                object.bucket(),
+                object.objectKey(),
+                readTtl
+            ),
+            Instant.now(clock).plus(readTtl)
+        );
+    }
+
+    public record ReadAuthorization(URI url, Instant expiresAt) {
+        public ReadAuthorization {
+            Objects.requireNonNull(url);
+            Objects.requireNonNull(expiresAt);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void confirmDerived(DerivedObject object) {
+        Objects.requireNonNull(object);
+        if (!derivedBucket.equals(object.bucket())) {
+            throw new StorageIntegrityViolation("派生对象桶不在批准范围");
+        }
+        if (!Set.of(
+                "THUMBNAIL",
+                "DEFECT_MASK",
+                "HEATMAP",
+                "OVERLAY",
+                "POLAR"
+            ).contains(object.kind())) {
+            throw new StorageIntegrityViolation("派生对象类型不在批准范围");
+        }
+        if (object.sizeBytes() <= 0 || object.sizeBytes() > maximumObjectBytes
+                || object.sha256() == null
+                || !object.sha256().matches("[0-9a-f]{64}")
+                || !object.objectKey().startsWith("derived/")) {
+            throw new StorageIntegrityViolation("派生对象引用不合法");
+        }
+        ObjectStoragePort.ObjectHead head = storage.head(
+            object.bucket(),
+            object.objectKey()
+        );
+        long pixels;
+        try {
+            pixels = Math.multiplyExact((long) head.width(), (long) head.height());
+        } catch (ArithmeticException error) {
+            throw new StorageIntegrityViolation("派生对象解码尺寸溢出", error);
+        }
+        if (head.sizeBytes() != object.sizeBytes()
+                || !head.sha256().equals(object.sha256())
+                || !head.mediaType().equalsIgnoreCase(object.mediaType())
+                || head.width() <= 0
+                || head.height() <= 0
+                || pixels > maximumPixels
+                || head.decodedBytes() <= 0
+                || head.decodedBytes() > maximumDecodedBytes) {
+            throw new StorageIntegrityViolation(
+                "派生对象大小、哈希、类型或解码尺寸不一致"
+            );
+        }
+        repository.insertDerivedAvailable(
+            object,
+            head.objectVersion(),
+            head.width(),
+            head.height()
+        );
     }
 
     private static Duration requireShortTtl(Duration value, String name) {

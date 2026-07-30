@@ -4,7 +4,6 @@ import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
-import json
 import math
 from pathlib import Path
 import re
@@ -38,8 +37,14 @@ _TRACEPARENT = re.compile(
 )
 
 from inference_service.clients.business_api import BusinessApiClient
+from inference_service.clients.canonical_json import sha256 as _payload_sha256
 from inference_service.model_runtime.slot import RuntimeSlot
 from inference_service.orchestration.decoder import ImageDecoder
+from inference_service.orchestration.result_journal import (
+    FileResultJournal,
+    PendingResult,
+    ResultJournal,
+)
 from inference_service.storage.materializer import (
     ObjectMaterializer,
     ObjectReference,
@@ -236,6 +241,7 @@ class InferenceOrchestrator:
         runtime_id: str,
         runtime_version: str,
         temp_root: Path,
+        result_journal: ResultJournal | None = None,
     ):
         self._materializer = materializer
         self._decoder = decoder
@@ -256,6 +262,9 @@ class InferenceOrchestrator:
         self._temp_root = Path(temp_root)
         self._temp_root.mkdir(parents=True, exist_ok=True)
         self._temp_root = self._temp_root.resolve(strict=True)
+        self._result_journal = result_journal or FileResultJournal(
+            self._temp_root / ".callback-journal"
+        )
         self._preprocessor_lock = asyncio.Lock()
 
     async def execute(self, task: InferenceTask) -> ExecutionAcceptance:
@@ -267,6 +276,29 @@ class InferenceOrchestrator:
             task.model_sha256,
             task.traceparent,
         )
+        pending = self._result_journal.load(attempt_id)
+        if pending is not None:
+            if (
+                pending.message_id != task.message_id
+                or pending.detection_task_id != task.detection_task_id
+                or pending.capture_id != task.capture_id
+                or pending.traceparent != task.traceparent
+            ):
+                # 可能已经存在一个成功事实，绝不能用失败回调覆盖它。
+                return ExecutionAcceptance(
+                    accepted=False,
+                    attempt_id=attempt_id,
+                    result_sha256=pending.result_sha256,
+                    failure=False,
+                )
+            if pending.callback_accepted:
+                return ExecutionAcceptance(
+                    accepted=True,
+                    attempt_id=attempt_id,
+                    result_sha256=pending.result_sha256,
+                    failure=False,
+                )
+            return await self._replay_pending(pending)
         try:
             if time.monotonic() >= task.deadline_monotonic:
                 raise PluginError.create(
@@ -401,6 +433,16 @@ class InferenceOrchestrator:
                 )
                 payload.pop("artifacts_pending", None)
                 result_sha256 = _payload_sha256(payload)
+                pending = PendingResult(
+                    attempt_id=attempt_id,
+                    message_id=task.message_id,
+                    detection_task_id=task.detection_task_id,
+                    capture_id=task.capture_id,
+                    traceparent=task.traceparent,
+                    result_sha256=result_sha256,
+                    payload=payload,
+                )
+                self._result_journal.store(pending)
                 try:
                     acceptance = await self._callback.put_result(
                         attempt_id,
@@ -417,6 +459,12 @@ class InferenceOrchestrator:
                         result_sha256=result_sha256,
                         failure=False,
                     )
+                # 接受后的确定结果仍保留为去重凭据。消息确认和业务后端接受
+                # 之间仍可能发生连接中断；若此处删除，队列重投会重新推理，
+                # 由非确定性耗时字段产生不同结果摘要。后续重复消息只重放
+                # 同一回调，不重新物化原图或执行插件。
+                if acceptance.accepted:
+                    self._result_journal.mark_accepted(attempt_id)
                 return ExecutionAcceptance(
                     accepted=acceptance.accepted,
                     attempt_id=attempt_id,
@@ -436,6 +484,33 @@ class InferenceOrchestrator:
                 result_sha256=acceptance.result_sha256,
                 failure=True,
             )
+
+    async def _replay_pending(
+        self,
+        pending: PendingResult,
+    ) -> ExecutionAcceptance:
+        try:
+            acceptance = await self._callback.put_result(
+                pending.attempt_id,
+                pending.payload,
+                pending.result_sha256,
+                pending.traceparent,
+            )
+        except Exception:
+            return ExecutionAcceptance(
+                accepted=False,
+                attempt_id=pending.attempt_id,
+                result_sha256=pending.result_sha256,
+                failure=False,
+            )
+        if acceptance.accepted:
+            self._result_journal.mark_accepted(pending.attempt_id)
+        return ExecutionAcceptance(
+            accepted=acceptance.accepted,
+            attempt_id=pending.attempt_id,
+            result_sha256=pending.result_sha256,
+            failure=False,
+        )
 
     async def _prepare(
         self,
@@ -530,17 +605,6 @@ class _DeadlineCancellation:
                 "orchestration",
                 "推理任务已经取消或超时",
             )
-
-
-def _payload_sha256(payload: Mapping[str, Any]) -> str:
-    encoded = json.dumps(
-        payload,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-        allow_nan=False,
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
 
 
 def _safe_local_token(value: str) -> str:

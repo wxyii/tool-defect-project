@@ -149,6 +149,8 @@ public final class AwsS3ClientFacade implements S3ClientFacade {
                     inspection.width(),
                     inspection.height(),
                     inspection.decodedBytes(),
+                    inspection.bands(),
+                    inspection.binaryMask(),
                     head.versionId() == null ? "" : head.versionId(),
                     normalizeMetadata(head.metadata())
                 );

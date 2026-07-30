@@ -206,6 +206,7 @@ def main() -> int:
         "test-integration": ROOT / "tests/integration",
         "test-e2e": ROOT / "tests/end-to-end",
         "test-faults": ROOT / "tests/faults",
+        "test-security": ROOT / "tests/security",
         "test-performance": ROOT / "tests/performance",
     }
     if target in directory_targets:

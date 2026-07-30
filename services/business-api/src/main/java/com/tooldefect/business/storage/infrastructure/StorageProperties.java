@@ -16,6 +16,8 @@ public record StorageProperties(
         boolean pathStyleAccess,
         boolean requireTls,
         String rawBucket,
+        String derivedBucket,
+        String reviewBucket,
         Duration uploadTtl,
         Duration readTtl,
         long maximumPixels,

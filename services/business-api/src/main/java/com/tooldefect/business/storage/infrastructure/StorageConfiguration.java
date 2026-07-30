@@ -107,6 +107,8 @@ public class StorageConfiguration {
             clock,
             secureRandom,
             properties.rawBucket(),
+            properties.derivedBucket(),
+            properties.reviewBucket(),
             properties.uploadTtl(),
             properties.readTtl(),
             properties.maximumObjectBytes(),
@@ -127,6 +129,8 @@ public class StorageConfiguration {
         requireText(properties.accessKey(), "S3 访问密钥");
         requireText(properties.secretKey(), "S3 机密密钥");
         requireText(properties.rawBucket(), "S3 原图桶");
+        requireText(properties.derivedBucket(), "S3 派生对象桶");
+        requireText(properties.reviewBucket(), "S3 人工标注桶");
         if (properties.endpoint() != null
                 && properties.requireTls()
                 && !"https".equalsIgnoreCase(properties.endpoint().getScheme())) {

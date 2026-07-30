@@ -479,6 +479,33 @@
       ]
     },
     {
+      "pattern": "tests/integration/**",
+      "documents": [
+        "02",
+        "06",
+        "10"
+      ],
+      "keywords": [
+        "契约",
+        "幂等",
+        "推理"
+      ]
+    },
+    {
+      "pattern": "tests/end-to-end/**",
+      "documents": [
+        "02",
+        "06",
+        "10"
+      ],
+      "keywords": [
+        "完整",
+        "断网",
+        "重复",
+        "失败"
+      ]
+    },
+    {
       "pattern": "apps/edge-agent/**",
       "documents": [
         "02",

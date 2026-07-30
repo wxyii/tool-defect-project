@@ -51,6 +51,7 @@ test-faults:
 
 test-security:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/security/scan_secrets.py
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/verify-layout/run_target.py test-security
 
 test-performance:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/verify-layout/run_target.py test-performance
@@ -83,7 +84,7 @@ verify-p1-strict: check-environment verify-layout verify-contracts verify-compos
 	MINIO_ROOT_PASSWORD=ci-only GRAFANA_ADMIN_USER=ci-only GRAFANA_ADMIN_PASSWORD=ci-only \
 	docker compose -f deploy/compose/development.yml config --quiet
 
-# 当前建设阶段为 P2。P3 以后的统一入口保留显式失败能力，但在对应任务
-# 落地前不得提前并入“当前阶段全部必需验证”。
+# 当前建设阶段为 P4。故障注入与性能门禁仍属于后续阶段，未落地前保持
+# 显式失败，不能以空测试目录冒充通过。
 verify-all: verify-p1-strict verify-data test-core test-edge test-inference \
-	test-backend test-web verify-models
+	test-backend test-web test-integration test-e2e test-security verify-models

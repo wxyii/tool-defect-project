@@ -5,6 +5,10 @@ const OidcCallbackView = () => import('@/views/OidcCallbackView.vue')
 const PlaceholderView = () => import('@/views/PlaceholderView.vue')
 const UnauthorizedView = () => import('@/views/UnauthorizedView.vue')
 const WorkstationView = () => import('@/views/WorkstationView.vue')
+const DetectionListView = () => import('@/views/DetectionListView.vue')
+const DetectionDetailView = () => import('@/views/DetectionDetailView.vue')
+const ReviewQueueView = () => import('@/views/ReviewQueueView.vue')
+const ReviewWorkbenchView = () => import('@/views/ReviewWorkbenchView.vue')
 
 export const applicationRoutes: readonly RouteRecordRaw[] = [
   {
@@ -37,6 +41,46 @@ export const applicationRoutes: readonly RouteRecordRaw[] = [
       workstation: true,
     },
   },
+  {
+    path: '/detections',
+    name: 'detections',
+    component: DetectionListView,
+    meta: {
+      requiresAuth: true,
+      permissions: ['detection:read'],
+      menuLabel: '检测记录',
+      menuIcon: '⌁',
+    },
+  },
+  {
+    path: '/detections/:id',
+    name: 'detection-detail',
+    component: DetectionDetailView,
+    meta: {
+      requiresAuth: true,
+      permissions: ['detection:read'],
+    },
+  },
+  {
+    path: '/reviews',
+    name: 'reviews',
+    component: ReviewQueueView,
+    meta: {
+      requiresAuth: true,
+      permissions: ['review:read'],
+      menuLabel: '复核任务',
+      menuIcon: '◇',
+    },
+  },
+  {
+    path: '/reviews/:id',
+    name: 'review-workbench',
+    component: ReviewWorkbenchView,
+    meta: {
+      requiresAuth: true,
+      permissions: ['review:read'],
+    },
+  },
   ...placeholderRoutes(),
   {
     path: '/',
@@ -53,8 +97,6 @@ export const applicationRoutes: readonly RouteRecordRaw[] = [
 function placeholderRoutes(): RouteRecordRaw[] {
   const definitions = [
     ['/dashboard', 'dashboard', '系统总览', 'detection:read'],
-    ['/detections', 'detections', '检测记录', 'detection:read'],
-    ['/reviews', 'reviews', '复核任务', 'review:read'],
     ['/quality', 'quality', '质量分析', 'quality:read'],
     ['/datasets', 'datasets', '数据集', 'dataset:read'],
     ['/training-runs', 'training-runs', '训练运行', 'training:read'],

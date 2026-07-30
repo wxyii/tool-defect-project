@@ -727,6 +727,47 @@
         }
       }
     },
+    "/api/v1/review-tasks/{review_task_id}": {
+      "get": {
+        "operationId": "getReviewWorkspace",
+        "tags": [
+          "reviews"
+        ],
+        "security": [
+          {
+            "UserOidc": [
+              "review:read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ReviewTaskId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "按权限范围过滤的复核任务与检测证据工作区",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewWorkspace"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
     "/api/v1/review-tasks/{review_task_id}/claim": {
       "post": {
         "operationId": "claimReviewTask",
@@ -964,6 +1005,70 @@
           }
         },
         "x-write-example-operation": "createAnnotationUploadTicket"
+      }
+    },
+    "/api/v1/review-tasks/{review_task_id}/annotations/{image_id}/complete": {
+      "post": {
+        "operationId": "completeReviewAnnotation",
+        "tags": [
+          "reviews"
+        ],
+        "security": [
+          {
+            "UserOidc": [
+              "review:annotate"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ReviewTaskId"
+          },
+          {
+            "$ref": "#/components/parameters/ImageId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ObjectCompleteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "人工掩膜已确认，重复确认相同内容返回相同结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectCompleteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "completeReviewAnnotation"
       }
     },
     "/api/v1/dataset-versions": {
@@ -2598,6 +2703,22 @@
           "record_version": {
             "type": "integer",
             "minimum": 0
+          }
+        }
+      },
+      "ReviewWorkspace": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "task",
+          "evidence"
+        ],
+        "properties": {
+          "task": {
+            "$ref": "#/components/schemas/ReviewTask"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/DetectionDetail"
           }
         }
       },

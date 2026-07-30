@@ -1,6 +1,6 @@
 // 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。
-// 契约主版本: 1；源哈希: 6fc5d9465464faf374bfa54d8f20849623f912a6c3d88fdbe92ca47fba49e361
-export const CONTRACT_SOURCE_SHA256 = "6fc5d9465464faf374bfa54d8f20849623f912a6c3d88fdbe92ca47fba49e361" as const;
+// 契约主版本: 1；源哈希: 3578f82330fbba2e9e500f67fd1b574296707f5b20058cae9d70ed9bc3868ce5
+export const CONTRACT_SOURCE_SHA256 = "3578f82330fbba2e9e500f67fd1b574296707f5b20058cae9d70ed9bc3868ce5" as const;
 export const CONTRACT_MAJOR_VERSION = 1 as const;
 
 export type JsonObject = Readonly<Record<string, unknown>>;
@@ -56,6 +56,7 @@ export type ReviewSubmissionResponse = Readonly<{ readonly "business_disposition
 export type ReviewSummary = Readonly<{ readonly "status": ReviewStatus; }>;
 export type ReviewTask = Readonly<{ readonly "capture_id": Uuid; readonly "lease_expires_at"?: (UtcTimestamp) | (null); readonly "priority": "P0" | "P1" | "P2" | "P3"; readonly "record_version": number; readonly "review_task_id": Uuid; readonly "status": ReviewStatus; }>;
 export type ReviewTaskPage = Readonly<{ readonly "has_more": boolean; readonly "items": ReadonlyArray<ReviewTask>; readonly "next_cursor": string | null; }>;
+export type ReviewWorkspace = Readonly<{ readonly "evidence": DetectionDetail; readonly "task": ReviewTask; }>;
 export type RollbackRequest = Readonly<{ readonly "reason": string; readonly "target_model_version_id": Uuid; }>;
 export type RuntimeModelsResponse = Readonly<{ readonly "models": ReadonlyArray<Readonly<{ readonly "model_version": Version; readonly "ready": boolean; readonly "sha256": Sha256; }>>; }>;
 export type SubmitCaptureRequest = Readonly<{ readonly "requested_at": UtcTimestamp; }>;

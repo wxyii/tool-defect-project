@@ -36,6 +36,8 @@ final class StorageApplicationServiceTest {
     private static final UUID IMAGE = uuid(1);
     private static final UUID CAPTURE = uuid(2);
     private static final UUID STATION = uuid(3);
+    private static final UUID REVIEW_TASK = uuid(4);
+    private static final UUID REVIEW_IMAGE = uuid(5);
     private static final String SHA256 = "a".repeat(64);
 
     private MutableClock clock;
@@ -49,6 +51,7 @@ final class StorageApplicationServiceTest {
         clock = new MutableClock(Instant.parse("2026-07-29T01:00:00Z"));
         objects = new MemoryObjects();
         objects.bind(CAPTURE, STATION);
+        objects.bindReview(REVIEW_TASK, CAPTURE, STATION, 10, 10);
         sessions = new MemorySessions();
         storage = new FakeStorage(clock);
         service = new StorageApplicationService(
@@ -70,6 +73,8 @@ final class StorageApplicationServiceTest {
             clock,
             new SecureRandom(new byte[] {1, 2, 3, 4}),
             "td-raw",
+            "td-derived",
+            "td-review",
             Duration.ofMinutes(5),
             Duration.ofMinutes(2),
             1_000,
@@ -236,6 +241,97 @@ final class StorageApplicationServiceTest {
         assertTrue(service.issueRead(IMAGE, "operator", "VIEW").isAbsolute());
     }
 
+    @Test
+    void reviewMaskMustMatchTheAvailableOriginalDimensions() {
+        assertThrows(StorageIntegrityViolation.class, () -> service.issue(
+            REVIEW_IMAGE,
+            REVIEW_TASK,
+            CAPTURE,
+            10,
+            SHA256,
+            9,
+            10
+        ));
+        assertTrue(objects.findById(REVIEW_IMAGE).isEmpty());
+    }
+
+    @Test
+    void reviewMaskRejectsMultipleChannelsAndNonBinaryValues() {
+        var ticket = issueReview(REVIEW_IMAGE);
+        storage.bands = 3;
+
+        assertThrows(StorageIntegrityViolation.class, () -> service.confirm(
+            REVIEW_TASK,
+            REVIEW_IMAGE,
+            10,
+            SHA256,
+            receipt(ticket)
+        ));
+        assertEquals(
+            ObjectState.STAGING,
+            objects.findById(REVIEW_IMAGE).orElseThrow().state()
+        );
+
+        UUID secondImage = uuid(6);
+        storage.bands = 1;
+        storage.binaryMask = false;
+        var secondTicket = issueReview(secondImage);
+        assertThrows(StorageIntegrityViolation.class, () -> service.confirm(
+            REVIEW_TASK,
+            secondImage,
+            10,
+            SHA256,
+            receipt(secondTicket)
+        ));
+    }
+
+    @Test
+    void confirmedUnsubmittedReviewMaskRemainsLinkedForOrphanReconciliation() {
+        var ticket = issueReview(REVIEW_IMAGE);
+
+        var confirmed = service.confirm(
+            REVIEW_TASK,
+            REVIEW_IMAGE,
+            10,
+            SHA256,
+            receipt(ticket)
+        );
+
+        assertEquals(REVIEW_IMAGE, confirmed.imageId());
+        assertEquals(SHA256, confirmed.sha256());
+        assertEquals(
+            ObjectState.AVAILABLE,
+            objects.findById(REVIEW_IMAGE).orElseThrow().state()
+        );
+        assertEquals(
+            REVIEW_TASK,
+            objects.reviewMaskExpectation(REVIEW_IMAGE)
+                .orElseThrow()
+                .reviewTaskId()
+        );
+        assertThrows(DomainViolation.class, () ->
+            issueReview(REVIEW_IMAGE)
+        );
+    }
+
+    @Test
+    void damagedReviewMaskFailsClosed() {
+        var ticket = issueReview(REVIEW_IMAGE);
+        storage.missing = true;
+
+        assertThrows(StorageIntegrityViolation.class, () -> service.confirm(
+            REVIEW_TASK,
+            REVIEW_IMAGE,
+            10,
+            SHA256,
+            receipt(ticket)
+        ));
+        assertEquals(
+            ObjectState.STAGING,
+            objects.findById(REVIEW_IMAGE).orElseThrow().state()
+        );
+    }
+
     private ObjectStoragePort.UploadAuthorization issue() {
         return service.issueRawUpload(
             IMAGE,
@@ -248,6 +344,25 @@ final class StorageApplicationServiceTest {
             SHA256,
             "image/png",
             "png"
+        );
+    }
+
+    private ReviewAnnotationStorage.UploadTicket issueReview(UUID imageId) {
+        return service.issue(
+            imageId,
+            REVIEW_TASK,
+            CAPTURE,
+            10,
+            SHA256,
+            10,
+            10
+        );
+    }
+
+    private static String receipt(
+            ReviewAnnotationStorage.UploadTicket ticket) {
+        return ticket.headers().get(
+            StorageApplicationService.UPLOAD_RECEIPT_HEADER
         );
     }
 
@@ -276,9 +391,28 @@ final class StorageApplicationServiceTest {
     private static final class MemoryObjects implements StoredObjectRepository {
         private final Map<UUID, StoredObject> values = new HashMap<>();
         private final Map<UUID, UUID> captureStations = new HashMap<>();
+        private final Map<UUID, ReviewSourceBinding> reviewSources =
+            new HashMap<>();
+        private final Map<UUID, ReviewMaskExpectation> reviewMasks =
+            new HashMap<>();
 
         void bind(UUID captureId, UUID stationId) {
             captureStations.put(captureId, stationId);
+        }
+
+        void bindReview(
+                UUID reviewTaskId,
+                UUID captureId,
+                UUID stationId,
+                int width,
+                int height) {
+            reviewSources.put(
+                reviewTaskId,
+                new ReviewSourceBinding(
+                    captureId,
+                    new ReviewMaskSource(stationId, width, height)
+                )
+            );
         }
 
         @Override
@@ -299,8 +433,48 @@ final class StorageApplicationServiceTest {
         }
 
         @Override
+        public void insertReviewMaskStaging(
+                StoredObject object,
+                UUID reviewTaskId,
+                int expectedWidth,
+                int expectedHeight) {
+            insertStaging(object);
+            reviewMasks.put(
+                object.imageId(),
+                new ReviewMaskExpectation(
+                    reviewTaskId,
+                    expectedWidth,
+                    expectedHeight
+                )
+            );
+        }
+
+        @Override
         public boolean captureBelongsToStation(UUID captureId, UUID stationId) {
             return stationId.equals(captureStations.get(captureId));
+        }
+
+        @Override
+        public Optional<ReviewMaskSource> reviewMaskSource(
+                UUID reviewTaskId,
+                UUID captureId) {
+            ReviewSourceBinding binding = reviewSources.get(reviewTaskId);
+            if (binding == null || !binding.captureId().equals(captureId)) {
+                return Optional.empty();
+            }
+            return Optional.of(binding.source());
+        }
+
+        @Override
+        public Optional<ReviewMaskExpectation> reviewMaskExpectation(
+                UUID imageId) {
+            return Optional.ofNullable(reviewMasks.get(imageId));
+        }
+
+        private record ReviewSourceBinding(
+            UUID captureId,
+            ReviewMaskSource source
+        ) {
         }
 
         @Override
@@ -430,6 +604,10 @@ final class StorageApplicationServiceTest {
         private Map<String, String> metadata = Map.of();
         private boolean missing;
         private long decodedBytes = 400;
+        private int width = 10;
+        private int height = 10;
+        private int bands = 1;
+        private boolean binaryMask = true;
 
         FakeStorage(Clock clock) {
             this.clock = clock;
@@ -463,9 +641,11 @@ final class StorageApplicationServiceTest {
                 10,
                 SHA256,
                 "image/png",
-                10,
-                10,
+                width,
+                height,
                 decodedBytes,
+                bands,
+                binaryMask,
                 "version-1",
                 metadata
             );

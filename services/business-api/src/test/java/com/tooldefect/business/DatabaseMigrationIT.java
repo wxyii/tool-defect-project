@@ -7,7 +7,12 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationVersion;
@@ -19,6 +24,11 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
+
+import com.tooldefect.business.detection.domain.DetectionNotFound;
+import com.tooldefect.business.detection.infrastructure.JdbcDetectionQueryRepository;
+import com.tooldefect.business.review.domain.ReviewStatus;
+import com.tooldefect.business.review.infrastructure.JdbcReviewRepository;
 
 /**
  * 真实 PostgreSQL 上验证空库、向前迁移、约束以及备份恢复。Docker 不可用时
@@ -41,7 +51,7 @@ class DatabaseMigrationIT {
 
         var result = flyway.migrate();
 
-        assertThat(result.migrationsExecuted).isEqualTo(3);
+        assertThat(result.migrationsExecuted).isEqualTo(5);
         flyway.validate();
         JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
         assertThat(jdbc.queryForObject(
@@ -51,7 +61,7 @@ class DatabaseMigrationIT {
             WHERE success AND version IS NOT NULL
             """,
             Integer.class
-        )).isEqualTo(3);
+        )).isEqualTo(5);
         assertThat(jdbc.queryForObject(
             """
             SELECT COUNT(*)
@@ -160,7 +170,7 @@ class DatabaseMigrationIT {
         );
 
         Flyway latest = flyway(POSTGRES.getJdbcUrl(), schema, null);
-        assertThat(latest.migrate().migrationsExecuted).isEqualTo(1);
+        assertThat(latest.migrate().migrationsExecuted).isEqualTo(3);
 
         assertThat(jdbc.queryForObject(
             "SELECT organization_id FROM production_line WHERE line_id = ?",
@@ -475,11 +485,14 @@ class DatabaseMigrationIT {
             """
             INSERT INTO disposition_record(
                 disposition_id, capture_id, source, disposition,
-                policy_version, reason_code
-            ) VALUES (?, ?, 'AUTO', 'PASS', 'policy-v1', 'AUTO_PASS')
+                policy_version, reason_code, policy_snapshot,
+                input_summary_sha256
+            ) VALUES (?, ?, 'AUTO', 'PASS', 'policy-v1', 'AUTO_PASS',
+                '{"threshold":0.8}'::jsonb, ?)
             """,
             firstDispositionId,
-            fixture.captureId()
+            fixture.captureId(),
+            "1".repeat(64)
         )).isEqualTo(1);
         assertThat(jdbc.update(
             """
@@ -507,13 +520,15 @@ class DatabaseMigrationIT {
             """
             INSERT INTO disposition_record(
                 disposition_id, capture_id, source, disposition,
-                policy_version, reason_code, supersedes_id
+                policy_version, reason_code, supersedes_id,
+                policy_snapshot, input_summary_sha256
             ) VALUES (?, ?, 'AUTO', 'FAIL', 'policy-correction-v1',
-                'CORRECTION', ?)
+                'CORRECTION', ?, '{"correction":true}'::jsonb, ?)
             """,
             correctedDispositionId,
             fixture.captureId(),
-            firstDispositionId
+            firstDispositionId,
+            "2".repeat(64)
         )).isEqualTo(1);
         assertThat(jdbc.update(
             """
@@ -543,6 +558,255 @@ class DatabaseMigrationIT {
         assertThatThrownBy(() -> jdbc.update(
             "UPDATE audit_log SET result = 'TAMPERED' WHERE audit_id = ?",
             auditId
+        )).isInstanceOf(DataAccessException.class);
+    }
+
+    @Test
+    void detectionQueriesAlwaysAppendDatabaseDataScope() {
+        String schema = uniqueName("detection_query");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+        Fixture fixture = seedCapture(jdbc);
+        var queries = new JdbcDetectionQueryRepository(jdbc);
+
+        Map<String, Object> deniedPage = queries.list(
+            "subject-without-scope",
+            null,
+            25,
+            null,
+            null,
+            null
+        );
+        assertThat((java.util.List<?>) deniedPage.get("items")).isEmpty();
+        assertThatThrownBy(() ->
+            queries.detail(
+                "subject-without-scope",
+                fixture.detectionTaskId()
+            )
+        ).isInstanceOf(DetectionNotFound.class);
+
+        seedDetectionReaderScope(jdbc, "authorized-subject", fixture.stationId());
+        Map<String, Object> page = queries.list(
+            "authorized-subject",
+            null,
+            25,
+            null,
+            null,
+            null
+        );
+        assertThat((java.util.List<?>) page.get("items")).hasSize(1);
+        Map<String, Object> detail = queries.detail(
+            "authorized-subject",
+            fixture.detectionTaskId()
+        );
+        assertThat(
+            ((Map<?, ?>) detail.get("capture")).get("capture_id")
+        ).isEqualTo(fixture.captureId().toString());
+        assertThat(detail).containsOnlyKeys(
+            "capture",
+            "detection",
+            "attempts",
+            "disposition_history",
+            "images",
+            "versions"
+        );
+    }
+
+    @Test
+    void reviewPoolScopeConcurrentClaimAndExpiredLeaseAreDatabaseBacked()
+            throws Exception {
+        String schema = uniqueName("review_pool");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+        Fixture fixture = seedCapture(jdbc);
+        UUID reviewTaskId = UUID.randomUUID();
+        jdbc.update(
+            """
+            INSERT INTO review_task(
+                review_task_id, capture_id, priority,
+                status, trigger_reasons
+            ) VALUES (?, ?, 10, 'PENDING', '["LOW_CONFIDENCE"]'::jsonb)
+            """,
+            reviewTaskId,
+            fixture.captureId()
+        );
+        seedScopedPermission(
+            jdbc,
+            List.of("reviewer-one", "reviewer-two"),
+            "review:read",
+            fixture.stationId()
+        );
+        seedScopedPermission(
+            jdbc,
+            List.of("reviewer-one", "reviewer-two"),
+            "review:claim",
+            fixture.stationId()
+        );
+        var first = new JdbcReviewRepository(jdbc);
+        var second = new JdbcReviewRepository(jdbc);
+        assertThat((List<?>) first.list(
+            "subject-without-scope",
+            null,
+            25,
+            null
+        ).get("items")).isEmpty();
+        assertThat((List<?>) first.list(
+            "reviewer-one",
+            null,
+            25,
+            ReviewStatus.PENDING.name()
+        ).get("items")).hasSize(1);
+
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try (var workers = Executors.newFixedThreadPool(2)) {
+            var claimOne = workers.submit(() -> {
+                ready.countDown();
+                start.await();
+                return first.claim(
+                    reviewTaskId,
+                    "reviewer-one",
+                    0,
+                    Instant.parse("2026-07-30T08:05:00Z"),
+                    "PENDING"
+                );
+            });
+            var claimTwo = workers.submit(() -> {
+                ready.countDown();
+                start.await();
+                return second.claim(
+                    reviewTaskId,
+                    "reviewer-two",
+                    0,
+                    Instant.parse("2026-07-30T08:05:00Z"),
+                    "PENDING"
+                );
+            });
+            ready.await();
+            start.countDown();
+            assertThat(List.of(claimOne.get(), claimTwo.get()))
+                .containsExactlyInAnyOrder(true, false);
+        }
+
+        first.requeueExpired(Instant.parse("2026-07-30T08:05:01Z"));
+        var requeued = first.requireAuthorized(
+            "reviewer-one",
+            reviewTaskId,
+            "review:read",
+            false
+        );
+        assertThat(requeued.status()).isEqualTo(ReviewStatus.PENDING);
+        assertThat(requeued.claimedBy()).isNull();
+        assertThat(requeued.recordVersion()).isEqualTo(2);
+        assertThatThrownBy(() -> jdbc.update(
+            """
+            INSERT INTO review_task(
+                review_task_id, capture_id, priority,
+                status, trigger_reasons
+            ) VALUES (?, ?, 15, 'PENDING', '[]'::jsonb)
+            """,
+            UUID.randomUUID(),
+            fixture.captureId()
+        )).isInstanceOf(DataAccessException.class);
+    }
+
+    @Test
+    void humanReviewFactsAndTrainingApprovalAreDatabaseEnforced() {
+        String schema = uniqueName("review_facts");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+        Fixture fixture = seedCapture(jdbc);
+        UUID reviewerId = seedUser(jdbc, "review-record-owner");
+        UUID qualityId = seedUser(jdbc, "quality-approver");
+        UUID taskId = UUID.randomUUID();
+        jdbc.update(
+            """
+            INSERT INTO review_task(
+                review_task_id, capture_id, priority,
+                status, trigger_reasons
+            ) VALUES (?, ?, 10, 'RESOLVED', '["MANUAL_SAMPLE"]'::jsonb)
+            """,
+            taskId,
+            fixture.captureId()
+        );
+
+        assertThatThrownBy(() -> insertReviewRecord(
+            jdbc,
+            UUID.randomUUID(),
+            taskId,
+            reviewerId,
+            "PASS",
+            "OTHER",
+            ""
+        )).isInstanceOf(DataAccessException.class);
+        UUID reviewRecordId = UUID.randomUUID();
+        insertReviewRecord(
+            jdbc,
+            reviewRecordId,
+            taskId,
+            reviewerId,
+            "PASS",
+            "CONFIRMED_CORRECT",
+            "证据完整"
+        );
+        assertThatThrownBy(() -> jdbc.update(
+            "UPDATE review_record SET comment = '篡改' WHERE review_record_id = ?",
+            reviewRecordId
+        )).isInstanceOf(DataAccessException.class);
+
+        UUID rawImageId = insertImage(
+            jdbc,
+            fixture.captureId(),
+            "review-training/raw.png"
+        );
+        jdbc.update(
+            """
+            UPDATE image_object
+            SET state = 'AVAILABLE', width = 2, height = 3,
+                record_version = record_version + 1
+            WHERE image_id = ?
+            """,
+            rawImageId
+        );
+        UUID datasetVersionId = seedDatasetVersion(jdbc);
+        assertThatThrownBy(() -> insertReviewDatasetSample(
+            jdbc,
+            UUID.randomUUID(),
+            datasetVersionId,
+            fixture.captureId(),
+            rawImageId,
+            reviewRecordId,
+            "before-approval"
+        )).isInstanceOf(DataAccessException.class);
+
+        UUID trainingDecisionId = UUID.randomUUID();
+        jdbc.update(
+            """
+            INSERT INTO review_training_decision(
+                training_decision_id, review_record_id,
+                decision, decided_by, reason
+            ) VALUES (?, ?, 'APPROVED', ?, '质量负责人批准进入训练候选')
+            """,
+            trainingDecisionId,
+            reviewRecordId,
+            qualityId
+        );
+        assertThat(insertReviewDatasetSample(
+            jdbc,
+            UUID.randomUUID(),
+            datasetVersionId,
+            fixture.captureId(),
+            rawImageId,
+            reviewRecordId,
+            "after-approval"
+        )).isEqualTo(1);
+        assertThatThrownBy(() -> jdbc.update(
+            """
+            UPDATE review_training_decision
+            SET decision = 'REJECTED'
+            WHERE training_decision_id = ?
+            """,
+            trainingDecisionId
         )).isInstanceOf(DataAccessException.class);
     }
 
@@ -592,7 +856,7 @@ class DatabaseMigrationIT {
         assertThat(restored.queryForObject(
             "SELECT COUNT(*) FROM flyway_schema_history WHERE success",
             Integer.class
-        )).isEqualTo(3);
+        )).isEqualTo(5);
         flyway(databaseUrl(restoredDatabase), "public", null).validate();
     }
 
@@ -788,6 +1052,205 @@ class DatabaseMigrationIT {
             datasetId
         );
         return versionId;
+    }
+
+    private static void seedDetectionReaderScope(
+            JdbcTemplate jdbc,
+            String externalSubject,
+            UUID stationId) {
+        UUID userId = UUID.randomUUID();
+        UUID roleId = UUID.randomUUID();
+        UUID permissionId = UUID.randomUUID();
+        jdbc.update(
+            """
+            INSERT INTO sys_user(
+                user_id, external_subject, display_name, status
+            ) VALUES (?, ?, '检测查询测试用户', 'ACTIVE')
+            """,
+            userId,
+            externalSubject
+        );
+        jdbc.update(
+            """
+            INSERT INTO sys_role(role_id, role_code, role_name)
+            VALUES (?, ?, '检测读取角色')
+            """,
+            roleId,
+            "detection-reader-" + roleId
+        );
+        jdbc.update(
+            """
+            INSERT INTO sys_permission(
+                permission_id, permission_code, description
+            ) VALUES (?, 'detection:read', '读取授权范围内的检测')
+            """,
+            permissionId
+        );
+        jdbc.update(
+            "INSERT INTO sys_user_role(user_id, role_id) VALUES (?, ?)",
+            userId,
+            roleId
+        );
+        jdbc.update(
+            """
+            INSERT INTO sys_role_permission(role_id, permission_id)
+            VALUES (?, ?)
+            """,
+            roleId,
+            permissionId
+        );
+        jdbc.update(
+            """
+            INSERT INTO sys_scope_binding(
+                scope_binding_id, subject_type, subject_id,
+                scope_type, scope_id
+            ) VALUES (?, 'ROLE', ?, 'STATION', ?)
+            """,
+            UUID.randomUUID(),
+            roleId,
+            stationId
+        );
+    }
+
+    private static UUID seedUser(
+            JdbcTemplate jdbc,
+            String externalSubject) {
+        UUID userId = UUID.randomUUID();
+        jdbc.update(
+            """
+            INSERT INTO sys_user(
+                user_id, external_subject, display_name, status
+            ) VALUES (?, ?, ?, 'ACTIVE')
+            """,
+            userId,
+            externalSubject,
+            "测试用户-" + externalSubject
+        );
+        return userId;
+    }
+
+    private static void seedScopedPermission(
+            JdbcTemplate jdbc,
+            List<String> externalSubjects,
+            String permissionCode,
+            UUID stationId) {
+        UUID roleId = UUID.randomUUID();
+        UUID permissionId = UUID.randomUUID();
+        jdbc.update(
+            """
+            INSERT INTO sys_role(role_id, role_code, role_name)
+            VALUES (?, ?, ?)
+            """,
+            roleId,
+            permissionCode.replace(':', '-') + "-" + roleId,
+            "测试范围角色-" + permissionCode
+        );
+        jdbc.update(
+            """
+            INSERT INTO sys_permission(
+                permission_id, permission_code, description
+            ) VALUES (?, ?, ?)
+            ON CONFLICT (permission_code) DO NOTHING
+            """,
+            permissionId,
+            permissionCode,
+            "测试权限-" + permissionCode
+        );
+        UUID stablePermissionId = jdbc.queryForObject(
+            """
+            SELECT permission_id FROM sys_permission
+            WHERE permission_code = ?
+            """,
+            UUID.class,
+            permissionCode
+        );
+        jdbc.update(
+            """
+            INSERT INTO sys_role_permission(role_id, permission_id)
+            VALUES (?, ?)
+            """,
+            roleId,
+            stablePermissionId
+        );
+        for (String subject : externalSubjects) {
+            UUID userId = jdbc.query(
+                """
+                SELECT user_id FROM sys_user WHERE external_subject = ?
+                """,
+                (row, index) -> row.getObject("user_id", UUID.class),
+                subject
+            ).stream().findFirst().orElseGet(() -> seedUser(jdbc, subject));
+            jdbc.update(
+                "INSERT INTO sys_user_role(user_id, role_id) VALUES (?, ?)",
+                userId,
+                roleId
+            );
+        }
+        jdbc.update(
+            """
+            INSERT INTO sys_scope_binding(
+                scope_binding_id, subject_type, subject_id,
+                scope_type, scope_id
+            ) VALUES (?, 'ROLE', ?, 'STATION', ?)
+            """,
+            UUID.randomUUID(),
+            roleId,
+            stationId
+        );
+    }
+
+    private static void insertReviewRecord(
+            JdbcTemplate jdbc,
+            UUID reviewRecordId,
+            UUID taskId,
+            UUID reviewerId,
+            String decision,
+            String reasonCode,
+            String comment) {
+        jdbc.update(
+            """
+            INSERT INTO review_record(
+                review_record_id, review_task_id, reviewer_id,
+                decision, reason_code, comment, defect_type_codes,
+                review_round, submitted_at, client_submitted_at,
+                submission_sha256
+            ) VALUES (?, ?, ?, ?, ?, ?, '[]'::jsonb,
+                1, now(), now(), ?)
+            """,
+            reviewRecordId,
+            taskId,
+            reviewerId,
+            decision,
+            reasonCode,
+            comment,
+            "b".repeat(64)
+        );
+    }
+
+    private static int insertReviewDatasetSample(
+            JdbcTemplate jdbc,
+            UUID sampleId,
+            UUID datasetVersionId,
+            UUID captureId,
+            UUID imageId,
+            UUID reviewRecordId,
+            String sampleKey) {
+        return jdbc.update(
+            """
+            INSERT INTO dataset_sample(
+                dataset_sample_id, dataset_version_id, sample_key,
+                capture_id, image_id, label, split,
+                source_review_record_id, content_sha256, group_key
+            ) VALUES (?, ?, ?, ?, ?, 'PASS', 'TRAIN', ?, ?, 'review-group')
+            """,
+            sampleId,
+            datasetVersionId,
+            sampleKey,
+            captureId,
+            imageId,
+            reviewRecordId,
+            "c".repeat(64)
+        );
     }
 
     private static Flyway flyway(

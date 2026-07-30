@@ -60,9 +60,61 @@ public class SecurityConfiguration {
                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                 .requestMatchers(
                     HttpMethod.POST,
+                    "/api/v1/edge/captures",
+                    "/api/v1/edge/captures/*/submit",
+                    "/api/v1/edge/captures/*/images/*/complete"
+                ).hasAuthority("SCOPE_capture:write")
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/v1/edge/captures/*"
+                ).hasAuthority("SCOPE_capture:read")
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v1/edge/sync/captures/query"
+                ).hasAuthority("SCOPE_capture:read")
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v1/edge/devices/*/heartbeat"
+                ).hasAuthority("SCOPE_device:heartbeat")
+                .requestMatchers(
+                    HttpMethod.POST,
                     "/api/v1/edge/captures/*/images/*/upload-ticket"
                 ).hasAuthority("SCOPE_capture:write")
-                .requestMatchers("/internal/**").hasAuthority("SCOPE_runtime:read")
+                .requestMatchers(
+                    "/internal/v1/detection-tasks/*/attempts",
+                    "/internal/v1/detection-attempts/*/result",
+                    "/internal/v1/detection-attempts/*/failure"
+                ).hasAuthority("SCOPE_inference:callback")
+                .requestMatchers("/internal/**")
+                    .hasAuthority("SCOPE_runtime:read")
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/v1/detections",
+                    "/api/v1/detections/*"
+                ).hasAuthority("SCOPE_detection:read")
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v1/images/*/access-ticket"
+                ).hasAuthority("SCOPE_image:view")
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/v1/review-tasks",
+                    "/api/v1/review-tasks/*"
+                ).hasAuthority("SCOPE_review:read")
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v1/review-tasks/*/claim",
+                    "/api/v1/review-tasks/*/release"
+                ).hasAuthority("SCOPE_review:claim")
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v1/review-tasks/*/submissions"
+                ).hasAuthority("SCOPE_review:submit")
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v1/review-tasks/*/annotation-upload-ticket",
+                    "/api/v1/review-tasks/*/annotations/*/complete"
+                ).hasAuthority("SCOPE_review:annotate")
                 .anyRequest().authenticated());
 
         JwtDecoder decoder = jwtDecoders.getIfAvailable();

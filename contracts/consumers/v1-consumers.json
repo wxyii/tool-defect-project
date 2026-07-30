@@ -23,6 +23,8 @@
       "http_operations": [
         "createCapture",
         "renewCaptureImageUploadTicket",
+        "getReviewWorkspace",
+        "completeReviewAnnotation",
         "submitReview",
         "createDatasetVersion",
         "createTrainingRun",
@@ -59,9 +61,11 @@
         "listDetections",
         "getDetection",
         "listReviewTasks",
+        "getReviewWorkspace",
         "claimReviewTask",
         "releaseReviewTask",
         "submitReview",
+        "completeReviewAnnotation",
         "createImageAccessTicket",
         "streamAuthorizedEvents"
       ],

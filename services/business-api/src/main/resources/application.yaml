@@ -45,6 +45,20 @@ management:
       enabled: ${td.messaging.enabled:false}
 
 td:
+  review:
+    claim-lease: ${TD_REVIEW_CLAIM_LEASE:PT5M}
+  detection:
+    maximum-attempts: ${TD_DETECTION_MAXIMUM_ATTEMPTS:3}
+    retry-delay-1: ${TD_DETECTION_RETRY_DELAY_1:PT30S}
+    retry-delay-2: ${TD_DETECTION_RETRY_DELAY_2:PT2M}
+    retry-delay-3: ${TD_DETECTION_RETRY_DELAY_3:PT10M}
+    policy:
+      version: ${TD_DISPOSITION_POLICY_VERSION:auto-policy/1}
+      gray-low: ${TD_DISPOSITION_GRAY_LOW:0.45}
+      gray-high: ${TD_DISPOSITION_GRAY_HIGH:0.55}
+      high-score-threshold: ${TD_DISPOSITION_HIGH_SCORE_THRESHOLD:0.8}
+      warning-requires-review: ${TD_DISPOSITION_WARNING_REVIEW:true}
+      mask-required-for-unqualified: ${TD_DISPOSITION_MASK_REQUIRED:true}
   messaging:
     enabled: ${TD_MESSAGING_ENABLED:false}
     publisher:
@@ -67,6 +81,8 @@ td:
     path-style-access: ${TD_S3_PATH_STYLE:true}
     require-tls: ${TD_S3_REQUIRE_TLS:true}
     raw-bucket: ${TD_S3_RAW_BUCKET:td-raw}
+    derived-bucket: ${TD_S3_DERIVED_BUCKET:td-derived}
+    review-bucket: ${TD_S3_REVIEW_BUCKET:td-review}
     upload-ttl: ${TD_S3_UPLOAD_TTL:PT5M}
     read-ttl: ${TD_S3_READ_TTL:PT5M}
     maximum-pixels: ${TD_IMAGE_MAX_PIXELS:100000000}

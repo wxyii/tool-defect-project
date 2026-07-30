@@ -15,6 +15,8 @@ public interface S3ClientFacade {
             int width,
             int height,
             long decodedBytes,
+            int bands,
+            boolean binaryMask,
             String objectVersion,
             Map<String, String> metadata) {}
 

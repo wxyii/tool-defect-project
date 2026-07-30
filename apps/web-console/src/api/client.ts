@@ -9,9 +9,12 @@ type WebConsoleOperation =
   | 'listDetections'
   | 'getDetection'
   | 'listReviewTasks'
+  | 'getReviewWorkspace'
   | 'claimReviewTask'
   | 'releaseReviewTask'
   | 'submitReview'
+  | 'createAnnotationUploadTicket'
+  | 'completeReviewAnnotation'
   | 'createImageAccessTicket'
   | 'streamAuthorizedEvents'
 
@@ -71,6 +74,11 @@ const OPERATIONS = {
     path: '/api/v1/review-tasks',
     response: 'json',
   },
+  getReviewWorkspace: {
+    method: 'GET',
+    path: '/api/v1/review-tasks/{review_task_id}',
+    response: 'json',
+  },
   claimReviewTask: {
     method: 'POST',
     path: '/api/v1/review-tasks/{review_task_id}/claim',
@@ -84,6 +92,16 @@ const OPERATIONS = {
   submitReview: {
     method: 'POST',
     path: '/api/v1/review-tasks/{review_task_id}/submissions',
+    response: 'json',
+  },
+  createAnnotationUploadTicket: {
+    method: 'POST',
+    path: '/api/v1/review-tasks/{review_task_id}/annotation-upload-ticket',
+    response: 'json',
+  },
+  completeReviewAnnotation: {
+    method: 'POST',
+    path: '/api/v1/review-tasks/{review_task_id}/annotations/{image_id}/complete',
     response: 'json',
   },
   createImageAccessTicket: {
@@ -126,6 +144,10 @@ export class ApiClient implements WebConsoleGeneratedApiClient {
     return this.invokeJson('listReviewTasks', request)
   }
 
+  getReviewWorkspace(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('getReviewWorkspace', request)
+  }
+
   claimReviewTask(request?: JsonObject): Promise<JsonObject> {
     return this.invokeJson('claimReviewTask', request)
   }
@@ -136,6 +158,14 @@ export class ApiClient implements WebConsoleGeneratedApiClient {
 
   submitReview(request?: JsonObject): Promise<JsonObject> {
     return this.invokeJson('submitReview', request)
+  }
+
+  createAnnotationUploadTicket(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('createAnnotationUploadTicket', request)
+  }
+
+  completeReviewAnnotation(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('completeReviewAnnotation', request)
   }
 
   createImageAccessTicket(request?: JsonObject): Promise<JsonObject> {

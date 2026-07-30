@@ -13,6 +13,7 @@ from ..adapters.ports import (
     CameraCaptureError,
     TriggerEvent,
 )
+from ..health.disk_watermark import DiskWatermarkController
 from .models import CapturedFrame, PersistedCapture
 from .storage import AtomicCaptureStore, CaptureStorageError
 
@@ -95,6 +96,7 @@ class CaptureCoordinator:
         recipe_id: str,
         capture_id_factory: Callable[[], str] = lambda: str(uuid4()),
         camera_busy_retries: int = 1,
+        disk_watermark: DiskWatermarkController | None = None,
     ) -> None:
         if camera_busy_retries < 0:
             raise ValueError("相机繁忙重试次数不能为负数")
@@ -105,6 +107,7 @@ class CaptureCoordinator:
         self.recipe_id = recipe_id
         self.capture_id_factory = capture_id_factory
         self.camera_busy_retries = camera_busy_retries
+        self.disk_watermark = disk_watermark
 
     def recover_incomplete_triggers(
         self,
@@ -156,6 +159,20 @@ class CaptureCoordinator:
         return outcomes
 
     def handle(self, event: TriggerEvent) -> CaptureOutcome:
+        if self.disk_watermark is not None:
+            disk = self.disk_watermark.before_capture()
+            if not disk.allow_capture:
+                return CaptureOutcome(
+                    status="PAUSED",
+                    capture_id=None,
+                    persisted=None,
+                    warnings=(
+                        "DISK_USAGE_UNKNOWN"
+                        if disk.level == "UNKNOWN"
+                        else "DISK_CRITICAL",
+                    ),
+                    error_code="TD-EDGE-DISK-CRITICAL-001",
+                )
         resumed_after_crash = False
         existing = self.store.queue.get_trigger(
             source=event.source,

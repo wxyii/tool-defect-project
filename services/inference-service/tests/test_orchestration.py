@@ -23,11 +23,19 @@ from inference_service.clients.business_api import (
     CallbackAcceptance,
     StandardBusinessApiClient,
 )
+from inference_service.clients.canonical_json import (
+    encode as canonical_json,
+    sha256 as canonical_sha256,
+)
 from inference_service.consumer.handler import InferenceMessageHandler
 from inference_service.orchestration.pipeline import (
     ExecutionAcceptance,
     InferenceOrchestrator,
     InferenceTask,
+)
+from inference_service.orchestration.result_journal import (
+    FileResultJournal,
+    PendingResult,
 )
 from inference_service.storage.materializer import ObjectReference
 from schema_engine import SchemaEngine
@@ -76,7 +84,7 @@ class OrchestrationTests(unittest.IsolatedAsyncioTestCase):
             callback.result_payload["warnings"],
         )
         self.assertFalse(preprocessor.observed_temp_dir.exists())
-        self.assertEqual(tuple(self.root.iterdir()), ())
+        self._assert_only_callback_journal()
 
         SchemaEngine().validate_file(
             callback.result_payload,
@@ -164,6 +172,39 @@ class OrchestrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(callback.failure_calls, 0)
         self.assertIsNotNone(callback.result_payload)
 
+    async def test_duplicate_message_replays_journal_without_rerunning_pipeline(
+        self,
+    ):
+        callback = _OneShotUnavailableCallback()
+        preprocessor = _RejectedPreprocessor()
+        materializer = _Materializer()
+        orchestrator = InferenceOrchestrator(
+            materializer=materializer,
+            decoder=_Decoder(),
+            preprocessor=preprocessor,
+            runtime_slot=_RuntimeSlot(),
+            callback=callback,
+            artifact_publisher=_Publisher(),
+            runtime_id="runtime-1",
+            runtime_version="1.0.0",
+            temp_root=self.root,
+        )
+
+        first = await orchestrator.execute(_task())
+        second = await orchestrator.execute(_task())
+        third = await orchestrator.execute(_task())
+
+        self.assertFalse(first.accepted)
+        self.assertTrue(second.accepted)
+        self.assertTrue(third.accepted)
+        self.assertEqual(first.result_sha256, second.result_sha256)
+        self.assertEqual(second.result_sha256, third.result_sha256)
+        self.assertEqual(materializer.calls, 1)
+        self.assertEqual(preprocessor.prepare_calls, 1)
+        self.assertEqual(callback.result_calls, 2)
+        self.assertEqual(callback.failure_calls, 0)
+        self._assert_only_callback_journal()
+
     async def test_failure_is_reported_without_fabricated_result(self):
         callback = _Callback()
         orchestrator = self._orchestrator(
@@ -216,8 +257,26 @@ class OrchestrationTests(unittest.IsolatedAsyncioTestCase):
             temp_root=self.root,
         )
 
+    def _assert_only_callback_journal(self):
+        entries = tuple(self.root.iterdir())
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0].name, ".callback-journal")
+        self.assertEqual(len(tuple(entries[0].glob("*.json"))), 1)
+
 
 class BusinessApiClientTests(unittest.IsolatedAsyncioTestCase):
+    def test_canonical_json_matches_backend_number_and_unicode_rules(self):
+        value = {"b": 1.2300, "a": -0.0, "text": "缺陷"}
+
+        encoded = canonical_json(value)
+
+        self.assertEqual(encoded, '{"a":0,"b":1.23,"text":"缺陷"}')
+        self.assertEqual(
+            canonical_sha256(value),
+            "3edca27991c7b78eb2d56d5027eb7ca7d"
+            "4d33861a34cf315c5af96a7943ed8c9",
+        )
+
     async def test_concrete_client_uses_frozen_idempotent_callbacks(self):
         transport = _Transport()
         client = StandardBusinessApiClient(transport)
@@ -269,8 +328,36 @@ class BusinessApiClientTests(unittest.IsolatedAsyncioTestCase):
         )
 
 
+class ResultJournalTests(unittest.TestCase):
+    def test_retention_prunes_only_old_accepted_results(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            journal = FileResultJournal(
+                Path(temporary),
+                maximum_accepted_entries=1,
+            )
+            pending = _pending_result("a")
+            first_accepted = _pending_result("b")
+            latest_accepted = _pending_result("c")
+
+            journal.store(pending)
+            journal.store(first_accepted)
+            journal.mark_accepted(first_accepted.attempt_id)
+            journal.store(latest_accepted)
+            journal.mark_accepted(latest_accepted.attempt_id)
+
+            self.assertIsNotNone(journal.load(pending.attempt_id))
+            self.assertIsNone(journal.load(first_accepted.attempt_id))
+            latest = journal.load(latest_accepted.attempt_id)
+            self.assertIsNotNone(latest)
+            self.assertTrue(latest.callback_accepted)
+
+
 class _Materializer:
+    def __init__(self):
+        self.calls = 0
+
     async def materialize(self, reference, temp_dir):
+        self.calls += 1
         path = temp_dir / "materialized.object"
         path.write_bytes(b"controlled")
         return SimpleMaterialized(reference, path)
@@ -316,8 +403,10 @@ class _RejectedPreprocessor:
 
     def __init__(self):
         self.observed_temp_dir = Path("/")
+        self.prepare_calls = 0
 
     def prepare(self, frames: FrameBundle, context):
+        self.prepare_calls += 1
         self.observed_temp_dir = context.temp_dir
         return PreparedBatch(
             tensors={},
@@ -429,6 +518,25 @@ class _ResultUnavailableCallback(_Callback):
         )
 
 
+class _OneShotUnavailableCallback(_ResultUnavailableCallback):
+    def __init__(self):
+        super().__init__()
+        self.result_calls = 0
+
+    async def put_result(
+        self, attempt_id, payload, result_sha256, traceparent
+    ):
+        self.result_calls += 1
+        self.result_payload = dict(payload)
+        if self.result_calls == 1:
+            raise TimeoutError("callback status unknown")
+        self.events.append("backend-result-accepted")
+        return CallbackAcceptance(
+            accepted=True,
+            result_sha256=result_sha256,
+        )
+
+
 class _Publisher:
     async def publish(self, attempt_id, name, artifact):
         return {
@@ -534,6 +642,22 @@ def _task():
             ),
         ),
         deadline_monotonic=time.monotonic() + 60,
+    )
+
+
+def _pending_result(suffix):
+    task = _task()
+    payload = {"schema_version": "1.0", "value": suffix}
+    return PendingResult(
+        attempt_id=(
+            "019f0000-0000-7000-8000-00000000000" + suffix
+        ),
+        message_id=task.message_id,
+        detection_task_id=task.detection_task_id,
+        capture_id=task.capture_id,
+        traceparent=task.traceparent,
+        result_sha256=canonical_sha256(payload),
+        payload=payload,
     )
 
 

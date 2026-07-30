@@ -1,5 +1,5 @@
 // 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。
-// 契约主版本: 1；源哈希: 6fc5d9465464faf374bfa54d8f20849623f912a6c3d88fdbe92ca47fba49e361
+// 契约主版本: 1；源哈希: 3578f82330fbba2e9e500f67fd1b574296707f5b20058cae9d70ed9bc3868ce5
 import type {
   Acknowledgement,
   ActionRequest,
@@ -51,6 +51,7 @@ import type {
   ReviewSummary,
   ReviewTask,
   ReviewTaskPage,
+  ReviewWorkspace,
   RollbackRequest,
   RuntimeModelsResponse,
   Sha256,
@@ -96,6 +97,12 @@ export const API_OPERATION_METADATA = {
   completeCaptureImage: {
     method: "POST",
     path: "/api/v1/edge/captures/{capture_id}/images/{image_id}/complete",
+    responseMediaCategory: "json",
+    responseMediaTypes: ["application/json"],
+  },
+  completeReviewAnnotation: {
+    method: "POST",
+    path: "/api/v1/review-tasks/{review_task_id}/annotations/{image_id}/complete",
     responseMediaCategory: "json",
     responseMediaTypes: ["application/json"],
   },
@@ -156,6 +163,12 @@ export const API_OPERATION_METADATA = {
   getInferenceReadiness: {
     method: "GET",
     path: "/internal/v1/runtime/ready",
+    responseMediaCategory: "json",
+    responseMediaTypes: ["application/json"],
+  },
+  getReviewWorkspace: {
+    method: "GET",
+    path: "/api/v1/review-tasks/{review_task_id}",
     responseMediaCategory: "json",
     responseMediaTypes: ["application/json"],
   },
@@ -291,6 +304,13 @@ export type CompleteCaptureImageRequestEnvelope = Readonly<{
   readonly body: (ObjectCompleteRequest);
 }>;
 
+export type CompleteReviewAnnotationRequestEnvelope = Readonly<{
+  readonly path: Readonly<{ readonly "image_id": Uuid; readonly "review_task_id": Uuid; }>;
+  readonly query?: never;
+  readonly headers: Readonly<{ readonly "Idempotency-Key": string; }>;
+  readonly body: (ObjectCompleteRequest);
+}>;
+
 export type CreateAnnotationUploadTicketRequestEnvelope = Readonly<{
   readonly path: Readonly<{ readonly "review_task_id": Uuid; }>;
   readonly query?: never;
@@ -356,6 +376,13 @@ export type GetEdgeCaptureRequestEnvelope = Readonly<{
 
 export type GetInferenceReadinessRequestEnvelope = Readonly<{
   readonly path?: never;
+  readonly query?: never;
+  readonly headers?: never;
+  readonly body?: never;
+}>;
+
+export type GetReviewWorkspaceRequestEnvelope = Readonly<{
+  readonly path: Readonly<{ readonly "review_task_id": Uuid; }>;
   readonly query?: never;
   readonly headers?: never;
   readonly body?: never;
@@ -484,6 +511,7 @@ export type ApiOperationRequestMap = Readonly<{
   readonly approveModelDeployment: ApproveModelDeploymentRequestEnvelope;
   readonly claimReviewTask: ClaimReviewTaskRequestEnvelope;
   readonly completeCaptureImage: CompleteCaptureImageRequestEnvelope;
+  readonly completeReviewAnnotation: CompleteReviewAnnotationRequestEnvelope;
   readonly createAnnotationUploadTicket: CreateAnnotationUploadTicketRequestEnvelope;
   readonly createCapture: CreateCaptureRequestEnvelope;
   readonly createDatasetVersion: CreateDatasetVersionRequestEnvelope;
@@ -494,6 +522,7 @@ export type ApiOperationRequestMap = Readonly<{
   readonly getDetection: GetDetectionRequestEnvelope;
   readonly getEdgeCapture: GetEdgeCaptureRequestEnvelope;
   readonly getInferenceReadiness: GetInferenceReadinessRequestEnvelope;
+  readonly getReviewWorkspace: GetReviewWorkspaceRequestEnvelope;
   readonly getTrainingRun: GetTrainingRunRequestEnvelope;
   readonly listDetections: ListDetectionsRequestEnvelope;
   readonly listReviewTasks: ListReviewTasksRequestEnvelope;
@@ -517,6 +546,7 @@ export interface ApiClient {
   approveModelDeployment(request: ApproveModelDeploymentRequestEnvelope): Promise<JsonObject>;
   claimReviewTask(request: ClaimReviewTaskRequestEnvelope): Promise<JsonObject>;
   completeCaptureImage(request: CompleteCaptureImageRequestEnvelope): Promise<JsonObject>;
+  completeReviewAnnotation(request: CompleteReviewAnnotationRequestEnvelope): Promise<JsonObject>;
   createAnnotationUploadTicket(request: CreateAnnotationUploadTicketRequestEnvelope): Promise<JsonObject>;
   createCapture(request: CreateCaptureRequestEnvelope): Promise<JsonObject>;
   createDatasetVersion(request: CreateDatasetVersionRequestEnvelope): Promise<JsonObject>;
@@ -527,6 +557,7 @@ export interface ApiClient {
   getDetection(request: GetDetectionRequestEnvelope): Promise<JsonObject>;
   getEdgeCapture(request: GetEdgeCaptureRequestEnvelope): Promise<JsonObject>;
   getInferenceReadiness(request?: GetInferenceReadinessRequestEnvelope): Promise<JsonObject>;
+  getReviewWorkspace(request: GetReviewWorkspaceRequestEnvelope): Promise<JsonObject>;
   getTrainingRun(request: GetTrainingRunRequestEnvelope): Promise<JsonObject>;
   listDetections(request?: ListDetectionsRequestEnvelope): Promise<JsonObject>;
   listReviewTasks(request?: ListReviewTasksRequestEnvelope): Promise<JsonObject>;

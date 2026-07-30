@@ -305,6 +305,26 @@
       }
     },
     {
+      "operation_id": "completeReviewAnnotation",
+      "success_request": {
+        "size_bytes": 4096,
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "upload_receipt": "review-annotation-receipt-opaque"
+      },
+      "success_response": {
+        "image_id": "019f0000-0000-7000-8000-000000000112",
+        "state": "AVAILABLE",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "cases": {
+        "success": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.upload_ticket_expired"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
       "operation_id": "createDatasetVersion",
       "success_request": {
         "dataset_id": "019f0000-0000-7000-8000-000000000120",
