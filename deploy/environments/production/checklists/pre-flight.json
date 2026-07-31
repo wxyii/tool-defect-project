@@ -1,0 +1,255 @@
+{
+  "schema_version": "1.0.0",
+  "title": "生产环境起飞前检查清单",
+  "description": "在生产环境首次部署前必须逐项核验的检查清单。所有 required=true 的项目必须通过。",
+  "items": [
+    {
+      "id": "HW-001",
+      "category": "硬件检查",
+      "check": "中心服务器可访问性",
+      "required": true,
+      "verification_command": "ping -c 4 <server_ip>",
+      "expected_result": "0% packet loss"
+    },
+    {
+      "id": "HW-002",
+      "category": "硬件检查",
+      "check": "工控机可访问性",
+      "required": true,
+      "verification_command": "ping -c 4 <edge_ip>",
+      "expected_result": "0% packet loss"
+    },
+    {
+      "id": "HW-003",
+      "category": "硬件检查",
+      "check": "中心服务器磁盘可用空间 ≥ 500 GB",
+      "required": true,
+      "verification_command": "df -h /var/lib/docker",
+      "expected_result": "Available ≥ 500G"
+    },
+    {
+      "id": "HW-004",
+      "category": "硬件检查",
+      "check": "工控机磁盘可用空间 ≥ 100 GB",
+      "required": true,
+      "verification_command": "ssh edge 'df -h /data'",
+      "expected_result": "Available ≥ 100G"
+    },
+    {
+      "id": "HW-005",
+      "category": "硬件检查",
+      "check": "CPU 核心数 ≥ 8",
+      "required": true,
+      "verification_command": "nproc",
+      "expected_result": "≥ 8"
+    },
+    {
+      "id": "HW-006",
+      "category": "硬件检查",
+      "check": "内存 ≥ 16 GB",
+      "required": true,
+      "verification_command": "free -g | awk '/^Mem:/{print $2}'",
+      "expected_result": "≥ 16"
+    },
+    {
+      "id": "HW-007",
+      "category": "硬件检查",
+      "check": "GPU 可用性（如推理设备为 GPU）",
+      "required": false,
+      "verification_command": "nvidia-smi",
+      "expected_result": "驱动正常、显存充足"
+    },
+    {
+      "id": "SW-001",
+      "category": "软件检查",
+      "check": "Docker Engine ≥ 24.0",
+      "required": true,
+      "verification_command": "docker version --format '{{.Server.Version}}'",
+      "expected_result": "≥ 24.0.0"
+    },
+    {
+      "id": "SW-002",
+      "category": "软件检查",
+      "check": "Docker Compose ≥ 2.20",
+      "required": true,
+      "verification_command": "docker compose version --short",
+      "expected_result": "≥ 2.20.0"
+    },
+    {
+      "id": "SW-003",
+      "category": "软件检查",
+      "check": "Docker 守护进程运行正常",
+      "required": true,
+      "verification_command": "docker info",
+      "expected_result": "正常运行，无警告"
+    },
+    {
+      "id": "SW-004",
+      "category": "软件检查",
+      "check": "所有镜像摘要已验证",
+      "required": true,
+      "verification_command": "docker pull <image>@sha256:<digest> && docker image inspect <image>@sha256:<digest> --format '{{.RepoDigests}}'",
+      "expected_result": "拉取成功且摘要匹配"
+    },
+    {
+      "id": "SW-005",
+      "category": "软件检查",
+      "check": "SBOM 完整性",
+      "required": true,
+      "verification_command": "syft <image>@sha256:<digest> -o json | grype",
+      "expected_result": "无已知高危漏洞"
+    },
+    {
+      "id": "SW-006",
+      "category": "软件检查",
+      "check": "工控机相机 SDK 已安装",
+      "required": false,
+      "verification_command": "ssh edge '<sdk_check_command>'",
+      "expected_result": "SDK 版本匹配"
+    },
+    {
+      "id": "SW-007",
+      "category": "软件检查",
+      "check": "工控机 PLC 驱动已安装",
+      "required": false,
+      "verification_command": "ssh edge '<driver_check_command>'",
+      "expected_result": "驱动正常加载"
+    },
+    {
+      "id": "CFG-001",
+      "category": "配置检查",
+      "check": "18 项上线阻断决策均有现场签字值",
+      "required": true,
+      "verification_command": "python deploy/environments/production/checklists/validate_config.py --check-all-decisions",
+      "expected_result": "0 项 PENDING_SITE_SIGNOFF"
+    },
+    {
+      "id": "CFG-002",
+      "category": "配置检查",
+      "check": "site-config.yaml 无 PENDING_SITE_SIGNOFF 残留",
+      "required": true,
+      "verification_command": "grep -c 'PENDING_SITE_SIGNOFF' deploy/environments/production/site-config.yaml",
+      "expected_result": "0"
+    },
+    {
+      "id": "CFG-003",
+      "category": "配置检查",
+      "check": ".env 文件所有必填项均已填写",
+      "required": true,
+      "verification_command": "python deploy/environments/production/checklists/validate_env.py",
+      "expected_result": "全部通过"
+    },
+    {
+      "id": "CFG-004",
+      "category": "配置检查",
+      "check": "生产 Docker 网络不冲突",
+      "required": true,
+      "verification_command": "docker network inspect ingress business_control business_database inference_control inference_queue object_storage monitoring 2>&1 | grep -c 'No such network'",
+      "expected_result": "7 (全部未占用)"
+    },
+    {
+      "id": "SEC-001",
+      "category": "安全核查",
+      "check": "所有 Docker secrets 已创建",
+      "required": true,
+      "verification_command": "docker secret ls | grep -E 'database_password|rabbitmq_|object_|tls_|ca_|model_trust_roots|telemetry_' | wc -l",
+      "expected_result": "27"
+    },
+    {
+      "id": "SEC-002",
+      "category": "安全核查",
+      "check": "mTLS 证书未过期",
+      "required": true,
+      "verification_command": "for cert in /secrets/certificates/**/*.crt; do openssl x509 -in $cert -noout -dates; done",
+      "expected_result": "所有证书到期日在 30 天以后"
+    },
+    {
+      "id": "SEC-003",
+      "category": "安全核查",
+      "check": "CA 吊销列表 (CRL) 可用",
+      "required": true,
+      "verification_command": "openssl crl -in /secrets/certificates/device-ca/ca.crl -noout -text",
+      "expected_result": "解析成功，无错误"
+    },
+    {
+      "id": "SEC-004",
+      "category": "安全核查",
+      "check": "私钥权限 0600",
+      "required": true,
+      "verification_command": "stat -c '%a' /secrets/certificates/**/*.key | sort -u",
+      "expected_result": "600"
+    },
+    {
+      "id": "SEC-005",
+      "category": "安全核查",
+      "check": "mTLS 握手验证",
+      "required": true,
+      "verification_command": "openssl s_client -connect <host>:443 -cert <client.crt> -key <client.key> -CAfile <ca.crt> -verify_return_error",
+      "expected_result": "Verify return code: 0 (ok)"
+    },
+    {
+      "id": "SEC-006",
+      "category": "安全核查",
+      "check": "密钥管理服务连通性",
+      "required": true,
+      "verification_command": "vault status 2>&1 | grep -E 'Sealed.*true'",
+      "expected_result": "未找到 (解封状态)"
+    },
+    {
+      "id": "SEC-007",
+      "category": "安全核查",
+      "check": ".env 文件无明文密码",
+      "required": true,
+      "verification_command": "grep -cP '(?i)(password|secret|key|token)[[:space:]]*=[[:space:]]*[^${]' deploy/environments/production/.env",
+      "expected_result": "0"
+    },
+    {
+      "id": "MODEL-001",
+      "category": "模型检查",
+      "check": "生产模型文件已加载",
+      "required": true,
+      "verification_command": "ls -la /var/lib/tool-defect/models/production/*.pt 2>/dev/null | wc -l",
+      "expected_result": "≥ 1"
+    },
+    {
+      "id": "MODEL-002",
+      "category": "模型检查",
+      "check": "模型哈希与 trust-root 一致",
+      "required": true,
+      "verification_command": "python deploy/environments/production/checklists/validate_model_hash.py",
+      "expected_result": "哈希匹配"
+    },
+    {
+      "id": "MODEL-003",
+      "category": "模型检查",
+      "check": "推理服务可加载模型并通过冒烟测试",
+      "required": true,
+      "verification_command": "python deploy/environments/production/checklists/smoke_test_model.py",
+      "expected_result": "推理输出格式正确，置信度在合理范围"
+    },
+    {
+      "id": "NET-001",
+      "category": "网络检查",
+      "check": "Docker 内部网络间隔离正确",
+      "required": true,
+      "verification_command": "docker compose -f deploy/compose/production-security-baseline.yml -f deploy/environments/production/docker-compose.production.yml config | grep -E 'internal: true'",
+      "expected_result": "business_control, business_database, inference_control, inference_queue, object_storage, monitoring 均为 internal: true"
+    },
+    {
+      "id": "NET-002",
+      "category": "网络检查",
+      "check": "仅 gateway 对外暴露端口",
+      "required": true,
+      "verification_command": "docker compose ... config | yq '.services[].ports' | grep -c .",
+      "expected_result": "1 (仅 gateway 的 443:8443)"
+    },
+    {
+      "id": "NET-003",
+      "category": "网络检查",
+      "check": "推理服务出站流量已切断",
+      "required": true,
+      "verification_command": "docker compose ... config | grep TD_DISABLE_INTERNET_EGRESS",
+      "expected_result": "TD_DISABLE_INTERNET_EGRESS: 'true'"
+    }
+  ]
+}

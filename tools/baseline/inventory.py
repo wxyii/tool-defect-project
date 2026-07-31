@@ -300,7 +300,6 @@ def summarize_records(records: list[FileRecord], include_records: bool) -> dict[
 
 def _worktree_asset_group_specs() -> dict[str, tuple[str, ...]]:
     return {
-        "design_documents": DESIGN_DOCUMENT_FILES,
         "raw_images": ("data/images",),
         "raw_masks": ("data/masks",),
         "labelme_annotations": ("data/annotations/labelme_json",),
@@ -317,6 +316,12 @@ def _worktree_asset_group_specs() -> dict[str, tuple[str, ...]]:
 
 def _git_asset_group_specs() -> dict[str, tuple[str, ...]]:
     return {
+        # Git 索引历史上使用小写 docs/；冻结摘要继续以 Docs/ 记录，
+        # 避免后续合法文档演进或大小写不敏感文件系统污染 P0 基线。
+        "design_documents": tuple(
+            path.replace("Docs/", "docs/", 1)
+            for path in DESIGN_DOCUMENT_FILES
+        ),
         "current_source_code": ("src", "app/legacy", *ROOT_ENTRY_FILES),
         "current_configuration": BASELINE_CONFIG_FILES,
         "current_tests": BASELINE_TEST_FILES,
@@ -328,15 +333,18 @@ def build_asset_groups(root: Path, include_records: bool = False) -> dict[str, A
         name: summarize_records(file_records(root, paths), include_records)
         for name, paths in sorted(_worktree_asset_group_specs().items())
     }
-    groups.update(
-        {
-            name: summarize_records(
-                git_snapshot_file_records(root, paths),
-                include_records,
-            )
-            for name, paths in sorted(_git_asset_group_specs().items())
-        }
-    )
+    for name, paths in sorted(_git_asset_group_specs().items()):
+        records = git_snapshot_file_records(root, paths)
+        if name == "design_documents":
+            records = [
+                FileRecord(
+                    path=record.path.replace("docs/", "Docs/", 1),
+                    size_bytes=record.size_bytes,
+                    sha256=record.sha256,
+                )
+                for record in records
+            ]
+        groups[name] = summarize_records(records, include_records)
     return dict(sorted(groups.items()))
 
 

@@ -14,9 +14,10 @@
 `python tools/baseline/inventory.py --include-records` 可只读输出全部逐文件
 清单；使用 `--verify tests/fixtures/baseline/baseline-lock.json` 验证冻结值。
 
-源码、配置和 P0 前已有测试从来源提交 `97c88cb` 的 Git Blob 计算，避免
-后续阶段的合法工作树改动重写历史基线；数据、当前模型和 01—15 号设计文档
-从 P0 启动时的只读工作树计算。
+源码、配置、P0 前已有测试和 01—15 号设计文档从来源提交 `97c88cb` 的
+Git Blob 计算，避免后续阶段的合法工作树改动重写历史基线。Git 历史中的
+设计文档路径为小写 `docs/`，摘要继续规范记录为冻结时的 `Docs/`；数据和
+当前模型从 P0 启动时的只读工作树计算。
 
 历史权重只记录 Git Blob 和 Git LFS 对象证据。夹具没有恢复、复制或提交
 任何权重文件。

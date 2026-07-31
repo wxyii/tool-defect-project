@@ -1,0 +1,122 @@
+{
+  "schema_version": "tool-defect-emergency-contacts/v1",
+  "note": "此文件为模板。所有联系人信息需在部署前由各负责人填写。不包含真实联系电话或密钥。",
+  "status": "PENDING_SITE_FILL",
+  "escalation_chain": {
+    "L1": "一线运维值班",
+    "L2": "运维负责人",
+    "L3": "基础设施与安全负责人",
+    "description": "L1 无法在响应时间内解决时升级至 L2，L2 无法解决或涉及安全和法律时升级至 L3"
+  },
+  "communication_channels": {
+    "primary": {
+      "type": "预留",
+      "details": "企业内部即时通讯或语音通道"
+    },
+    "backup": {
+      "type": "预留",
+      "details": "备用通讯方式（如手机、邮件组）"
+    }
+  },
+  "roles": {
+    "ops_lead": {
+      "title": "运维负责人",
+      "name": "待填写",
+      "phone": "待填写",
+      "email": "待填写",
+      "responsibilities": [
+        "生产环境日常运维",
+        "系统启停和部署",
+        "告警响应第一负责人",
+        "备份作业监控和恢复执行",
+        "证书与密钥轮换执行"
+      ]
+    },
+    "security_lead": {
+      "title": "安全负责人",
+      "name": "待填写",
+      "phone": "待填写",
+      "email": "待填写",
+      "responsibilities": [
+        "安全事件响应指挥",
+        "证书和密钥管理",
+        "安全漏洞评估和修复",
+        "访问审计审查",
+        "安全策略更新"
+      ]
+    },
+    "quality_lead": {
+      "title": "质量负责人",
+      "name": "待填写",
+      "phone": "待填写",
+      "email": "待填写",
+      "responsibilities": [
+        "质量事件响应",
+        "检测异常调查",
+        "处置阈值调整审批",
+        "数据集和模型发布质量审批",
+        "复核升级裁决"
+      ]
+    },
+    "edge_lead": {
+      "title": "采集与设备负责人",
+      "name": "待填写",
+      "phone": "待填写",
+      "email": "待填写",
+      "responsibilities": [
+        "工控机和采集代理故障",
+        "相机、PLC 和传感器故障",
+        "设备证书管理",
+        "车间网络故障排查",
+        "工控机操作系统维护"
+      ]
+    },
+    "infra_lead": {
+      "title": "基础设施负责人",
+      "name": "待填写",
+      "phone": "待填写",
+      "email": "待填写",
+      "responsibilities": [
+        "服务器、存储和网络基础设施",
+        "消息队列和数据库管理",
+        "恢复演练执行",
+        "生产部署平台管理",
+        "容量规划和扩容"
+      ]
+    },
+    "algorithm_lead": {
+      "title": "算法负责人",
+      "name": "待填写",
+      "phone": "待填写",
+      "email": "待填写",
+      "responsibilities": [
+        "模型推理异常排查",
+        "哈希校验失败调查",
+        "训练和评估流程",
+        "模型版本管理"
+      ]
+    },
+    "release_lead": {
+      "title": "模型发布负责人",
+      "name": "待填写",
+      "phone": "待填写",
+      "email": "待填写",
+      "responsibilities": [
+        "模型发布审批",
+        "灰度与回滚决策",
+        "发布清单管理"
+      ]
+    },
+    "process_lead": {
+      "title": "工艺负责人",
+      "name": "待填写",
+      "phone": "待填写",
+      "email": "待填写",
+      "responsibilities": [
+        "产线节拍和延迟预算确认",
+        "工艺参数变更协调",
+        "刀具质量异常评估"
+      ]
+    }
+  }
+}

@@ -10,6 +10,10 @@ const DetectionListView = () => import('@/views/DetectionListView.vue')
 const DetectionDetailView = () => import('@/views/DetectionDetailView.vue')
 const ReviewQueueView = () => import('@/views/ReviewQueueView.vue')
 const ReviewWorkbenchView = () => import('@/views/ReviewWorkbenchView.vue')
+const DatasetVersionsView = () => import('@/features/datasets/DatasetVersionsView.vue')
+const TrainingRunsView = () => import('@/features/training/TrainingRunsView.vue')
+const ModelsView = () => import('@/features/models/ModelsView.vue')
+const QualityDashboard = () => import('@/features/quality/QualityDashboard.vue')
 
 export const applicationRoutes: readonly RouteRecordRaw[] = [
   {
@@ -93,6 +97,7 @@ export const applicationRoutes: readonly RouteRecordRaw[] = [
       permissions: ['review:read'],
     },
   },
+  ...featureRoutes(),
   ...placeholderRoutes(),
   {
     path: '/',
@@ -109,10 +114,6 @@ export const applicationRoutes: readonly RouteRecordRaw[] = [
 function placeholderRoutes(): RouteRecordRaw[] {
   const definitions = [
     ['/dashboard', 'dashboard', '系统总览', 'detection:read'],
-    ['/quality', 'quality', '质量分析', 'quality:read'],
-    ['/datasets', 'datasets', '数据集', 'dataset:read'],
-    ['/training-runs', 'training-runs', '训练运行', 'training:read'],
-    ['/models', 'models', '模型与部署', 'model:read'],
     ['/devices', 'devices', '设备与工位', 'device:read'],
     ['/alerts', 'alerts', '告警', 'alert:read'],
     ['/audit', 'audit', '审计', 'audit:read'],
@@ -130,4 +131,53 @@ function placeholderRoutes(): RouteRecordRaw[] {
       menuIcon: '•',
     },
   }))
+}
+
+function featureRoutes(): RouteRecordRaw[] {
+  return [
+    {
+      path: '/datasets',
+      name: 'datasets',
+      component: DatasetVersionsView,
+      meta: {
+        requiresAuth: true,
+        permissions: ['dataset:read'],
+        menuLabel: '数据集',
+        menuIcon: '▤',
+      },
+    },
+    {
+      path: '/training-runs',
+      name: 'training-runs',
+      component: TrainingRunsView,
+      meta: {
+        requiresAuth: true,
+        permissions: ['training:read'],
+        menuLabel: '训练运行',
+        menuIcon: '⚙',
+      },
+    },
+    {
+      path: '/models',
+      name: 'models',
+      component: ModelsView,
+      meta: {
+        requiresAuth: true,
+        permissions: ['model:read'],
+        menuLabel: '模型与部署',
+        menuIcon: '⬡',
+      },
+    },
+    {
+      path: '/quality',
+      name: 'quality',
+      component: QualityDashboard,
+      meta: {
+        requiresAuth: true,
+        permissions: ['quality:read'],
+        menuLabel: '质量分析',
+        menuIcon: '◈',
+      },
+    },
+  ]
 }

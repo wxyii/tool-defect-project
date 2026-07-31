@@ -66,6 +66,14 @@ public final class ContractValues {
         return text;
     }
 
+    public static String version(Map<String, Object> object, String field) {
+        String value = text(object, field, 1, 128);
+        if (!value.matches("[A-Za-z0-9][A-Za-z0-9._/-]*")) {
+            throw new ContractInputViolation(field + " 不符合 Version 契约");
+        }
+        return value;
+    }
+
     public static String oneOf(
             Map<String, Object> object,
             String field,

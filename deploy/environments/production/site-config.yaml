@@ -1,0 +1,183 @@
+# ============================================================
+# 现场参数配置模板
+# strict validator: checklists/validate_config.py
+# 所有 PENDING_SITE_SIGNOFF 值需在部署前替换为现场确认的实际参数，并提供审批证据哈希
+# ============================================================
+
+schema_version: "1.0.0"
+site_config_version: PENDING_SITE_SIGNOFF
+deployed_at: PENDING_SITE_SIGNOFF
+
+# ──────────────────────────────────────────────────────────
+# DEC-CAPTURE-PLC-001: PLC 或传感器协议与触发时序
+# 状态: 上线阻断 | 负责人: 采集与设备负责人
+# ──────────────────────────────────────────────────────────
+capture:
+  # PLC 通信协议 (modbus_tcp | opc_ua | s7 | ...)
+  plc_protocol: PENDING_SITE_SIGNOFF
+  # 触发模式 (sensor_trigger | time_trigger | simulation)
+  trigger_mode: PENDING_SITE_SIGNOFF
+
+  # ──────────────────────────────────────────────────────────
+  # DEC-CAPTURE-CAMERA-001: 工业相机型号、SDK 和采集参数
+  # 状态: 上线阻断 | 负责人: 采集与设备负责人
+  # ──────────────────────────────────────────────────────────
+  camera_model: PENDING_SITE_SIGNOFF
+  camera_sdk: PENDING_SITE_SIGNOFF
+  real_hardware_enabled: PENDING_SITE_SIGNOFF
+
+  # ──────────────────────────────────────────────────────────
+  # DEC-EDGE-OS-001: 工控机操作系统
+  # 状态: 上线阻断 | 负责人: 采集与设备负责人
+  # ──────────────────────────────────────────────────────────
+  edge_operating_system: PENDING_SITE_SIGNOFF
+
+# ──────────────────────────────────────────────────────────
+# DEC-PERFORMANCE-CYCLE-001: 单刀检测节拍
+# 状态: 上线阻断 | 负责人: 工艺负责人
+# ──────────────────────────────────────────────────────────
+performance:
+  cycle_time_ms: PENDING_SITE_SIGNOFF
+
+  # ──────────────────────────────────────────────────────────
+  # DEC-PERFORMANCE-LATENCY-001: 允许的端到端延迟
+  # 状态: 上线阻断 | 负责人: 工艺负责人
+  # ──────────────────────────────────────────────────────────
+  allowed_latency_ms: PENDING_SITE_SIGNOFF
+  slo_claims_enabled: PENDING_SITE_SIGNOFF
+
+# ──────────────────────────────────────────────────────────
+# DEC-OFFLINE-DURATION-001: 网络中断最长时长
+# 状态: 上线阻断 | 负责人: 现场运维负责人
+# ──────────────────────────────────────────────────────────
+offline:
+  maximum_offline_hours: PENDING_SITE_SIGNOFF
+  delete_unsynchronized_images: PENDING_SITE_SIGNOFF
+
+# ──────────────────────────────────────────────────────────
+# DEC-CAPACITY-LOCAL-DISK-001: 工控机本地磁盘容量和水位
+# 状态: 上线阻断 | 负责人: 现场运维负责人
+# 安全默认值: warning=80, critical=90, pause=95
+# ──────────────────────────────────────────────────────────
+capacity:
+  local_disk_capacity_gb: PENDING_SITE_SIGNOFF
+  disk_warning_percent: 80
+  disk_critical_percent: 90
+  disk_pause_percent: 95
+
+# ──────────────────────────────────────────────────────────
+# DEC-DISPOSITION-THRESHOLD-001: 自动放行与不合格判定阈值
+# 状态: 上线阻断 | 负责人: 质量负责人
+# ──────────────────────────────────────────────────────────
+disposition:
+  automatic_pass_enabled: PENDING_SITE_SIGNOFF
+  qualification_threshold: PENDING_SITE_SIGNOFF
+  unqualification_threshold: PENDING_SITE_SIGNOFF
+  unknown_threshold_action: PENDING_SITE_SIGNOFF
+  technical_failure_action: PENDING_SITE_SIGNOFF
+
+  # ──────────────────────────────────────────────────────────
+  # DEC-DISPOSITION-SAMPLING-001: 人工抽检比例
+  # 状态: 上线阻断 | 负责人: 质量负责人
+  # ──────────────────────────────────────────────────────────
+  sampling_ratio: PENDING_SITE_SIGNOFF
+
+# ──────────────────────────────────────────────────────────
+# DEC-REVIEW-SLA-001: 人工复核时限
+# 状态: 上线阻断 | 负责人: 质量负责人
+# ──────────────────────────────────────────────────────────
+review:
+  sla_minutes: PENDING_SITE_SIGNOFF
+  overdue_action: PENDING_SITE_SIGNOFF
+
+# ──────────────────────────────────────────────────────────
+# DEC-RETENTION-001: 图片、复核记录和训练数据保留期
+# 状态: 上线阻断 | 负责人: 质量、法务与存储负责人
+# ──────────────────────────────────────────────────────────
+retention:
+  raw_image_days: PENDING_SITE_SIGNOFF
+  review_record_days: PENDING_SITE_SIGNOFF
+  training_data_days: PENDING_SITE_SIGNOFF
+  automatic_deletion_enabled: PENDING_SITE_SIGNOFF
+
+  # ──────────────────────────────────────────────────────────
+  # DEC-RETENTION-DERIVED-001: 可重建派生图片暂定保留期
+  # 状态: 暂定默认值 | 负责人: 质量、法务与存储负责人
+  # ──────────────────────────────────────────────────────────
+  derived_image_days: 180
+
+# ──────────────────────────────────────────────────────────
+# DEC-RECOVERY-001: 恢复点、恢复时间和高可用目标
+# 状态: 上线阻断 | 负责人: 基础设施负责人
+# ──────────────────────────────────────────────────────────
+recovery:
+  rpo_minutes: PENDING_SITE_SIGNOFF
+  rto_minutes: PENDING_SITE_SIGNOFF
+  high_availability_enabled: PENDING_SITE_SIGNOFF
+  restore_target_confirmed: PENDING_SITE_SIGNOFF
+
+# ──────────────────────────────────────────────────────────
+# DEC-IDENTITY-001: 企业统一身份系统
+# 状态: 上线阻断 | 负责人: 身份与安全负责人
+# ──────────────────────────────────────────────────────────
+identity:
+  provider: PENDING_SITE_SIGNOFF
+  production_authentication_enabled: PENDING_SITE_SIGNOFF
+
+# ──────────────────────────────────────────────────────────
+# DEC-STORAGE-PROTOCOL-001: 对象存储使用 S3 兼容协议边界
+# 状态: 已确认 (G1)
+# ──────────────────────────────────────────────────────────
+storage:
+  protocol: S3_COMPATIBLE
+  public_access_enabled: false
+
+  # ──────────────────────────────────────────────────────────
+  # DEC-STORAGE-PRODUCT-001: 对象存储具体产品和端点
+  # 状态: 上线阻断 | 负责人: 存储负责人
+  # ──────────────────────────────────────────────────────────
+  product: PENDING_SITE_SIGNOFF
+  endpoint: PENDING_SITE_SIGNOFF
+
+  # ──────────────────────────────────────────────────────────
+  # DEC-STORAGE-SIGNED-URL-001: 对象短时只读授权有效期
+  # 状态: 暂定默认值 | 负责人: 存储与安全负责人
+  # ──────────────────────────────────────────────────────────
+  signed_url_ttl_seconds: 300
+
+# ──────────────────────────────────────────────────────────
+# DEC-MESSAGING-001: 现有消息队列复用和高可用方式
+# 状态: 上线阻断 | 负责人: 基础设施负责人
+# ──────────────────────────────────────────────────────────
+messaging:
+  product: PENDING_SITE_SIGNOFF
+  high_availability_enabled: PENDING_SITE_SIGNOFF
+
+# ──────────────────────────────────────────────────────────
+# DEC-MONITORING-001: 企业监控平台复用
+# 状态: 上线阻断 | 负责人: 可观测与运维负责人
+# ──────────────────────────────────────────────────────────
+monitoring:
+  platform: PENDING_SITE_SIGNOFF
+  production_alerting_enabled: PENDING_SITE_SIGNOFF
+
+# ──────────────────────────────────────────────────────────
+# DEC-COMPUTE-001: 中心服务器系统及 CPU 或 GPU 推理
+# 状态: 上线阻断 | 负责人: 基础设施与推理负责人
+# ──────────────────────────────────────────────────────────
+compute:
+  inference_device: PENDING_SITE_SIGNOFF
+  server_operating_system: PENDING_SITE_SIGNOFF
+
+# ──────────────────────────────────────────────────────────
+# DEC-DEPLOYMENT-001: Compose 或企业容器平台
+# 状态: 上线阻断 | 负责人: 基础设施负责人
+# ──────────────────────────────────────────────────────────
+deployment:
+  platform: PENDING_SITE_SIGNOFF
+
+  # ──────────────────────────────────────────────────────────
+  # DEC-DEPLOYMENT-K8S-001: 是否引入 Kubernetes
+  # 状态: 可后置 | 负责人: 架构负责人
+  # ──────────────────────────────────────────────────────────
+  kubernetes_enabled: false

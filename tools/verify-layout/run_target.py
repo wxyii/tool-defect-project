@@ -42,7 +42,11 @@ def unittest_directory(path: Path) -> int:
     if not tests:
         print(f"统一入口失败：没有可执行测试：{path.relative_to(ROOT)}", file=sys.stderr)
         return 2
-    return run([python_for(path.parent), "-m", "unittest", "discover", "-s", str(path)])
+    strict_runner = ROOT / "tools/verify-layout/strict_unittest.py"
+    if not strict_runner.is_file():
+        print("统一入口失败：严格 unittest 执行器不存在。", file=sys.stderr)
+        return 2
+    return run([python_for(path.parent), str(strict_runner), str(path)])
 
 
 def executable_candidates(name: str) -> list[Path]:

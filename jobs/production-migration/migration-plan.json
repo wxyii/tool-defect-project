@@ -1,0 +1,218 @@
+{
+  "plan_id": "P7-03-production-migration-v2",
+  "generated_at": "2026-07-31T00:00:00Z",
+  "migration_scope": "生产数据迁移：仅在 P6-01 来源获批且 P7-01 决策关闭后，将不可变历史图片/掩码、获批数据集、已验证模型包及审批证据按迁移批次同步至生产 PostgreSQL 与 S3 兼容对象存储",
+
+  "source_inventory": {
+    "images": {
+      "total_objects": 360,
+      "unique_sha256": 345,
+      "by_category": {
+        "raw": {"path": "data/images/", "count": 180, "description": "qualified 与 unqualified 原始采集图片"},
+        "thumbnail": {"count": 0, "description": "尚无预生成缩略图"},
+        "defect_mask": {"path": "data/masks/", "count": 180, "description": "qualified 与 unqualified 缺陷掩码"},
+        "heatmap": {"count": 0, "description": "尚无热力图"},
+        "overlay": {"count": 0, "description": "尚无叠加图"},
+        "polar": {"count": 0, "description": "尚无极坐标投影"},
+        "review_mask": {"count": 0, "description": "尚无人工复核标注"}
+      }
+    },
+    "datasets": {
+      "versions": 2,
+      "baseline-180": {
+        "total_samples": 180,
+        "unique_image_hashes": 173,
+        "split_counts": {"train": 115, "validation": 29, "test": 36},
+        "label_counts": {"qualified": 98, "unqualified": 82}
+      },
+      "retrain-172": {
+        "total_samples": 172,
+        "unique_image_hashes": 172,
+        "split_counts": {"train": 110, "validation": 28, "test": 34},
+        "label_counts": {"qualified": 92, "unqualified": 80}
+      }
+    },
+    "models": {
+      "candidates": 3,
+      "specs": [
+        {"candidate_id": "candidate-a-resnet50", "task_type": "defect_classification_and_segmentation", "approval_state": "CANDIDATE"},
+        {"candidate_id": "candidate-b-efficientnet", "task_type": "defect_classification_and_segmentation", "approval_state": "CANDIDATE"},
+        {"candidate_id": "candidate-c-mobilenet", "task_type": "defect_classification_and_segmentation", "approval_state": "CANDIDATE"}
+      ]
+    }
+  },
+
+  "target_mapping": {
+    "object_storage": {
+      "s3_bucket": "${S3_BUCKET}",
+      "s3_endpoint": "${S3_ENDPOINT}",
+      "key_hierarchy": "capture/{year}/{month}/{day}/{capture_id}/{kind}/{filename}",
+      "buckets_by_category": {
+        "raw": "tool-defect-captures",
+        "thumbnail": "tool-defect-captures",
+        "defect_mask": "tool-defect-masks",
+        "heatmap": "tool-defect-captures",
+        "overlay": "tool-defect-captures",
+        "polar": "tool-defect-captures",
+        "review_mask": "tool-defect-reviews"
+      }
+    },
+    "database": {
+      "url": "${DB_URL}",
+      "user": "${DB_USER}",
+      "password": "${DB_PASSWORD}",
+      "tables": {
+        "image_object": {"source": "data/images/ + data/masks/", "target_row_count": 360},
+        "capture_event": {"source": "data/manifests/dataset.csv + retrain.csv", "target_row_count": 360},
+        "capture_recipe": {"source": "builtin", "target_row_count": 2},
+        "production_line": {"source": "builtin", "target_row_count": 1},
+        "station": {"source": "builtin", "target_row_count": 1},
+        "device": {"source": "builtin", "target_row_count": 1},
+        "dataset": {"source": "builtin", "target_row_count": 1},
+        "dataset_version": {"source": "P6-01 controlled-output", "target_row_count": 2},
+        "dataset_sample": {"source": "P6-01 manifest.csv", "target_row_count": 352},
+        "model": {"source": "P6-04 evaluation", "target_row_count": 1},
+        "model_version": {"source": "P6-04 evaluation", "target_row_count": 3},
+        "disposition_record": {"source": "不从历史标签生成最终处置；仅迁移原有可验证处置证据", "target_row_count": 0},
+        "sys_user": {"source": "builtin", "target_row_count": 1}
+      }
+    }
+  },
+
+  "phases": [
+    {
+      "phase": 1,
+      "name": "数据库模式验证",
+      "description": "验证 Flyway V1-V11 迁移已在目标数据库应用",
+      "estimated_duration": "5m",
+      "dependencies": ["目标 PostgreSQL 可访问", "业务 API 停机或只读模式"],
+      "steps": [
+        "1. 查询 flyway_schema_history 确认所有迁移版本已成功",
+        "2. 验证关键表存在: capture_event, image_object, dataset, model 等",
+        "3. 检查外键约束、CHECK 约束均为 VALID 状态",
+        "4. 验证 schema 版本 >= V11"
+      ],
+      "rollback": "无需回滚（模式本身不含数据）",
+      "verification": [
+        "SELECT COUNT(*) FROM flyway_schema_history WHERE success = true",
+        "所有必需表存在"
+      ]
+    },
+    {
+      "phase": 2,
+      "name": "对象存储迁移",
+      "description": "将 data/images/ 与 data/masks/ 上传至 S3 兼容对象存储，按 capture/date 层次组织",
+      "estimated_duration": "30m",
+      "dependencies": ["Phase 1 通过", "S3 端点可访问", "S3_BUCKET 已创建"],
+      "steps": [
+        "1. 读取 P6-01 controlled-output/baseline-180/manifest.csv 获取图片-掩码映射",
+        "2. 读取 P6-01 controlled-output/baseline-180/checksums.sha256 获取源 SHA-256",
+        "3. 验证每个源文件的 SHA-256（与 P6-01 清单对比）",
+        "4. 按不可变 migration_id/capture_id 层次生成可复算对象 key",
+        "5. 上传至对应 bucket（图片->captures bucket, 掩码->masks bucket）",
+        "6. 验证上传后对象的 SHA-256 与原文件一致",
+        "7. 记录所有对象 key 与 SHA-256 映射供 Phase 3 数据库注册"
+      ],
+      "rollback": "仅按已签迁移批次清单执行逐对象补偿或恢复前一 versionId；禁止无批次范围删除，并保留源对象",
+      "verification": [
+        "上传前后文件大小一致",
+        "上传前后 SHA-256 一致",
+        "对象 key 符合命名规范",
+        "全量验证存在性、大小和 SHA-256"
+      ]
+    },
+    {
+      "phase": 3,
+      "name": "数据库引用数据注册",
+      "description": "将对象引用、采集事件、数据集版本与模型候选写入 PostgreSQL",
+      "estimated_duration": "15m",
+      "dependencies": ["Phase 2 通过", "Phase 1 通过"],
+      "steps": [
+        "1. 创建内置配置：production_line, station, device（仅结构，不含真实设备）",
+        "2. 创建 capture_recipe（默认采集配方）",
+        "3. 为每个图片-掩码对创建 capture_event、image_object（RAW/DEFECT_MASK）",
+        "4. 不根据历史标签创建 disposition_record；历史标签仅作为数据集样本属性",
+        "5. 仅为已批准清单创建 dataset + dataset_version",
+        "6. 创建 dataset_sample（关联 image_object 引用并保留历史来源）",
+        "7. 仅登记通过 P6-05 供应链验证且审批证据完整的模型版本",
+        "8. 使用现场预先配置的迁移服务身份，不创建默认用户"
+      ],
+      "rollback": "按 migration_id 逐记录追加补偿/失效标记；禁止无条件 DELETE，且不得删除迁移前记录或源数据",
+      "verification": [
+        "各表目标计数等于已批准不可变源清单中的动态期望值",
+        "所有外键引用可解析",
+        "FROZEN 数据集版本不可变约束未触发"
+      ]
+    },
+    {
+      "phase": 4,
+      "name": "迁移完整性验证",
+      "description": "跨源与目标进行计数、散列、外键完整性核对",
+      "estimated_duration": "10m",
+      "dependencies": ["Phase 3 通过"],
+      "steps": [
+        "1. 图片对象计数：源（360）vs 目标（SELECT COUNT FROM image_object）",
+        "2. 全量 SHA-256 对比：源文件 vs S3 存储 vs 数据库 image_object.sha256",
+        "3. 数据集样本计数：源 manifest 352 行 vs 目标 dataset_sample 行数",
+        "4. 模型候选计数：3 个候选 vs 目标 model_version",
+        "5. 外键完整性：所有 image_object.capture_id 存在，所有 dataset_sample.image_id 存在",
+        "6. 审批链完整性：所有 FROZEN 数据集有 approved_by，所有 APPROVED 模型有 approval_state"
+      ],
+      "rollback": "无需回滚（验证阶段不写入）",
+      "verification": [
+        "count_parity: pass",
+        "sha256_parity: pass",
+        "foreign_key_integrity: pass",
+        "approval_chain_completeness: pass"
+      ]
+    },
+    {
+      "phase": 5,
+      "name": "回滚计划",
+      "description": "各阶段独立回滚操作",
+      "estimated_duration": "N/A",
+      "dependencies": [],
+      "steps": [
+        "Phase 1 回滚：无需操作（模式不包含数据）",
+        "Phase 2 回滚：按已签批次对象清单逐项恢复迁移前 versionId 或追加补偿记录，不删除源对象",
+        "Phase 3 回滚：按 migration_id 追加失效/补偿记录；禁止无条件 DELETE 或影响非本批次记录",
+        "Phase 4 回滚：无需操作"
+      ],
+      "rollback": "整体回滚时按 Phase 3 -> Phase 2 顺序执行",
+      "verification": [
+        "回滚后本迁移批次不再被生产读取，迁移前与源记录计数不变",
+        "回滚后逐项核验本批次对象 versionId 与补偿记录，源对象仍完整"
+      ]
+    }
+  ],
+
+  "reference_artifacts": {
+    "p6_01_summary": "jobs/artifact-migrator/controlled-output/summary.json",
+    "p6_01_baseline_manifest": "jobs/artifact-migrator/controlled-output/baseline-180/manifest.csv",
+    "p6_01_baseline_checksums": "jobs/artifact-migrator/controlled-output/baseline-180/checksums.sha256",
+    "p6_01_retrain_manifest": "jobs/artifact-migrator/controlled-output/retrain-172/manifest.csv",
+    "p6_01_retrain_checksums": "jobs/artifact-migrator/controlled-output/retrain-172/checksums.sha256",
+    "p5_recovery_drill_report": "Docs/reports/P5-joint-recovery-drill.md",
+    "p5_verification": "Docs/reports/P5-G5-verification.md",
+    "db_migrations": "services/business-api/src/main/resources/db/migration/V1__*.sql 至 V11__*.sql",
+    "production_compose": "deploy/compose/production-security-baseline.yml"
+  },
+
+  "configuration": {
+    "required_environment": [
+      "DB_URL",
+      "DB_USER",
+      "DB_PASSWORD",
+      "S3_ENDPOINT",
+      "S3_ACCESS_KEY",
+      "S3_SECRET_KEY",
+      "S3_BUCKET"
+    ],
+    "optional_environment": [
+      "DRY_RUN",
+      "MIGRATION_BATCH_SIZE",
+      "VERIFY_SAMPLE_SIZE",
+      "LOG_LEVEL"
+    ]
+  }
+}

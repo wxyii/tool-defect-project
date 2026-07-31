@@ -1,0 +1,512 @@
+{
+  "schema_version": "tool-defect-emergency-drill/v1",
+  "drill_environment": "REAL_PRODUCTION_EQUIPMENT",
+  "note": "以下场景必须由未参与系统开发的人员完成。自动化验证机（P5 drill-record.json）不可替代。所有演练需在真实生产环境中执行，记录实际行为和恢复时间。",
+  "drill_template": {
+    "operator": "填写执行人姓名",
+    "date": "填写演练日期",
+    "scenario_id": "填写场景编号",
+    "actual_behavior": "填写实际观察到的系统行为，与预期行为的差异",
+    "recovery_time": "填写从触发到恢复的总时间（秒）",
+    "issues_found": "填写演练中发现的问题",
+    "passed": false,
+    "evidence": "填写证据位置（截图、日志、录屏路径）"
+  },
+  "scenarios": [
+    {
+      "id": "DRILL-01",
+      "severity": "S1",
+      "title": "边缘采集代理磁盘满",
+      "description": "工控机本地磁盘使用率达到 100%，无法写入新图像",
+      "trigger": "人工或通过工具将磁盘填充至 100% 使用率",
+      "expected_system_behavior": "采集代理暂停新触发并发出磁盘告警；已触发任务完成上传后暂停；中心显示工控机磁盘严重告警；不会因磁盘满而丢失已采集数据；告警在监控平台可视",
+      "recovery_steps": [
+        "确认告警接收和升级路径已触发",
+        "执行磁盘清理或扩容操作",
+        "确认磁盘使用率降至恢复阈值以下",
+        "验证写入探针成功",
+        "确认积压任务按时间顺序排空",
+        "验证随机对象摘要一致性"
+      ],
+      "success_criteria": [
+        "磁盘满时无原始图像丢失",
+        "告警在 1 分钟内触发",
+        "恢复后 5 分钟内积压单调下降",
+        "恢复后随机抽检 10 个对象摘要匹配"
+      ],
+      "runbook_ref": "01-disk-full.md",
+      "required_participants": ["运维负责人", "采集与设备负责人"]
+    },
+    {
+      "id": "DRILL-02",
+      "severity": "S2",
+      "title": "网络中断 1 小时",
+      "description": "工控机与中心之间网络中断 1 小时后恢复",
+      "trigger": "在工控机端断开网络连接（拔网线或防火墙阻断），持续 1 小时后恢复",
+      "expected_system_behavior": "采集代理检测到网络中断后继续本地采集和缓存；本地 SQLite 正常写入；中心显示工控机离线；网络恢复后自动补传缓存数据；补传顺序为时间升序",
+      "recovery_steps": [
+        "确认告警已触发",
+        "确认本地采集和缓存正常工作",
+        "恢复网络连接",
+        "观察补传进度，确认无数据丢失",
+        "验证补传完成后中心记录与本地记录数量一致"
+      ],
+      "success_criteria": [
+        "离线期间采集不中断",
+        "恢复后补传完成且数量一致",
+        "无数据丢失或重复",
+        "补传期间不冲击其他服务正常运行"
+      ],
+      "runbook_ref": "02-network-outage.md",
+      "required_participants": ["运维负责人", "现场运维负责人"]
+    },
+    {
+      "id": "DRILL-03",
+      "severity": "S2",
+      "title": "网络中断 8 小时",
+      "description": "工控机与中心之间网络中断跨班次 8 小时后恢复",
+      "trigger": "在工控机端断开网络连接持续 8 小时，模拟跨班次离线场景",
+      "expected_system_behavior": "同 DRILL-02，但本地缓存量更大；磁盘水位上升但不应达到暂停阈值（假设预留容量充足）；离线期间本地上传队列增长",
+      "recovery_steps": [
+        "确认断网期间本地采集和缓存正常",
+        "确认磁盘水位未达到暂停阈值",
+        "恢复网络并观察补传进度",
+        "确认补传完成时间在合理范围内",
+        "验证数据一致性"
+      ],
+      "success_criteria": [
+        "8 小时离线无数据丢失",
+        "磁盘水位未触发暂停（与容量规划一致）",
+        "补传在所有离线数据时间升序完成",
+        "补传完成后积压为零"
+      ],
+      "runbook_ref": "02-network-outage.md",
+      "required_participants": ["运维负责人", "现场运维负责人", "基础设施负责人"]
+    },
+    {
+      "id": "DRILL-04",
+      "severity": "S2",
+      "title": "网络中断 24 小时",
+      "description": "工控机与中心之间网络中断 24 小时后恢复，测试离线极限",
+      "trigger": "在工控机端断开网络连接持续 24 小时",
+      "expected_system_behavior": "采集代理可能因磁盘水位达到暂停阈值而暂停新采集；暂停后应发出磁盘严重告警；不删除未同步原图；网络恢复后逐步补传",
+      "recovery_steps": [
+        "确认磁盘水位是否触发暂停",
+        "记录暂停触发时间和水位",
+        "恢复网络连接并启动补传",
+        "逐批清理已同步数据以释放磁盘空间",
+        "磁盘水位恢复后解除采集暂停"
+      ],
+      "success_criteria": [
+        "暂停触发前所有数据完整缓存",
+        "未同步数据不因暂停被删除",
+        "恢复后所有数据成功补传",
+        "补传完成后可正常恢复采集"
+      ],
+      "runbook_ref": "02-network-outage.md",
+      "required_participants": ["运维负责人", "现场运维负责人", "基础设施负责人", "采集与设备负责人"]
+    },
+    {
+      "id": "DRILL-05",
+      "severity": "S1",
+      "title": "数据库损坏与恢复",
+      "description": "主数据库遭受逻辑损坏，需从备份恢复",
+      "trigger": "在隔离环境注入数据损坏（模拟误操作或存储故障），触发恢复流程",
+      "expected_system_behavior": "业务后端检测到数据库不可写后进入只读安全模式；新采集任务保持 HOLD；告警触发；运维启动恢复流程",
+      "recovery_steps": [
+        "确认告警和影响范围",
+        "停止业务流量（暂停新请求接收）",
+        "选择最近一次验证成功的完整备份",
+        "在隔离环境执行恢复并验证数据完整性",
+        "确认恢复点满足 RPO 要求",
+        "切换业务流量至恢复后的数据库",
+        "逐步恢复服务并观察"
+      ],
+      "success_criteria": [
+        "恢复后数据库可写且数据一致",
+        "数据丢失量在 RPO 目标内",
+        "从故障发现到服务恢复的总时间在 RTO 目标内",
+        "恢复后无业务数据冲突"
+      ],
+      "runbook_ref": "09-backup-restore.md",
+      "required_participants": ["运维负责人", "基础设施负责人", "数据库负责人"]
+    },
+    {
+      "id": "DRILL-06",
+      "severity": "S1",
+      "title": "对象存储故障",
+      "description": "对象存储服务不可用或丢桶",
+      "trigger": "停止对象存储服务或删除测试桶，模拟存储故障",
+      "expected_system_behavior": "图片上传失败；业务后端检测到存储不可用后拒绝新上传请求；已上传的图片不受影响；新推理结果无法生成签名地址；告警触发",
+      "recovery_steps": [
+        "确认告警和影响范围",
+        "检查对象存储服务状态（进程、磁盘、网络）",
+        "如为服务级故障，重启对象存储服务",
+        "如为桶丢失，从备份恢复桶",
+        "恢复后执行桶可读写验证",
+        "确认新上传和签名地址生成正常"
+      ],
+      "success_criteria": [
+        "故障期间无数据写入导致错误状态",
+        "恢复后读写正常",
+        "既往数据完整可用",
+        "签名地址可正常生成"
+      ],
+      "runbook_ref": "05-object-storage.md",
+      "required_participants": ["运维负责人", "存储负责人"]
+    },
+    {
+      "id": "DRILL-07",
+      "severity": "S1",
+      "title": "RabbitMQ 代理崩溃",
+      "description": "消息队列代理崩溃，推理请求无法投递",
+      "trigger": "强制停止 RabbitMQ 服务",
+      "expected_system_behavior": "业务后端检测到消息队列不可用；新推理请求无法发送，捕获任务进入 HOLD；已有消息如为持久化队列可恢复；告警触发",
+      "recovery_steps": [
+        "确认告警和积压消息量",
+        "重启 RabbitMQ 服务",
+        "确认集群节点同步和镜像队列恢复",
+        "验证消费者连接恢复",
+        "确认积压消息开始消费"
+      ],
+      "success_criteria": [
+        "MQ 恢复后未丢失持久化消息",
+        "消费者自动重连并恢复消费",
+        "恢复后 10 分钟内积压消息开始下降",
+        "无重复推理请求"
+      ],
+      "runbook_ref": "03-dead-letter.md",
+      "required_participants": ["运维负责人", "基础设施负责人"]
+    },
+    {
+      "id": "DRILL-08",
+      "severity": "S1",
+      "title": "推理服务崩溃循环",
+      "description": "推理服务因模型或资源问题反复崩溃重启",
+      "trigger": "部署一个包含错误配置或资源上限过低的推理容器",
+      "expected_system_behavior": "推理服务健康检查失败；业务后端检测到无就绪推理实例；新推理任务暂停；无人值守时系统不应尝试自动切换模型；告警触发",
+      "recovery_steps": [
+        "确认告警和崩溃次数",
+        "检查推理服务日志确定崩溃原因",
+        "如为模型问题，按 06-model-not-ready.md 回滚至上一稳定版本",
+        "如为资源问题，调整资源配额并重启",
+        "验证 /health 返回正常且固定探针结果一致",
+        "逐步恢复推理消费"
+      ],
+      "success_criteria": [
+        "崩溃期间无错误判定产生",
+        "恢复使用经过验证的模型版本",
+        "恢复后推理结果与预期一致",
+        "恢复后 15 分钟内积压开始下降"
+      ],
+      "runbook_ref": "06-model-not-ready.md",
+      "required_participants": ["运维负责人", "算法负责人", "模型发布负责人"]
+    },
+    {
+      "id": "DRILL-09",
+      "severity": "S1",
+      "title": "生产模型哈希不匹配",
+      "description": "模型包被篡改或存储传输损坏导致哈希校验失败",
+      "trigger": "替换模型包中的一个文件并触发模型加载或健康检查",
+      "expected_system_behavior": "模型加载或健康检查阶段检测到哈希不匹配；推理服务拒绝加载该模型；报告具体的不匹配文件和预期与实际摘要；告警触发",
+      "recovery_steps": [
+        "确认告警和受影响模型版本",
+        "记录不匹配文件的命名和摘要差异",
+        "停止该模型版本的使用",
+        "从模型注册表重新拉取正确的模型包",
+        "验证重新拉取的包摘要与注册表记录一致",
+        "重新加载模型并确认健康检查通过"
+      ],
+      "success_criteria": [
+        "哈希不匹配的模型未被加载执行",
+        "告警包含具体不匹配文件和摘要信息",
+        "恢复后模型摘要与注册表一致",
+        "恢复后可正常推理"
+      ],
+      "runbook_ref": "07-hash-conflict.md",
+      "required_participants": ["运维负责人", "安全负责人", "模型发布负责人"]
+    },
+    {
+      "id": "DRILL-10",
+      "severity": "S2",
+      "title": "证书即将到期",
+      "description": "服务或设备证书即将到期触发告警",
+      "trigger": "部署一个即将到期（7 天内）的测试证书，观察告警和轮换流程",
+      "expected_system_behavior": "系统在证书到期前 30 天触发黄色告警，到期前 7 天触发严重告警；监控平台显示证书到期倒计时",
+      "recovery_steps": [
+        "确认告警收到",
+        "按证书轮换流程（ops-manual.md 第 4 节）生成新证书",
+        "部署新证书并重启受影响服务",
+        "确认新证书生效且连接正常",
+        "吊销旧证书",
+        "记录轮换事件"
+      ],
+      "success_criteria": [
+        "30 天和 7 天告警均正确触发",
+        "轮换流程执行无中断",
+        "轮换后服务 TLS 连接正常",
+        "旧的到期证书无法建立连接"
+      ],
+      "runbook_ref": "ops-manual.md",
+      "required_participants": ["运维负责人", "安全负责人"]
+    },
+    {
+      "id": "DRILL-11",
+      "severity": "S2",
+      "title": "复核积压超过 50",
+      "description": "大量任务进入复核导致复核积压超过 SLA 上限",
+      "trigger": "短时间内注入 50+ 需要复核的测试任务（需质量负责人确认演练不影响生产统计）",
+      "expected_system_behavior": "复核队列深度超过阈值时触发告警；质量负责人收到升级通知；系统显示积压数量和最老任务等待时间",
+      "recovery_steps": [
+        "确认告警触发",
+        "质量负责人评估积压原因",
+        "增派复核员或延长复核班次",
+        "监控积压下降趋势",
+        "确认恢复至正常水平",
+        "复盘积压原因并记录"
+      ],
+      "success_criteria": [
+        "积压超过 50 时 5 分钟内触发告警",
+        "增派复核员后 30 分钟内积压开始下降",
+        "最老任务等待时间不超过 SLA",
+        "积压处理中无任务丢失"
+      ],
+      "runbook_ref": "08-review-backlog.md",
+      "required_participants": ["质量负责人", "运维负责人"]
+    },
+    {
+      "id": "DRILL-12",
+      "severity": "S2",
+      "title": "边缘设备断电",
+      "description": "工控机异常断电后重启恢复",
+      "trigger": "对工控机执行硬断电（拔电源），30 秒后重新通电",
+      "expected_system_behavior": "断电瞬间采集代理终止；已采集但未上传的数据在 SQLite 中持久化；重启后采集代理自动启动；自动补传未完成数据；中心检测到工控机离线",
+      "recovery_steps": [
+        "确认工控机重新通电后操作系统正常启动",
+        "确认采集代理自动启动",
+        "检查 SQLite 数据库完整性",
+        "确认代理与中心重新建立连接",
+        "验证断电前已采集数据补传成功",
+        "确认相机等外设重新连接"
+      ],
+      "success_criteria": [
+        "断电前已采集并持久化的数据无丢失",
+        "SQLite 数据库未损坏",
+        "代理自动重启并恢复连接",
+        "补传完成后数据一致",
+        "断电期间中断的采集任务正确标记为 HOLD 而非 PASS"
+      ],
+      "runbook_ref": "01-disk-full.md",
+      "required_participants": ["运维负责人", "采集与设备负责人", "现场运维负责人"]
+    },
+    {
+      "id": "DRILL-13",
+      "severity": "S2",
+      "title": "跨服务时钟偏差",
+      "description": "采集代理、业务后端和推理服务之间存在超过 30 秒的时钟偏差",
+      "trigger": "人工调整采集代理系统时钟偏移 60 秒",
+      "expected_system_behavior": "系统检测到时间戳异常；采集代理和中心之间的时间偏差超过阈值时触发告警；日志中的时间戳证据可用于诊断；处置决策不依赖单一服务时钟",
+      "recovery_steps": [
+        "确认告警指向的时间偏差方向、大小和涉及服务",
+        "检查 NTP 服务状态",
+        "同步各服务时钟至 NTP 服务器",
+        "确认偏差恢复至容许范围内",
+        "检查偏差期间创建的记录是否受到时间乱序影响",
+        "如受影响记录已产生处置，升级质量负责人评估"
+      ],
+      "success_criteria": [
+        "时钟偏差超过 30 秒时触发告警",
+        "NTP 同步后偏差恢复至 1 秒以内",
+        "偏差期间无错误处置产生",
+        "恢复后新记录时间戳正常"
+      ],
+      "runbook_ref": "02-network-outage.md",
+      "required_participants": ["运维负责人", "基础设施负责人"]
+    },
+    {
+      "id": "DRILL-14",
+      "severity": "S1",
+      "title": "全量检测进入 HOLD",
+      "description": "所有自动判定均进入 HOLD 状态，可能由推理服务故障或模型输出异常引起",
+      "trigger": "停止推理服务，使所有新捕获任务无法获得推理结果",
+      "expected_system_behavior": "无推理结果的任务进入 HOLD；HOLD 率急剧上升至接近 100%；HOLD 率告警触发；复核积压迅速增长；系统不会在无推理结果时自动判定 PASS 或 FAIL",
+      "recovery_steps": [
+        "确认告警和 HOLD 率趋势",
+        "排查推理服务状态，确认无就绪实例",
+        "按 06-model-not-ready.md 恢复推理服务",
+        "恢复后确认新任务正常判定",
+        "对 HOLD 期间的任务逐步补充推理结果",
+        "补充结果后 HOLD 任务转为正常判定或保持 HOLD（未知区间）"
+      ],
+      "success_criteria": [
+        "HOLD 率超过 15% 时触发告警",
+        "故障期间无虚假 PASS 产生",
+        "恢复后新任务正常判定",
+        "HOLD 期间任务获得完整推理结果且处置正确",
+        "无数据丢失"
+      ],
+      "runbook_ref": "06-model-not-ready.md",
+      "required_participants": ["运维负责人", "算法负责人", "质量负责人"]
+    },
+    {
+      "id": "DRILL-15",
+      "scenario_type": "NORMAL_OPERATION",
+      "severity": "S3",
+      "title": "外部用户正常操作闭环",
+      "description": "由未参与开发的操作员、复核员和质量负责人完成采集、HOLD 复核与审计查询闭环",
+      "trigger": "使用真实生产设备和已分配的最小权限账号执行一笔受控测试批次",
+      "expected_system_behavior": "采集、推理、HOLD、复核和最终处置按契约流转；每步均产生可追踪审计事件",
+      "recovery_steps": [
+        "核对原图、预处理、模型和结果版本",
+        "由复核员提交带原因的决定",
+        "由质量负责人查询审计链并确认职责分离",
+        "清理受控测试批次且保留审计证据"
+      ],
+      "success_criteria": [
+        "未参与开发的用户可独立完成操作",
+        "所有版本和审计事件可追踪",
+        "未知或技术失败状态保持 HOLD",
+        "无越权或未审计操作"
+      ],
+      "runbook_ref": "README.md",
+      "required_participants": ["操作员", "复核员", "质量负责人", "审计员"],
+      "requires_reason": true,
+      "requires_second_confirmation": true,
+      "requires_audit": true
+    },
+    {
+      "id": "DRILL-16",
+      "scenario_type": "PERMISSION_DENIAL",
+      "severity": "S1",
+      "title": "未授权高风险操作拒绝",
+      "description": "验证操作员或复核员不能执行模型发布、回滚、账号提权或审计删除",
+      "trigger": "使用最小权限外部用户账号分别尝试四类越权操作",
+      "expected_system_behavior": "所有请求均被拒绝，不产生状态变更，并记录主体、原因、资源和拒绝结果",
+      "recovery_steps": [
+        "确认业务状态和部署状态未改变",
+        "由审计员查询全部拒绝事件",
+        "确认未授予临时或持久权限",
+        "记录演练结束和复核结论"
+      ],
+      "success_criteria": [
+        "四类越权请求全部拒绝",
+        "拒绝后状态零变化",
+        "审计事件字段完整",
+        "未知权限状态不得形成 PASS"
+      ],
+      "runbook_ref": "README.md",
+      "required_participants": ["操作员", "复核员", "管理员", "审计员"],
+      "requires_reason": true,
+      "requires_second_confirmation": true,
+      "requires_audit": true
+    },
+    {
+      "id": "DRILL-17",
+      "scenario_type": "DEAD_LETTER",
+      "severity": "S2",
+      "title": "死信调查与受控重放",
+      "description": "构造可识别的失败消息进入死信队列并验证调查、修复和逐条重放",
+      "trigger": "向隔离的生产演练路由发送一条契约不兼容消息和一条可修复消息",
+      "expected_system_behavior": "不兼容消息保持 HOLD；可修复消息经原因、二次确认后逐条重放；不允许批量盲重放",
+      "recovery_steps": [
+        "记录消息标识和失败原因",
+        "确认业务记录未产生错误 PASS",
+        "修复可修复消息并申请二次确认",
+        "逐条重放并核对幂等结果",
+        "保留不可修复消息和完整审计链"
+      ],
+      "success_criteria": [
+        "死信可定位到原始消息和业务记录",
+        "重放前记录原因和确认人",
+        "重放后无重复处置",
+        "不可修复消息保持 HOLD"
+      ],
+      "runbook_ref": "03-dead-letter.md",
+      "required_participants": ["运维负责人", "质量负责人", "审计员"],
+      "requires_reason": true,
+      "requires_second_confirmation": true,
+      "requires_audit": true
+    },
+    {
+      "id": "DRILL-18",
+      "scenario_type": "FULL_ROLLBACK",
+      "severity": "S1",
+      "title": "生产版本完整回滚",
+      "description": "从当前版本切换至已预热的上一稳定应用和模型版本，并验证历史结果不变",
+      "trigger": "由发布负责人发起带原因的受控回滚申请并获得质量负责人二次批准",
+      "expected_system_behavior": "只切换新任务流量；当前与上一稳定版本身份明确；历史结果和审计事实不改写",
+      "recovery_steps": [
+        "核对回滚目标签名、哈希和预热证据",
+        "记录回滚原因并获取不同人员二次确认",
+        "切换新任务流量至上一稳定版本",
+        "执行固定探针和业务验收",
+        "确认历史结果不变并保存审计证据"
+      ],
+      "success_criteria": [
+        "回滚目标为不同且已批准版本",
+        "回滚在已签 RTO 内完成",
+        "新任务使用回滚版本且历史任务不变",
+        "全过程原因、二次确认和审计完整"
+      ],
+      "runbook_ref": "10-emergency-rollback.md",
+      "required_participants": ["模型发布负责人", "质量负责人", "运维负责人", "审计员"],
+      "requires_reason": true,
+      "requires_second_confirmation": true,
+      "requires_audit": true
+    },
+    {
+      "id": "DRILL-19",
+      "scenario_type": "CERTIFICATE_REVOCATION",
+      "severity": "S1",
+      "title": "设备证书吊销",
+      "description": "吊销演练设备证书并验证旧会话和新连接均被拒绝，换发后恢复",
+      "trigger": "安全负责人吊销专用演练证书并发布新的 CRL",
+      "expected_system_behavior": "被吊销证书不能建立连接；设备进入 HOLD/离线；未受影响设备继续运行；吊销事件被审计",
+      "recovery_steps": [
+        "记录吊销原因并获取二次确认",
+        "发布 CRL 并验证各入口加载",
+        "确认旧连接断开且新连接拒绝",
+        "换发新证书并恢复设备",
+        "由审计员核对吊销与换发事件"
+      ],
+      "success_criteria": [
+        "吊销传播时间满足签署阈值",
+        "旧证书所有连接均失败",
+        "设备状态为 HOLD 或离线而非 PASS",
+        "换发后恢复且审计完整"
+      ],
+      "runbook_ref": "ops-manual.md",
+      "required_participants": ["安全负责人", "采集与设备负责人", "审计员"],
+      "requires_reason": true,
+      "requires_second_confirmation": true,
+      "requires_audit": true
+    },
+    {
+      "id": "DRILL-20",
+      "scenario_type": "EMERGENCY_ACCOUNT",
+      "severity": "S1",
+      "title": "紧急账号启用与回收",
+      "description": "在正常身份提供方不可用时启用受控紧急账号，执行最小恢复动作后立即回收",
+      "trigger": "在隔离生产等价窗口阻断身份提供方，并由两名不同负责人批准紧急账号启用",
+      "expected_system_behavior": "紧急账号默认禁用；双人批准后限时启用且权限最小；所有动作实时告警和审计；到期或任务结束自动禁用",
+      "recovery_steps": [
+        "记录启用原因和影响范围",
+        "由安全与运维不同人员二次确认",
+        "启用限时最小权限账号并执行单一恢复动作",
+        "恢复身份提供方后立即禁用账号",
+        "轮换凭据并由审计员复核全部事件"
+      ],
+      "success_criteria": [
+        "无双人批准时账号不可用",
+        "启用期间权限和时长受限",
+        "每个动作均有原因、告警和审计",
+        "演练结束后账号与旧凭据不可再用"
+      ],
+      "runbook_ref": "ops-manual.md",
+      "required_participants": ["运维负责人", "安全负责人", "管理员", "审计员"],
+      "requires_reason": true,
+      "requires_second_confirmation": true,
+      "requires_audit": true
+    }
+  ]
+}

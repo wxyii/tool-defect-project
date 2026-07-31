@@ -1,0 +1,385 @@
+name: tool-defect-production-site
+
+x-labels: &service-labels
+  app: tool-defect
+  environment: production
+  managed_by: docker-compose
+  decision_set: site-parameter-decisions.json
+
+x-runtime-hardening: &runtime-hardening
+  read_only: true
+  init: true
+  restart: unless-stopped
+  cap_drop: ["ALL"]
+  security_opt:
+    - no-new-privileges:true
+  pids_limit: 512
+  logging:
+    driver: json-file
+    options:
+      max-size: "50m"
+      max-file: "3"
+
+x-health-defaults: &health-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 60s
+
+services:
+  gateway:
+    <<: *runtime-hardening
+    labels:
+      <<: *service-labels
+      component: gateway
+    image: ${TD_GATEWAY_IMAGE_REPOSITORY:?必须提供网关镜像仓库}@sha256:${TD_GATEWAY_IMAGE_DIGEST:?必须提供网关镜像摘要}
+    user: "101:101"
+    ports:
+      - "443:8443"
+    tmpfs:
+      - /tmp:size=16m,mode=1770
+      - /var/cache/nginx:size=64m,mode=0750
+      - /var/run:size=8m,mode=0750
+    volumes:
+      - ../gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+      - gateway-logs:/var/log/nginx
+    secrets:
+      - source: gateway_tls_certificate
+        target: gateway-tls.crt
+      - source: gateway_tls_private_key
+        target: gateway-tls.key
+      - source: device_ca_certificate
+        target: device-ca.crt
+      - source: device_ca_crl
+        target: device-ca.crl
+      - source: service_ca
+        target: service-ca.crt
+      - source: service_ca_crl
+        target: service-ca.crl
+    networks:
+      - ingress
+      - business_control
+      - inference_control
+    mem_limit: 256m
+    cpus: 1.0
+    # TODO 现场调优: 根据实际并发数调整 CPU 和内存限制
+    healthcheck:
+      <<: *health-defaults
+      test:
+        - CMD
+        - curl
+        - -f
+        - -k
+        - https://localhost:8443/health
+
+  business-api:
+    <<: *runtime-hardening
+    labels:
+      <<: *service-labels
+      component: business-api
+    image: ${TD_BUSINESS_IMAGE_REPOSITORY:?必须提供业务镜像仓库}@sha256:${TD_BUSINESS_IMAGE_DIGEST:?必须提供业务镜像摘要}
+    user: "10001:10001"
+    tmpfs:
+      - /tmp:size=256m,mode=1770
+    volumes:
+      - business-api-logs:/var/log/tool-defect
+    environment:
+      SPRING_CONFIG_IMPORT: configtree:/run/secrets/
+      TD_ENVIRONMENT: production
+      TD_SERVICE_VERSION: ${TD_RELEASE_ID:?必须提供不可变发布标识}
+      TD_DATABASE_URL: jdbc:postgresql://postgres:5432/tool_defect
+      TD_DATABASE_USERNAME: tool_defect_application
+      TD_RABBITMQ_ADDRESSES: rabbitmq:5671
+      TD_RABBITMQ_USERNAME: tool_defect_business
+      TD_RABBITMQ_SSL_ENABLED: "true"
+      TD_S3_ENDPOINT: https://object-storage:9443
+      TD_S3_REQUIRE_TLS: "true"
+      TD_STORAGE_ENABLED: "true"
+      TD_MESSAGING_ENABLED: "true"
+      TD_OPERATIONS_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: https://telemetry:4317
+      OTEL_EXPORTER_OTLP_CERTIFICATE: /run/secrets/telemetry-ca.crt
+      OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE: /run/secrets/business-telemetry.crt
+      OTEL_EXPORTER_OTLP_CLIENT_KEY: /run/secrets/business-telemetry.key
+    secrets:
+      - source: database_password
+        target: TD_DATABASE_PASSWORD
+      - source: rabbitmq_business_password
+        target: TD_RABBITMQ_PASSWORD
+      - source: object_business_access_key
+        target: TD_S3_ACCESS_KEY
+      - source: object_business_secret_key
+        target: TD_S3_SECRET_KEY
+      - source: telemetry_ca
+        target: telemetry-ca.crt
+      - source: business_telemetry_certificate
+        target: business-telemetry.crt
+      - source: business_telemetry_private_key
+        target: business-telemetry.key
+    networks:
+      - business_control
+      - business_database
+      - inference_queue
+      - object_storage
+      - monitoring
+    mem_limit: 2g
+    cpus: 2.0
+    # TODO 现场调优: 根据 API 并发量和 JVM GC 模式调整内存
+    healthcheck:
+      <<: *health-defaults
+      test:
+        - CMD
+        - curl
+        - -f
+        - -k
+        - https://localhost:8443/actuator/health
+
+  inference-service:
+    <<: *runtime-hardening
+    labels:
+      <<: *service-labels
+      component: inference-service
+    image: ${TD_INFERENCE_IMAGE_REPOSITORY:?必须提供推理镜像仓库}@sha256:${TD_INFERENCE_IMAGE_DIGEST:?必须提供推理镜像摘要}
+    user: "10002:10002"
+    tmpfs:
+      - /tmp:size=2g,mode=1770
+      - /var/lib/tool-defect/callback-journal:size=64m,mode=0700
+    volumes:
+      - inference-logs:/var/log/tool-defect
+      - inference-models:/var/lib/tool-defect/models:ro
+    environment:
+      TD_ENVIRONMENT: production
+      TD_SERVICE_VERSION: ${TD_RELEASE_ID:?必须提供不可变发布标识}
+      TD_BUSINESS_API_URL: https://gateway:9443
+      TD_BUSINESS_API_CA_CERTIFICATE: /run/secrets/service-ca.crt
+      TD_BUSINESS_API_CLIENT_CERTIFICATE: /run/secrets/inference-service.crt
+      TD_BUSINESS_API_CLIENT_KEY: /run/secrets/inference-service.key
+      TD_RABBITMQ_ADDRESSES: rabbitmq:5671
+      TD_RABBITMQ_USERNAME: tool_defect_inference
+      TD_S3_ENDPOINT: https://object-storage:9443
+      TD_MODEL_TRUST_ROOT: /run/secrets/model-trust-roots.json
+      TD_DISABLE_INTERNET_EGRESS: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: https://telemetry:4317
+      OTEL_EXPORTER_OTLP_CERTIFICATE: /run/secrets/telemetry-ca.crt
+      OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE: /run/secrets/inference-telemetry.crt
+      OTEL_EXPORTER_OTLP_CLIENT_KEY: /run/secrets/inference-telemetry.key
+    secrets:
+      - source: rabbitmq_inference_password
+        target: TD_RABBITMQ_PASSWORD
+      - source: object_inference_access_key
+        target: TD_S3_ACCESS_KEY
+      - source: object_inference_secret_key
+        target: TD_S3_SECRET_KEY
+      - source: inference_service_certificate
+        target: inference-service.crt
+      - source: inference_service_private_key
+        target: inference-service.key
+      - source: service_ca
+        target: service-ca.crt
+      - source: model_trust_roots
+        target: model-trust-roots.json
+      - source: telemetry_ca
+        target: telemetry-ca.crt
+      - source: inference_telemetry_certificate
+        target: inference-telemetry.crt
+      - source: inference_telemetry_private_key
+        target: inference-telemetry.key
+    networks:
+      - inference_control
+      - inference_queue
+      - object_storage
+      - monitoring
+    mem_limit: 8g
+    cpus: 4.0
+    # TODO 现场调优: 根据模型大小和推理批次大小调整 GPU/CPU 资源
+    # TODO 现场调优: 如有 GPU，添加 deploy.resources.reservations.devices
+    healthcheck:
+      <<: *health-defaults
+      test:
+        - CMD
+        - curl
+        - -f
+        - -k
+        - https://localhost:8443/health
+      start_period: 120s
+
+  postgres:
+    <<: *runtime-hardening
+    labels:
+      <<: *service-labels
+      component: postgres
+    image: ${TD_POSTGRES_IMAGE_REPOSITORY:?必须提供数据库镜像仓库}@sha256:${TD_POSTGRES_IMAGE_DIGEST:?必须提供数据库镜像摘要}
+    user: "999:999"
+    tmpfs:
+      - /tmp:size=128m,mode=1770
+      - /run/postgresql:size=16m,mode=0770
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - postgres-logs:/var/log/postgresql
+    secrets:
+      - source: database_password
+        target: database-password
+    networks:
+      - business_database
+    mem_limit: 4g
+    cpus: 2.0
+    # TODO 现场调优: 根据数据量和连接数调整 shared_buffers 和 max_connections
+    healthcheck:
+      <<: *health-defaults
+      test:
+        - CMD
+        - pg_isready
+        - -U
+        - tool_defect_application
+        - -d
+        - tool_defect
+
+  rabbitmq:
+    <<: *runtime-hardening
+    labels:
+      <<: *service-labels
+      component: rabbitmq
+    image: ${TD_RABBITMQ_IMAGE_REPOSITORY:?必须提供消息镜像仓库}@sha256:${TD_RABBITMQ_IMAGE_DIGEST:?必须提供消息镜像摘要}
+    user: "999:999"
+    tmpfs:
+      - /tmp:size=128m,mode=1770
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+      - rabbitmq-logs:/var/log/rabbitmq
+    secrets:
+      - rabbitmq_business_password
+      - rabbitmq_inference_password
+      - service_ca
+      - rabbitmq_tls_certificate
+      - rabbitmq_tls_private_key
+    networks:
+      - inference_queue
+    mem_limit: 2g
+    cpus: 2.0
+    # TODO 现场调优: 根据消息积压量调整内存高水位线
+    healthcheck:
+      <<: *health-defaults
+      test:
+        - CMD
+        - rabbitmq-diagnostics
+        - check_running
+
+  object-storage:
+    <<: *runtime-hardening
+    labels:
+      <<: *service-labels
+      component: object-storage
+    image: ${TD_OBJECT_STORAGE_IMAGE_REPOSITORY:?必须提供受支持对象存储镜像仓库}@sha256:${TD_OBJECT_STORAGE_IMAGE_DIGEST:?必须提供对象存储镜像摘要}
+    user: "10004:10004"
+    tmpfs:
+      - /tmp:size=256m,mode=1770
+    volumes:
+      - object-data:/var/lib/object-storage
+      - object-storage-logs:/var/log/object-storage
+    secrets:
+      - object_business_access_key
+      - object_business_secret_key
+      - object_inference_access_key
+      - object_inference_secret_key
+      - object_storage_tls_certificate
+      - object_storage_tls_private_key
+    networks:
+      - object_storage
+    mem_limit: 4g
+    cpus: 2.0
+    # TODO 现场调优: 根据存储规模调整缓存和连接数
+    healthcheck:
+      <<: *health-defaults
+      test:
+        - CMD
+        - curl
+        - -f
+        - -k
+        - https://localhost:9443/minio/health/live
+
+  telemetry:
+    <<: *runtime-hardening
+    labels:
+      <<: *service-labels
+      component: telemetry
+    image: ${TD_TELEMETRY_IMAGE_REPOSITORY:?必须提供遥测镜像仓库}@sha256:${TD_TELEMETRY_IMAGE_DIGEST:?必须提供遥测镜像摘要}
+    user: "10005:10005"
+    tmpfs:
+      - /tmp:size=128m,mode=1770
+    volumes:
+      - ../monitoring/otel-collector.yml:/etc/otelcol/config.yml:ro
+      - telemetry-logs:/var/log/otelcol
+    secrets:
+      - telemetry_ca
+      - telemetry_server_certificate
+      - telemetry_server_private_key
+    networks:
+      - monitoring
+    mem_limit: 512m
+    cpus: 1.0
+    # TODO 现场调优: 根据遥测数据量调整批处理大小和内存
+    healthcheck:
+      <<: *health-defaults
+      test:
+        - CMD
+        - curl
+        - -f
+        - -k
+        - https://localhost:4317/health
+
+networks:
+  ingress: {}
+  business_control:
+    internal: true
+  business_database:
+    internal: true
+  inference_control:
+    internal: true
+  inference_queue:
+    internal: true
+  object_storage:
+    internal: true
+  monitoring:
+    internal: true
+
+volumes:
+  postgres-data:
+  rabbitmq-data:
+  object-data:
+  gateway-logs:
+  business-api-logs:
+  inference-logs:
+  postgres-logs:
+  rabbitmq-logs:
+  object-storage-logs:
+  telemetry-logs:
+  inference-models:
+
+secrets:
+  gateway_tls_certificate: {external: true}
+  gateway_tls_private_key: {external: true}
+  device_ca_certificate: {external: true}
+  device_ca_crl: {external: true}
+  database_password: {external: true}
+  rabbitmq_business_password: {external: true}
+  rabbitmq_inference_password: {external: true}
+  object_business_access_key: {external: true}
+  object_business_secret_key: {external: true}
+  object_inference_access_key: {external: true}
+  object_inference_secret_key: {external: true}
+  service_ca: {external: true}
+  service_ca_crl: {external: true}
+  inference_service_certificate: {external: true}
+  inference_service_private_key: {external: true}
+  rabbitmq_tls_certificate: {external: true}
+  rabbitmq_tls_private_key: {external: true}
+  object_storage_tls_certificate: {external: true}
+  object_storage_tls_private_key: {external: true}
+  model_trust_roots: {external: true}
+  telemetry_ca: {external: true}
+  telemetry_server_certificate: {external: true}
+  telemetry_server_private_key: {external: true}
+  business_telemetry_certificate: {external: true}
+  business_telemetry_private_key: {external: true}
+  inference_telemetry_certificate: {external: true}
+  inference_telemetry_private_key: {external: true}

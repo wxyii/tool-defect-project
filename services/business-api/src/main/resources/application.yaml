@@ -62,6 +62,12 @@ td:
     environment: ${TD_ENVIRONMENT:unknown}
   review:
     claim-lease: ${TD_REVIEW_CLAIM_LEASE:PT5M}
+  training:
+    code-commit: ${TD_TRAINING_CODE_COMMIT:}
+    environment-lock-sha256: ${TD_TRAINING_ENVIRONMENT_LOCK_SHA256:}
+    random-seed: ${TD_TRAINING_RANDOM_SEED:}
+  quality:
+    default-window-days: ${TD_QUALITY_DEFAULT_WINDOW_DAYS:30}
   detection:
     maximum-attempts: ${TD_DETECTION_MAXIMUM_ATTEMPTS:3}
     retry-delay-1: ${TD_DETECTION_RETRY_DELAY_1:PT30S}

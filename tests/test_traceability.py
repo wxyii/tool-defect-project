@@ -29,9 +29,9 @@ class TraceabilityTests(unittest.TestCase):
 
     def test_matrix_generation_is_deterministic(self):
         self.assertEqual(self.first, self.second)
-        self.assertEqual(352, self.first["requirement_count"])
+        self.assertEqual(355, self.first["requirement_count"])
         self.assertEqual(
-            "7d72c2fb4e89fcd66f00f399b38b1fa12574670a890652b64be1e1743706e37b",
+            "dd73a39ef9c6ea413678bc8f8f5c3d451756c840e7fc5577670b42228506c803",
             self.first["stable_requirements_sha256"],
         )
 

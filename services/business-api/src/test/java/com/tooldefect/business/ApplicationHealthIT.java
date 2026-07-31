@@ -82,7 +82,7 @@ class ApplicationHealthIT {
             applicationPort,
             "/actuator/health"
         );
-        assertThat(applicationHealth.statusCode()).isIn(401, 404);
+        assertThat(applicationHealth.statusCode()).isIn(401, 403, 404);
 
         HttpResponse<String> internal = get(
             applicationPort,

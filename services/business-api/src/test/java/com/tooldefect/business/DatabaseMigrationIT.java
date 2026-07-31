@@ -51,7 +51,7 @@ class DatabaseMigrationIT {
 
         var result = flyway.migrate();
 
-        assertThat(result.migrationsExecuted).isEqualTo(6);
+        assertThat(result.migrationsExecuted).isEqualTo(11);
         flyway.validate();
         JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
         assertThat(jdbc.queryForObject(
@@ -61,7 +61,7 @@ class DatabaseMigrationIT {
             WHERE success AND version IS NOT NULL
             """,
             Integer.class
-        )).isEqualTo(6);
+        )).isEqualTo(11);
         assertThat(jdbc.queryForObject(
             """
             SELECT COUNT(*)
@@ -170,7 +170,7 @@ class DatabaseMigrationIT {
         );
 
         Flyway latest = flyway(POSTGRES.getJdbcUrl(), schema, null);
-        assertThat(latest.migrate().migrationsExecuted).isEqualTo(4);
+        assertThat(latest.migrate().migrationsExecuted).isEqualTo(9);
 
         assertThat(jdbc.queryForObject(
             "SELECT organization_id FROM production_line WHERE line_id = ?",
@@ -442,7 +442,8 @@ class DatabaseMigrationIT {
             SET manifest_bucket = 'td-datasets',
                 manifest_object_key = 'manifests/frozen-v1.json',
                 manifest_sha256 = ?,
-                status = 'VALIDATING'
+                status = 'VALIDATING',
+                record_version = record_version + 1
             WHERE dataset_version_id = ?
             """,
             "4".repeat(64),
@@ -450,7 +451,8 @@ class DatabaseMigrationIT {
         )).isEqualTo(1);
         assertThat(jdbc.update(
             """
-            UPDATE dataset_version SET status = 'FROZEN'
+            UPDATE dataset_version
+            SET status = 'FROZEN', record_version = record_version + 1
             WHERE dataset_version_id = ?
             """,
             datasetVersionId
@@ -856,7 +858,7 @@ class DatabaseMigrationIT {
         assertThat(restored.queryForObject(
             "SELECT COUNT(*) FROM flyway_schema_history WHERE success",
             Integer.class
-        )).isEqualTo(6);
+        )).isEqualTo(11);
         flyway(databaseUrl(restoredDatabase), "public", null).validate();
     }
 
@@ -1083,8 +1085,13 @@ class DatabaseMigrationIT {
             INSERT INTO sys_permission(
                 permission_id, permission_code, description
             ) VALUES (?, 'detection:read', '读取授权范围内的检测')
+            ON CONFLICT (permission_code) DO NOTHING
             """,
             permissionId
+        );
+        UUID stablePermissionId = jdbc.queryForObject(
+            "SELECT permission_id FROM sys_permission WHERE permission_code = 'detection:read'",
+            UUID.class
         );
         jdbc.update(
             "INSERT INTO sys_user_role(user_id, role_id) VALUES (?, ?)",
@@ -1097,7 +1104,7 @@ class DatabaseMigrationIT {
             VALUES (?, ?)
             """,
             roleId,
-            permissionId
+            stablePermissionId
         );
         jdbc.update(
             """

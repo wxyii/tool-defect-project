@@ -1,0 +1,168 @@
+{
+  "schema_version": "1.0.0",
+  "closure_date": "PENDING_SITE_SIGNOFF",
+  "closure_authority": "质量、工艺、算法和发布负责人",
+  "summary": {
+    "total_decisions": 22,
+    "pending_site_signoff": 18,
+    "confirmed": 1,
+    "confirmed_default": 2,
+    "deferred": 1
+  },
+  "decisions": [
+    {
+      "id": "DEC-CAPTURE-PLC-001",
+      "title": "PLC 或传感器协议与触发时序",
+      "closure_status": "PENDING_SITE_SIGNOFF",
+      "closure_evidence": "需采集与设备负责人提供现场 PLC 协议规格书和触发时序文档的签字确认，确认协议参数在生产设备上可正常通信且触发时序满足节拍",
+      "residual_risk": "实际硬件与规格偏差可能导致采集中断或时序漂移，需在试运行阶段持续监控"
+    },
+    {
+      "id": "DEC-CAPTURE-CAMERA-001",
+      "title": "工业相机型号、软件开发包和采集参数",
+      "closure_status": "PENDING_SITE_SIGNOFF",
+      "closure_evidence": "需采集与设备负责人提供相机型号、SDK 版本和采集参数表的签字确认，确认相机在目标工位下的成像质量满足检测需求",
+      "residual_risk": "环境光变化或长期运行导致图像质量退化，需制定定期校准和图像质量抽检计划"
+    },
+    {
+      "id": "DEC-EDGE-OS-001",
+      "title": "工控机操作系统",
+      "closure_status": "PENDING_SITE_SIGNOFF",
+      "closure_evidence": "需采集与设备负责人提供工控机操作系统版本、硬件兼容性测试报告的签字确认",
+      "residual_risk": "操作系统补丁策略未确认，可能存在安全漏洞窗口期"
+    },
+    {
+      "id": "DEC-PERFORMANCE-CYCLE-001",
+      "title": "单刀检测节拍",
+      "closure_status": "PENDING_SITE_SIGNOFF",
+      "closure_evidence": "需工艺负责人提供产线实际节拍要求的签字确认，需包含最高节拍、典型节拍和容许波动范围",
+      "residual_risk": "节拍变更未及时同步到系统配置，可能导致性能不达标或虚假达标"
+    },
+    {
+      "id": "DEC-PERFORMANCE-LATENCY-001",
+      "title": "允许的端到端延迟",
+      "closure_status": "PENDING_SITE_SIGNOFF",
+      "closure_evidence": "需工艺负责人提供端到端延迟预算分配的签字确认，包括采集、传输、推理和处置各段的分配",
+      "residual_risk": "网络抖动可能导致延迟超过预算，需建立实时延迟监控和告警"
+    },
+    {
+      "id": "DEC-OFFLINE-DURATION-001",
+      "title": "网络中断最长时长",
+      "closure_status": "PENDING_SITE_SIGNOFF",
+      "closure_evidence": "需现场运维负责人提供网络中断容忍上限和未同步数据处置策略的签字确认",
+      "residual_risk": "长期离线导致工控机磁盘写满和数据积压，恢复连接后补传风暴可能影响系统性能"
+    },
+    {
+      "id": "DEC-CAPACITY-LOCAL-DISK-001",
+      "title": "工控机本地磁盘容量和水位",
+      "closure_status": "PENDING_SITE_SIGNOFF",
+      "closure_evidence": "需现场运维负责人提供工控机实际磁盘容量和告警水位策略的签字确认",
+      "residual_risk": "磁盘容量不足时在阈值边界反复触发暂停和恢复，需建立稳定且无抖动的水位控制"
+    },
+    {
+      "id": "DEC-DISPOSITION-THRESHOLD-001",
+      "title": "自动放行与不合格判定阈值",
+      "closure_status": "PENDING_SITE_SIGNOFF",
+      "closure_evidence": "需质量负责人签字确认合格、不合格和未知三个区间的阈值以及各区间处置动作。需附历史数据验证的阈值有效性分析报告",
+      "residual_risk": "阈值设置不当可能导致漏检或误判，需通过试运行和质量验证阶段逐步调优"
+    },
+    {
+      "id": "DEC-DISPOSITION-SAMPLING-001",
+      "title": "人工抽检比例",
+      "closure_status": "PENDING_SITE_SIGNOFF",
+      "closure_evidence": "需质量负责人提供抽检比例、抽样方法和抽检结果反馈机制的签字确认",
+      "residual_risk": "抽检比例过低可能遗漏系统性偏差，需结合统计过程控制持续评估抽样策略"
+    },
+    {
+      "id": "DEC-REVIEW-SLA-001",
+      "title": "人工复核时限",
+      "closure_status": "PENDING_SITE_SIGNOFF",
+      "closure_evidence": "需质量负责人提供复核时限指标和超时升级路径的签字确认",
+      "residual_risk": "复核积压可能导致产线停滞，需建立复核负载监控和弹性复核资源调度"
+    },
+    {
+      "id": "DEC-RETENTION-001",
+      "title": "图片、复核记录和训练数据保留期",
+      "closure_status": "PENDING_SITE_SIGNOFF",
+      "closure_evidence": "需质量负责人、法务负责人和存储负责人三方联合签字确认各类数据的法定最低保留期和物理删除策略",
+      "residual_risk": "保留策略不当可能导致合规风险或存储成本失控，需法律审查确认"
+    },
+    {
+      "id": "DEC-RETENTION-DERIVED-001",
+      "title": "可重建派生图片暂定保留期",
+      "closure_status": "CONFIRMED_DEFAULT",
+      "closure_evidence": "暂定默认值 180 天已获得算法负责人认可，作为上线初始策略。正式保留期待完整保留策略签字后再更新",
+      "residual_risk": "后续如果原始图片保留期短于派生图片保留期，可能在重建时源数据已删除"
+    },
+    {
+      "id": "DEC-RECOVERY-001",
+      "title": "恢复点、恢复时间和高可用目标",
+      "closure_status": "PENDING_SITE_SIGNOFF",
+      "closure_evidence": "需基础设施负责人提供业务连续性计划（BCP）中的 RPO、RTO 目标值和高可用要求的签字确认。需附恢复演练通过记录",
+      "residual_risk": "未完成恢复演练可能导致真实灾难时恢复失败；备份成功不等于恢复成功"
+    },
+    {
+      "id": "DEC-IDENTITY-001",
+      "title": "企业统一身份系统",
+      "closure_status": "PENDING_SITE_SIGNOFF",
+      "closure_evidence": "需身份与安全负责人提供统一身份系统类型、集成方式和访问控制策略的签字确认",
+      "residual_risk": "集成失败或配置不当可导致所有用户无法访问，需设计本机紧急恢复账号"
+    },
+    {
+      "id": "DEC-STORAGE-PROTOCOL-001",
+      "title": "对象存储使用 S3 兼容协议边界",
+      "closure_status": "CONFIRMED",
+      "closure_evidence": "G1 已确认技术边界：固定使用 S3 兼容协议抽象层且公开访问关闭。协议选型与架构设计文档一致",
+      "residual_risk": "具体 S3 实现（MinIO、Ceph、AWS）的兼容性差异需在集成测试中覆盖"
+    },
+    {
+      "id": "DEC-STORAGE-PRODUCT-001",
+      "title": "对象存储具体产品和端点",
+      "closure_status": "PENDING_SITE_SIGNOFF",
+      "closure_evidence": "需存储负责人提供目标存储产品名称、版本、端点地址和许可证审查结果的签字确认",
+      "residual_risk": "端点变更或网络策略调整可能导致所有图片存储不可用"
+    },
+    {
+      "id": "DEC-STORAGE-SIGNED-URL-001",
+      "title": "对象短时只读授权有效期",
+      "closure_status": "CONFIRMED_DEFAULT",
+      "closure_evidence": "暂定默认值 300 秒已获得存储与安全负责人认可。该有效期在大多数场景下满足单对象只读访问需求",
+      "residual_risk": "大图下载或慢速网络下可能超时，超时拒绝能保证安全但不能提供回退访问"
+    },
+    {
+      "id": "DEC-MESSAGING-001",
+      "title": "现有消息队列复用和高可用方式",
+      "closure_status": "PENDING_SITE_SIGNOFF",
+      "closure_evidence": "需基础设施负责人提供消息队列产品的选型确认、高可用拓扑设计和容量规划报告的签字确认",
+      "residual_risk": "高可用配置不当可能产生脑裂、消息重复或丢失，需在镜像队列和仲裁队列之间权衡"
+    },
+    {
+      "id": "DEC-MONITORING-001",
+      "title": "企业监控平台复用",
+      "closure_status": "PENDING_SITE_SIGNOFF",
+      "closure_evidence": "需可观测与运维负责人提供监控平台选型和告警集成方案的签字确认",
+      "residual_risk": "监控平台变更可能导致告警路由中断，需建立告警链路的定期演练"
+    },
+    {
+      "id": "DEC-COMPUTE-001",
+      "title": "中心服务器系统及 CPU 或 GPU 推理",
+      "closure_status": "PENDING_SITE_SIGNOFF",
+      "closure_evidence": "需基础设施与推理负责人提供服务端操作系统版本和推理硬件配置的签字确认",
+      "residual_risk": "开发环境性能与生产环境差异可能导致推理延迟超预算，需在生产环境进行性能基线测量"
+    },
+    {
+      "id": "DEC-DEPLOYMENT-001",
+      "title": "Compose 或企业容器平台",
+      "closure_status": "PENDING_SITE_SIGNOFF",
+      "closure_evidence": "需基础设施负责人提供生产部署平台选型确认的签字确认",
+      "residual_risk": "Compose 单机部署缺乏高可用和自动恢复能力，K8s 则引入运维复杂度"
+    },
+    {
+      "id": "DEC-DEPLOYMENT-K8S-001",
+      "title": "是否引入 Kubernetes",
+      "closure_status": "DEFERRED",
+      "closure_evidence": "首期架构评审确认不使用 Kubernetes，采用模块化单体与 Compose 部署。K8s 决策后置于有持续运行瓶颈证据时再评估",
+      "residual_risk": "如果后续产线数量增长远超预期，迁移到 K8s 的窗口期可能被压缩"
+    }
+  ]
+}

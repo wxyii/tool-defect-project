@@ -463,6 +463,61 @@
       }
     },
     {
+      "operation_id": "updateTrainingRunStatus",
+      "success_request": {
+        "status": "SUCCEEDED",
+        "registry_run_uri": "registry://training/2026-07-31/run-0001",
+        "started_at": "2026-07-31T10:00:00.000Z",
+        "finished_at": "2026-07-31T10:30:00.000Z",
+        "error_code": null
+      },
+      "success_response": {
+        "accepted": true,
+        "request_id": "019f0000-0000-7000-8000-000000000125"
+      },
+      "cases": {
+        "success": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "registerModelVersion",
+      "success_request": {
+        "model_id": "019f0000-0000-7000-8000-000000000134",
+        "training_run_id": "019f0000-0000-7000-8000-000000000135",
+        "dataset_version_id": "019f0000-0000-7000-8000-000000000136",
+        "registry_name": "tool-defect/multitask",
+        "registry_version": "3.0.0",
+        "artifact_bucket": "td-models",
+        "artifact_object_key": "multitask/3.0.0/package.tar",
+        "artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "sbom_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "signature_key_id": "model-release-key-2026",
+        "input_spec": {"shape": [256, 256, 3], "dtype": "float32"},
+        "output_spec": {"names": ["cla_out", "seg_out"]},
+        "evaluation_summary": {
+          "evaluation_report_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "threshold_gate_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        }
+      },
+      "success_response": {
+        "model_version_id": "019f0000-0000-7000-8000-000000000137",
+        "version": 1,
+        "approval_state": "CANDIDATE",
+        "created_at": "2026-07-31T10:30:00.000Z"
+      },
+      "cases": {
+        "success": {"status": 201, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 201, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
       "operation_id": "submitModelValidationDecision",
       "success_request": {
         "decision": "APPROVE",

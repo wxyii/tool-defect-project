@@ -35,6 +35,10 @@ class BaselineInventoryTests(unittest.TestCase):
     def test_inventory_matches_frozen_counts_bytes_and_hashes(self):
         self.assertEqual([], verify_lock(self.first, self.lock))
         groups = self.first["asset_groups"]
+        self.assertEqual(
+            self.lock["asset_groups"]["design_documents"],
+            groups["design_documents"],
+        )
         self.assertEqual(180, groups["raw_images"]["file_count"])
         self.assertEqual(4_769_700_960, groups["raw_images"]["total_bytes"])
         self.assertEqual(180, groups["raw_masks"]["file_count"])

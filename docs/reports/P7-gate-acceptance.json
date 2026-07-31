@@ -1,0 +1,36 @@
+{
+  "schema_version": "tool-defect-p7-gate-acceptance/v1",
+  "gate_id": "G7-R8-20260731",
+  "release_id": "REL-R8-CLAMPED-2026Q3",
+  "contract_version": "v1",
+  "source_type": "PENDING_SITE_SIGNOFF",
+  "generated_at": "2026-07-31T00:00:00Z",
+  "status": "BLOCKED",
+  "production_claim_allowed": false,
+  "task_results": [
+    {"task_id": "P7-01", "status": "BLOCKED"},
+    {"task_id": "P7-02", "status": "BLOCKED"},
+    {"task_id": "P7-03", "status": "BLOCKED"},
+    {"task_id": "P7-04", "status": "BLOCKED"},
+    {"task_id": "P7-05", "status": "BLOCKED"},
+    {"task_id": "P7-06", "status": "BLOCKED"},
+    {"task_id": "P7-07", "status": "BLOCKED"}
+  ],
+  "requirements": {
+    "real_hardware_network_infrastructure": {"status": "BLOCKED"},
+    "six_signed_site_parameter_groups": {"status": "BLOCKED"},
+    "production_model_warmed": {"status": "BLOCKED"},
+    "stable_previous_model_warmed": {"status": "BLOCKED"},
+    "rollback_exercised": {"status": "BLOCKED"},
+    "duty_roster_and_alert_routes": {"status": "BLOCKED"},
+    "role_manuals_and_external_users": {"status": "BLOCKED"},
+    "backup_and_isolated_restore": {"status": "BLOCKED"},
+    "emergency_access_and_certificate_revocation": {"status": "BLOCKED"}
+  },
+  "sign_offs": [],
+  "blockers": [
+    "P7-01 至 P7-07 尚无任何一项达到真实现场通过标准",
+    "生产硬件、迁移恢复、非功能、质量、外部用户演练和发布签字证据缺失",
+    "发布决定当前为 NO_GO"
+  ]
+}

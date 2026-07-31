@@ -72,4 +72,20 @@ class RolePermissionMatrixTest {
             "dataset:approve"
         )).isFalse();
     }
+
+    @Test
+    void qualityAndTrainingReadsFollowRoleBoundaries() {
+        assertThat(RolePermissionMatrix.allows(
+            SystemRole.QUALITY_MANAGER,
+            "quality:read"
+        )).isTrue();
+        assertThat(RolePermissionMatrix.allows(
+            SystemRole.ALGORITHM_ENGINEER,
+            "training:read"
+        )).isTrue();
+        assertThat(RolePermissionMatrix.allows(
+            SystemRole.OPERATOR,
+            "quality:read"
+        )).isFalse();
+    }
 }

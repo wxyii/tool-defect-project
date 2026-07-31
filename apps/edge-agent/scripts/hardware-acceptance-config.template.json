@@ -1,0 +1,106 @@
+{
+  "_comment": "硬件验收配置模板 — 复制为 site-hardware-config.json 并填写实际值",
+  "schema_version": "tool-defect-hardware-acceptance/v1",
+  "source_type": "PENDING_REAL_HARDWARE",
+  "site_id": "PENDING_SITE_SIGNOFF",
+  "run_id": "PENDING_SITE_SIGNOFF",
+  "approved_at": "PENDING_SITE_SIGNOFF",
+  "approved_by": "PENDING_SITE_SIGNOFF",
+  "approval_evidence_path": "PENDING_SITE_SIGNOFF",
+  "approval_evidence_sha256": "PENDING_SITE_SIGNOFF",
+  "device_inventory": {
+    "camera": {
+      "vendor": "PENDING_SITE_SIGNOFF",
+      "model": "PENDING_SITE_SIGNOFF",
+      "serial_number": "PENDING_SITE_SIGNOFF",
+      "firmware_version": "PENDING_SITE_SIGNOFF",
+      "driver_version": "PENDING_SITE_SIGNOFF",
+      "sdk_version": "PENDING_SITE_SIGNOFF"
+    },
+    "trigger": {
+      "vendor": "PENDING_SITE_SIGNOFF",
+      "model": "PENDING_SITE_SIGNOFF",
+      "serial_number": "PENDING_SITE_SIGNOFF",
+      "firmware_version": "PENDING_SITE_SIGNOFF",
+      "driver_version": "PENDING_SITE_SIGNOFF",
+      "sdk_version": "PENDING_SITE_SIGNOFF"
+    }
+  },
+  "camera": {
+    "type": "gige",
+    "vendor_config": {
+      "hardware_enabled": false,
+      "ip": "192.168.1.100",
+      "port": 3956,
+      "exposure_us": 5000,
+      "gain": 0.0,
+      "trigger_mode": "external",
+      "trigger_debounce_us": 100,
+      "trigger_delay_us": 0,
+      "pixel_format": "Mono8",
+      "width": 2448,
+      "height": 2048,
+      "frame_rate": 10.0,
+      "connection_timeout_s": 5.0,
+      "capture_timeout_s": 3.0,
+      "bit_depth": 8
+    }
+  },
+  "trigger": {
+    "type": "plc",
+    "vendor_config": {
+      "hardware_enabled": false,
+      "protocol": "modbus_tcp",
+      "host": "192.168.1.10",
+      "port": 502,
+      "register_address": 100,
+      "register_count": 1,
+      "debounce_ms": 20,
+      "poll_interval_ms": 10,
+      "signal_active_value": 1,
+      "connection_timeout_s": 3.0,
+      "unit_id": 1,
+      "source_label": "PLC"
+    }
+  },
+  "optical_trigger": {
+    "enabled": false,
+    "vendor_config": {
+      "hardware_enabled": false,
+      "gpio_pin": 17,
+      "trigger_edge": "rising",
+      "debounce_ms": 20,
+      "pull_mode": "down",
+      "source_label": "OPTICAL",
+      "holdoff_ms": 100,
+      "signal_invert": false,
+      "read_interval_ms": 5
+    }
+  },
+  "test_parameters": {
+    "connectivity_timeout_s": 10,
+    "trigger_poll_duration_s": 5,
+    "trigger_poll_interval_ms": 50,
+    "continuous_capture_frames": 100,
+    "continuous_capture_target_fps": 10,
+    "latency_measurement_samples": 50,
+    "dark_frame_exposure_us": 100,
+    "saturation_exposure_us": 50000,
+    "overnight_duration_s": 28800,
+    "stability_capture_interval_s": 1.0,
+    "acceptance_threshold": {
+      "min_fps": 5.0,
+      "max_capture_latency_ms": 200,
+      "max_failed_frames_pct": 2.0,
+      "min_trigger_events": 10,
+      "minimum_stability_duration_s": 28800,
+      "dark_frame_max_mean": 5,
+      "saturation_min_mean": 245
+    }
+  },
+  "multi_camera": {
+    "enabled": false,
+    "cameras": []
+  },
+  "external_scenarios": []
+}

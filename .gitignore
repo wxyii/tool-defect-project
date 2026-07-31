@@ -64,6 +64,10 @@ build/sbom/
 .env.*
 !.env.example
 !*.env.example
+
+# P7 现场证据只允许提交契约说明，真实运行输出通过受控挂载提供。
+deploy/environments/production/evidence/*
+!deploy/environments/production/evidence/README.md
 *.pem
 *.key
 *.p12
@@ -74,7 +78,10 @@ secrets/
 
 # Model weights and runtime packages never belong in Git.
 training/
-jobs/model-evaluator/controlled-output/
+!apps/web-console/src/features/training/
+!apps/web-console/src/features/training/**
+# 作业运行产物不属于源代码交付，禁止提交 Git。
+jobs/*/controlled-output/
 *.h5
 *.hdf5
 *.keras

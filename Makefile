@@ -5,7 +5,8 @@ PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 	test-performance verify-data verify-models verify-all \
 	check-environment check-environment-source generate-contracts \
 	verify-contracts-source test-contract-packages-offline verify-compose \
-	verify-sbom sbom verify-p1-offline verify-p1-strict
+	verify-sbom sbom verify-p1-offline verify-p1-strict verify-p6-01 verify-p6-02 verify-p6-03 verify-p6-04 verify-p6-05 verify-p6-06 verify-p6-07 verify-p6-08 verify-g6 \
+	verify-p7-01 verify-p7-02 verify-p7-03 verify-p7-04 verify-p7-05 verify-p7-06 verify-p7-07 verify-g7
 
 verify-layout:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/verify-layout/verify_layout.py
@@ -63,6 +64,59 @@ verify-data:
 verify-models:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/verify-layout/run_target.py verify-models
 
+verify-p6-01:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) jobs/artifact-migrator/verify_p6_01.py
+
+verify-p6-02:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) jobs/dataset-builder/verify_p6_02.py
+
+verify-p6-03:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) jobs/training-pipeline/verify_p6_03.py
+
+verify-p6-04:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) jobs/model-evaluator/verify_p6_04.py
+
+verify-p6-05:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) jobs/model-evaluator/verify_p6_05.py
+
+verify-p6-06:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) jobs/model-evaluator/verify_p6_06.py
+
+verify-p6-07: test-web
+
+verify-p6-08:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) jobs/model-evaluator/verify_p6_08.py
+	$(MAKE) verify-data verify-models test-integration test-e2e test-security
+
+verify-g6:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) jobs/model-evaluator/verify_g6.py
+
+verify-p7-01:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/p7/verify.py P7-01
+
+verify-p7-02:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/p7/verify.py P7-02
+
+verify-p7-03:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/p7/verify.py P7-03
+
+verify-p7-04:
+	$(MAKE) test-faults test-security test-performance
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/p7/verify.py P7-04
+
+verify-p7-05:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/p7/verify.py P7-05
+
+verify-p7-06:
+	$(MAKE) verify-runbooks
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/p7/verify.py P7-06
+
+verify-p7-07:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/p7/verify.py P7-07
+
+verify-g7:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/p7/verify.py G7
+
 verify-compose:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/verify-layout/verify_compose.py
 
@@ -97,7 +151,5 @@ verify-p1-strict: check-environment verify-layout verify-contracts verify-compos
 	MINIO_ROOT_PASSWORD=ci-only GRAFANA_ADMIN_USER=ci-only GRAFANA_ADMIN_PASSWORD=ci-only \
 	docker compose -f deploy/compose/development.yml config --quiet
 
-# 当前建设阶段为 P5；P5 离线门禁包含监控、安全、恢复、故障、性能和手册。
-# P7 的真实硬件、真实目标签字和现场长期运行仍必须在后续阶段显式验证。
 verify-all: verify-p1-strict verify-data test-core test-edge test-inference \
-	test-backend test-web test-integration test-e2e verify-p5-offline verify-models
+	test-backend test-web test-integration test-e2e verify-p5-offline verify-models verify-g7

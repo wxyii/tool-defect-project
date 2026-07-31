@@ -1,0 +1,137 @@
+{
+  "schema_version": "tool-defect-release-decision-record/v1",
+  "release_id": "REL-R8-CLAMPED-2026Q3",
+  "release_version": "R8",
+  "release_date": "PENDING_SITE_SIGNOFF",
+  "release_scope": "圆弧夹持刀具合格与不合格二分类",
+  "decision": "NO_GO",
+  "conditions": [
+    "所有 上线阻断 标记的现场参数决策项获得对应负责人签字确认",
+    "质量试运行在真实生产环境完成且所有关键指标达标",
+    "至少完成 6 个应急演练场景（涵盖 S1 和 S2 级别）并全部通过",
+    "备份与恢复在真实环境执行一次完整恢复演练并通过",
+    "所有 6 个关键告警在生产监控平台中配置并触发验证",
+    "紧急联系人信息填写完整",
+    "4 个必需签署人（质量、工艺、算法、发布）完成签字",
+    "第一周值班计划制定完毕"
+  ],
+  "approved_by": {
+    "quality_lead": {
+      "name": "待签字",
+      "date": null,
+      "status": "PENDING"
+    },
+    "process_lead": {
+      "name": "待签字",
+      "date": null,
+      "status": "PENDING"
+    },
+    "algorithm_lead": {
+      "name": "待签字",
+      "date": null,
+      "status": "PENDING"
+    },
+    "release_lead": {
+      "name": "待签字",
+      "date": null,
+      "status": "PENDING"
+    }
+  },
+  "risk_register": [
+    {
+      "id": "RISK-001",
+      "description": "开发环境性能基线不等于生产环境性能，实际节拍下推理延迟可能超预算",
+      "owner": "工艺负责人",
+      "severity": "HIGH",
+      "expiry": "试运行完成后重新评估",
+      "compensating_control": "真实试运行完成且节拍与延迟门禁通过前保持 NO_GO；超预算时重新整改和评审",
+      "status": "OPEN"
+    },
+    {
+      "id": "RISK-002",
+      "description": "真实相机图像质量可能与开发数据集偏差，导致 HOLD 率超出预期",
+      "owner": "质量负责人",
+      "severity": "MEDIUM",
+      "expiry": "上线后第一个月内持续评估",
+      "compensating_control": "上线初期设置保守阈值（较高 HOLD 率容忍），逐步调优",
+      "status": "OPEN"
+    },
+    {
+      "id": "RISK-003",
+      "description": "PLC 实际协议与规格文档可能偏差，导致采集触发时序漂移",
+      "owner": "采集与设备负责人",
+      "severity": "MEDIUM",
+      "expiry": "上线前 PLC 联调完成",
+      "compensating_control": "PLC 联调测试覆盖所有触发模式和时序边界",
+      "status": "OPEN"
+    },
+    {
+      "id": "RISK-004",
+      "description": "首次现场部署可能出现未知环境兼容性问题（OS 补丁、依赖库、证书等）",
+      "owner": "运维负责人",
+      "severity": "MEDIUM",
+      "expiry": "部署完成后运行 24 小时无 S1 事件",
+      "compensating_control": "部署前在接近生产环境的配置上做降级兼容验证",
+      "status": "OPEN"
+    },
+    {
+      "id": "RISK-005",
+      "description": "Compose 单机部署缺乏自动故障转移，单个服务故障可能导致全链路中断",
+      "owner": "基础设施负责人",
+      "severity": "LOW",
+      "expiry": "运维团队熟练掌握手动恢复流程后降低",
+      "compensating_control": "应急演练覆盖所有单点故障场景，运维团队培训到位",
+      "status": "OPEN"
+    },
+    {
+      "id": "RISK-006",
+      "description": "签名 URL 有效期 300 秒在大图场景可能超时",
+      "owner": "存储负责人",
+      "severity": "LOW",
+      "expiry": "上线后根据实际使用情况调整",
+      "compensating_control": "前端实现自动刷新图片地址，后端支持重新生成签名地址",
+      "status": "OPEN"
+    },
+    {
+      "id": "RISK-007",
+      "description": "处置阈值未经验证可能产生漏检或误判",
+      "owner": "质量负责人",
+      "severity": "HIGH",
+      "expiry": "质量试运行完成后基于统计证据确定阈值",
+      "compensating_control": "初始阶段自动 PASS 关闭，所有判定经人工复核确认",
+      "status": "OPEN"
+    }
+  ],
+  "rollback_target": {
+    "model_version": "待确认（上一稳定不可变版本）",
+    "model_registry_alias": "stable-previous",
+    "procedure_ref": "Docs/runbooks/10-emergency-rollback.md",
+    "verification": [
+      "回滚后模型摘要与注册表记录一致",
+      "固定探针推理结果与回滚目标版本一致",
+      "历史任务绑定的模型版本未改变",
+      "服务健康且无严重告警"
+    ]
+  },
+  "duty_roster": {
+    "schedule": "上线后第一周 7×24 值班",
+    "status": "PENDING",
+    "note": "需在部署日期确定后排定具体值班表，包含以下角色每班至少一名：运维、质量、算法",
+    "slots": [
+      {
+        "shift": "周一 09:00-18:00",
+        "ops": "待排定",
+        "quality": "待排定",
+        "algorithm": "待排定"
+      },
+      {
+        "shift": "周一 18:00-次日 09:00",
+        "ops": "待排定",
+        "quality": "待排定",
+        "algorithm": "待排定"
+      }
+    ]
+  },
+  "status": "BLOCKED",
+  "notes": "当前存在未关闭上线阻断、开放高风险、缺失现场证据、签字、回滚目标和值班表，因此决定为 NO_GO。只有全部条件满足并重新形成独立 GO 记录后才允许生产发布。"
+}

@@ -1,0 +1,696 @@
+{
+  "schema_version": "tool-defect-go-live-checklist/v1",
+  "release_version": "R8",
+  "release_scope": "圆弧夹持刀具合格与不合格二分类",
+  "generated_at": "2026-07-31",
+  "status": "PENDING_SITE_SIGNOFF",
+  "summary": {
+    "total_items": 52,
+    "pass": 3,
+    "fail": 0,
+    "pending_site_signoff": 47,
+    "not_applicable": 2,
+    "risk_high_count": 1,
+    "risk_medium_count": 3,
+    "risk_low_count": 48
+  },
+  "sections": [
+    {
+      "id": "SEC-01",
+      "title": "需求覆盖",
+      "source": "P0-03 追溯矩阵 matrix-lock.json",
+      "items": [
+        {
+          "id": "GL-001",
+          "requirement_ref": "REQ-CAPTURE-001",
+          "title": "采集触发与图像获取",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "DEC-CAPTURE-PLC-001, DEC-CAPTURE-CAMERA-001",
+          "notes": "PLC 协议和相机型号需现场签字确认",
+          "risk": "low"
+        },
+        {
+          "id": "GL-002",
+          "requirement_ref": "REQ-DETECTION-001",
+          "title": "自动缺陷检测判定",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "DEC-DISPOSITION-THRESHOLD-001",
+          "notes": "处置阈值需质量负责人签字确认",
+          "risk": "low"
+        },
+        {
+          "id": "GL-003",
+          "requirement_ref": "REQ-REVIEW-001",
+          "title": "人工复核工作流",
+          "status": "PASS",
+          "evidence_ref": "test_workflows.py, test_security.py",
+          "notes": "复核认领、二审、升级流程已通过自动化测试",
+          "risk": "low"
+        },
+        {
+          "id": "GL-004",
+          "requirement_ref": "REQ-IMAGE-001",
+          "title": "图像存储与传输",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "DEC-STORAGE-PRODUCT-001, DEC-STORAGE-SIGNED-URL-001",
+          "notes": "存储产品和签名 URL 有效期需签字确认",
+          "risk": "low"
+        },
+        {
+          "id": "GL-005",
+          "requirement_ref": "REQ-MODEL-001",
+          "title": "模型版本管理与安全加载",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "DEC-COMPUTE-001, DEC-STORAGE-PROTOCOL-001",
+          "notes": "推理设备和存储协议已确认，部署详情待签字",
+          "risk": "low"
+        },
+        {
+          "id": "GL-006",
+          "requirement_ref": "REQ-TRAINING-001",
+          "title": "增量训练闭环",
+          "status": "PASS",
+          "evidence_ref": "test_retrain_manifest.py, test_retrain_multitask.py, test_training_sequence.py",
+          "notes": "训练流程验证通过",
+          "risk": "low"
+        }
+      ]
+    },
+    {
+      "id": "SEC-02",
+      "title": "决策关闭",
+      "source": "P7-01 production-decision-closure.json",
+      "items": [
+        {
+          "id": "GL-101",
+          "requirement_ref": "DEC-CAPTURE-PLC-001",
+          "title": "PLC 协议与触发时序签字确认",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "production-decision-closure.json",
+          "notes": "需采集与设备负责人签字",
+          "risk": "medium"
+        },
+        {
+          "id": "GL-102",
+          "requirement_ref": "DEC-CAPTURE-CAMERA-001",
+          "title": "相机型号和采集参数签字确认",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "production-decision-closure.json",
+          "notes": "需采集与设备负责人签字",
+          "risk": "medium"
+        },
+        {
+          "id": "GL-103",
+          "requirement_ref": "DEC-EDGE-OS-001",
+          "title": "工控机操作系统签字确认",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "production-decision-closure.json",
+          "notes": "需采集与设备负责人签字",
+          "risk": "low"
+        },
+        {
+          "id": "GL-104",
+          "requirement_ref": "DEC-PERFORMANCE-CYCLE-001",
+          "title": "单刀检测节拍签字确认",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "production-decision-closure.json",
+          "notes": "需工艺负责人签字",
+          "risk": "high"
+        },
+        {
+          "id": "GL-105",
+          "requirement_ref": "DEC-PERFORMANCE-LATENCY-001",
+          "title": "端到端延迟签字确认",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "production-decision-closure.json",
+          "notes": "需工艺负责人签字",
+          "risk": "medium"
+        },
+        {
+          "id": "GL-106",
+          "requirement_ref": "DEC-OFFLINE-DURATION-001",
+          "title": "网络中断最大时长签字确认",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "production-decision-closure.json",
+          "notes": "需现场运维负责人签字",
+          "risk": "low"
+        },
+        {
+          "id": "GL-107",
+          "requirement_ref": "DEC-CAPACITY-LOCAL-DISK-001",
+          "title": "工控机磁盘容量和水位签字确认",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "production-decision-closure.json",
+          "notes": "需现场运维负责人签字",
+          "risk": "low"
+        },
+        {
+          "id": "GL-108",
+          "requirement_ref": "DEC-DISPOSITION-THRESHOLD-001",
+          "title": "处置阈值签字确认",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "production-decision-closure.json",
+          "notes": "需质量负责人签字",
+          "risk": "medium"
+        },
+        {
+          "id": "GL-109",
+          "requirement_ref": "DEC-DISPOSITION-SAMPLING-001",
+          "title": "抽检比例签字确认",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "production-decision-closure.json",
+          "notes": "需质量负责人签字",
+          "risk": "low"
+        },
+        {
+          "id": "GL-110",
+          "requirement_ref": "DEC-REVIEW-SLA-001",
+          "title": "复核时限签字确认",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "production-decision-closure.json",
+          "notes": "需质量负责人签字",
+          "risk": "low"
+        },
+        {
+          "id": "GL-111",
+          "requirement_ref": "DEC-RETENTION-001",
+          "title": "数据保留期签字确认",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "production-decision-closure.json",
+          "notes": "需质量、法务与存储负责人联合签字",
+          "risk": "low"
+        },
+        {
+          "id": "GL-112",
+          "requirement_ref": "DEC-RETENTION-DERIVED-001",
+          "title": "派生图片保留期暂定默认值",
+          "status": "PASS",
+          "evidence_ref": "CONFIRMED_DEFAULT in production-decision-closure.json",
+          "notes": "暂定 180 天，正式签字后再更新",
+          "risk": "low"
+        },
+        {
+          "id": "GL-113",
+          "requirement_ref": "DEC-RECOVERY-001",
+          "title": "恢复点和恢复时间签字确认",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "production-decision-closure.json",
+          "notes": "需基础设施负责人签字",
+          "risk": "low"
+        },
+        {
+          "id": "GL-114",
+          "requirement_ref": "DEC-IDENTITY-001",
+          "title": "统一身份系统签字确认",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "production-decision-closure.json",
+          "notes": "需身份与安全负责人签字",
+          "risk": "low"
+        },
+        {
+          "id": "GL-115",
+          "requirement_ref": "DEC-STORAGE-PRODUCT-001",
+          "title": "对象存储产品和端点签字确认",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "production-decision-closure.json",
+          "notes": "需存储负责人签字",
+          "risk": "low"
+        },
+        {
+          "id": "GL-116",
+          "requirement_ref": "DEC-MESSAGING-001",
+          "title": "消息队列复用和高可用签字确认",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "production-decision-closure.json",
+          "notes": "需基础设施负责人签字",
+          "risk": "low"
+        },
+        {
+          "id": "GL-117",
+          "requirement_ref": "DEC-MONITORING-001",
+          "title": "监控平台复用签字确认",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "production-decision-closure.json",
+          "notes": "需可观测与运维负责人签字",
+          "risk": "low"
+        },
+        {
+          "id": "GL-118",
+          "requirement_ref": "DEC-COMPUTE-001",
+          "title": "中心服务器系统和推理硬件签字确认",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "production-decision-closure.json",
+          "notes": "需基础设施与推理负责人签字",
+          "risk": "low"
+        },
+        {
+          "id": "GL-119",
+          "requirement_ref": "DEC-DEPLOYMENT-001",
+          "title": "部署平台签字确认",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "production-decision-closure.json",
+          "notes": "需基础设施负责人签字",
+          "risk": "low"
+        },
+        {
+          "id": "GL-120",
+          "requirement_ref": "DEC-DEPLOYMENT-K8S-001",
+          "title": "Kubernetes 后置决策",
+          "status": "NOT_APPLICABLE",
+          "evidence_ref": "DEFERRED in production-decision-closure.json",
+          "notes": "首期不使用 K8s，后置于有持续运行瓶颈证据时再评估",
+          "risk": "low"
+        }
+      ]
+    },
+    {
+      "id": "SEC-03",
+      "title": "非功能验收",
+      "source": "P7-04 非功能测试",
+      "items": [
+        {
+          "id": "GL-201",
+          "requirement_ref": "NFR-PERFORMANCE-001",
+          "title": "推理延迟在环境测量值内",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "P5-performance-stability.md",
+          "notes": "开发环境测试通过，生产环境需部署后测量",
+          "risk": "low"
+        },
+        {
+          "id": "GL-202",
+          "requirement_ref": "NFR-CAPACITY-001",
+          "title": "容量计算覆盖所有数据类型",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "P5-performance-stability.md",
+          "notes": "容量公式已验收，具体数值待现场签字",
+          "risk": "low"
+        },
+        {
+          "id": "GL-203",
+          "requirement_ref": "NFR-STABILITY-001",
+          "title": "长期稳定性测试通过",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "P5-performance-stability.md",
+          "notes": "自动化稳定性测试通过，现场长期运行待验证",
+          "risk": "low"
+        },
+        {
+          "id": "GL-204",
+          "requirement_ref": "NFR-FAULT-TO-001",
+          "title": "网络中断恢复无数据丢失",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "P5-performance-stability.md, drill-record.json",
+          "notes": "自动化测试通过，需现场真实硬件演练验证",
+          "risk": "low"
+        },
+        {
+          "id": "GL-205",
+          "requirement_ref": "NFR-FAULT-TO-002",
+          "title": "数据库故障恢复",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "P5-joint-recovery-drill.md",
+          "notes": "隔离环境验证通过，需现场使用真实备份演练",
+          "risk": "low"
+        }
+      ]
+    },
+    {
+      "id": "SEC-04",
+      "title": "质量试运行",
+      "source": "P7-05 质量验证",
+      "items": [
+        {
+          "id": "GL-301",
+          "requirement_ref": "QA-TRIAL-001",
+          "title": "试运行样本数量达标",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "需现场执行质量试运行",
+          "notes": "样本数量由质量负责人与工艺负责人协商确定",
+          "risk": "low"
+        },
+        {
+          "id": "GL-302",
+          "requirement_ref": "QA-TRIAL-002",
+          "title": "自动与人工判定一致率达标",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "需现场试运行统计",
+          "notes": "最低一致率阈值由质量负责人确定",
+          "risk": "low"
+        },
+        {
+          "id": "GL-303",
+          "requirement_ref": "QA-TRIAL-003",
+          "title": "试运行无 S1 事件",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "需试运行期间告警记录",
+          "notes": "试运行期间如发生 S1 事件需评估影响后重新试运行",
+          "risk": "low"
+        },
+        {
+          "id": "GL-304",
+          "requirement_ref": "QA-TRIAL-004",
+          "title": "复核积压未超过 SLA",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "需试运行期间复核统计",
+          "notes": "SLA 值由质量负责人确认",
+          "risk": "low"
+        },
+        {
+          "id": "GL-305",
+          "requirement_ref": "QA-TRIAL-005",
+          "title": "所有工位和刀具型号覆盖",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "需试运行计划与覆盖报告",
+          "notes": "需确保所有目标工位均已参与",
+          "risk": "low"
+        }
+      ]
+    },
+    {
+      "id": "SEC-05",
+      "title": "安全验收",
+      "source": "P7-04 安全测试, Docs/12-安全权限与角色.md",
+      "items": [
+        {
+          "id": "GL-401",
+          "requirement_ref": "SEC-AUTH-001",
+          "title": "设备证书吊销后无法上传",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "verify_deployment_security.py",
+          "notes": "自动化测试通过，需生产环境确认",
+          "risk": "low"
+        },
+        {
+          "id": "GL-402",
+          "requirement_ref": "SEC-AUTH-002",
+          "title": "操作员无法提交复核或下载原图",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "verify_deployment_security.py",
+          "notes": "需现场权限验证",
+          "risk": "low"
+        },
+        {
+          "id": "GL-403",
+          "requirement_ref": "SEC-AUTH-003",
+          "title": "算法工程师不能独自发布模型",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "verify_deployment_security.py",
+          "notes": "需现场职责分离验证",
+          "risk": "low"
+        },
+        {
+          "id": "GL-404",
+          "requirement_ref": "SEC-ISO-001",
+          "title": "推理服务不能访问业务数据库",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "verify_deployment_security.py",
+          "notes": "网络分区配置需在生产环境验证",
+          "risk": "low"
+        },
+        {
+          "id": "GL-405",
+          "requirement_ref": "SEC-INTEGRITY-001",
+          "title": "篡改模型、图片或结果哈希被拒绝",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "scan_secrets.py, verify_deployment_security.py",
+          "notes": "自动化测试通过，需现场验证",
+          "risk": "low"
+        },
+        {
+          "id": "GL-406",
+          "requirement_ref": "SEC-SECRETS-001",
+          "title": "配置文件中无默认密码和密钥",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "scan_secrets.py",
+          "notes": "需在最终部署配置上扫描确认",
+          "risk": "low"
+        }
+      ]
+    },
+    {
+      "id": "SEC-06",
+      "title": "运维就绪",
+      "source": "P7-06 角色手册和应急演练",
+      "items": [
+        {
+          "id": "GL-501",
+          "requirement_ref": "OPS-MANUAL-001",
+          "title": "操作员手册完成",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "Docs/runbooks/operator-manual.md",
+          "notes": "已编写，需现场操作人员培训后签字确认",
+          "risk": "low"
+        },
+        {
+          "id": "GL-502",
+          "requirement_ref": "OPS-MANUAL-002",
+          "title": "复核员手册完成",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "Docs/runbooks/reviewer-manual.md",
+          "notes": "已编写，需复核员培训后签字确认",
+          "risk": "low"
+        },
+        {
+          "id": "GL-503",
+          "requirement_ref": "OPS-MANUAL-003",
+          "title": "质量负责人手册完成",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "Docs/runbooks/quality-lead-manual.md",
+          "notes": "已编写，需质量负责人培训后签字确认",
+          "risk": "low"
+        },
+        {
+          "id": "GL-504",
+          "requirement_ref": "OPS-MANUAL-004",
+          "title": "运维手册完成",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "Docs/runbooks/ops-manual.md",
+          "notes": "已编写，需运维人员培训后签字确认",
+          "risk": "low"
+        },
+        {
+          "id": "GL-505",
+          "requirement_ref": "OPS-DRILL-001",
+          "title": "应急演练场景定义",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "Docs/runbooks/emergency-drill-scenarios.json",
+          "notes": "20 个场景已定义，需由未参与开发的用户在真实设备上逐一执行并记录",
+          "risk": "low"
+        },
+        {
+          "id": "GL-506",
+          "requirement_ref": "OPS-DRILL-002",
+          "title": "应急联系人填写",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "Docs/runbooks/emergency-contacts.template.json",
+          "notes": "模板已创建，需部署前各负责人填写实际联系方式",
+          "risk": "low"
+        }
+      ]
+    },
+    {
+      "id": "SEC-07",
+      "title": "回滚计划",
+      "items": [
+        {
+          "id": "GL-601",
+          "requirement_ref": "ROLLBACK-001",
+          "title": "回滚目标模型版本已注册",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "P7-release-decision-record.json",
+          "notes": "需部署前确认上一稳定模型版本仍在模型注册表中",
+          "risk": "low"
+        },
+        {
+          "id": "GL-602",
+          "requirement_ref": "ROLLBACK-002",
+          "title": "回滚程序已验证",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "10-emergency-rollback.md, drill-record.json",
+          "notes": "紧急回滚手册已编写，需现场演练验证",
+          "risk": "low"
+        },
+        {
+          "id": "GL-603",
+          "requirement_ref": "ROLLBACK-003",
+          "title": "回滚验证步骤已定义",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "10-emergency-rollback.md",
+          "notes": "验证步骤在回滚手册中定义",
+          "risk": "low"
+        }
+      ]
+    },
+    {
+      "id": "SEC-08",
+      "title": "监控与告警",
+      "items": [
+        {
+          "id": "GL-701",
+          "requirement_ref": "MON-ALERT-001",
+          "title": "磁盘使用率告警已配置",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "verify_monitoring.py",
+          "notes": "需在监控平台中确认告警规则和路由",
+          "risk": "low"
+        },
+        {
+          "id": "GL-702",
+          "requirement_ref": "MON-ALERT-002",
+          "title": "网络中断告警已配置",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "verify_monitoring.py",
+          "notes": "需在监控平台中确认",
+          "risk": "low"
+        },
+        {
+          "id": "GL-703",
+          "requirement_ref": "MON-ALERT-003",
+          "title": "服务不可用告警已配置",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "verify_monitoring.py",
+          "notes": "需在监控平台中确认",
+          "risk": "low"
+        },
+        {
+          "id": "GL-704",
+          "requirement_ref": "MON-ALERT-004",
+          "title": "模型哈希校验告警已配置",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "verify_monitoring.py",
+          "notes": "需在监控平台中确认",
+          "risk": "low"
+        },
+        {
+          "id": "GL-705",
+          "requirement_ref": "MON-ALERT-005",
+          "title": "备份失败告警已配置",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "verify_monitoring.py",
+          "notes": "需在监控平台中确认",
+          "risk": "low"
+        },
+        {
+          "id": "GL-706",
+          "requirement_ref": "MON-ALERT-006",
+          "title": "复核积压告警已配置",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "verify_monitoring.py",
+          "notes": "需在监控平台中确认",
+          "risk": "low"
+        }
+      ]
+    },
+    {
+      "id": "SEC-09",
+      "title": "备份与恢复",
+      "items": [
+        {
+          "id": "GL-801",
+          "requirement_ref": "BACKUP-001",
+          "title": "数据库备份计划已配置",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "P5-joint-recovery-drill.md",
+          "notes": "需现场配置具体备份计划",
+          "risk": "low"
+        },
+        {
+          "id": "GL-802",
+          "requirement_ref": "BACKUP-002",
+          "title": "对象存储备份已配置",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "P5-joint-recovery-drill.md",
+          "notes": "需现场配置",
+          "risk": "low"
+        },
+        {
+          "id": "GL-803",
+          "requirement_ref": "BACKUP-003",
+          "title": "恢复演练已完成",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "P5-joint-recovery-drill.md",
+          "notes": "隔离环境验证通过，需现场使用真实备份执行恢复演练",
+          "risk": "low"
+        }
+      ]
+    },
+    {
+      "id": "SEC-10",
+      "title": "签署",
+      "items": [
+        {
+          "id": "GL-SIGNOFF-001",
+          "requirement_ref": "SIGNOFF-QUALITY",
+          "title": "质量负责人签署",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "需现场签字",
+          "notes": "",
+          "risk": "low"
+        },
+        {
+          "id": "GL-SIGNOFF-002",
+          "requirement_ref": "SIGNOFF-PROCESS",
+          "title": "工艺负责人签署",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "需现场签字",
+          "notes": "",
+          "risk": "low"
+        },
+        {
+          "id": "GL-SIGNOFF-003",
+          "requirement_ref": "SIGNOFF-ALGORITHM",
+          "title": "算法负责人签署",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "需现场签字",
+          "notes": "",
+          "risk": "low"
+        },
+        {
+          "id": "GL-SIGNOFF-004",
+          "requirement_ref": "SIGNOFF-RELEASE",
+          "title": "发布负责人签署",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "需现场签字",
+          "notes": "",
+          "risk": "low"
+        },
+        {
+          "id": "GL-SIGNOFF-005",
+          "requirement_ref": "SIGNOFF-OPS",
+          "title": "运维负责人签署",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "需现场签字",
+          "notes": "",
+          "risk": "low"
+        },
+        {
+          "id": "GL-SIGNOFF-006",
+          "requirement_ref": "SIGNOFF-SECURITY",
+          "title": "安全负责人签署",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "需现场签字",
+          "notes": "",
+          "risk": "low"
+        }
+      ]
+    }
+  ],
+  "risk_assessment": {
+    "DEC-PERFORMANCE-CYCLE-001_not_signed": {
+      "risk": "HIGH",
+      "description": "未确认节拍时无法验证系统在生产速度下的稳定性",
+      "mitigation": "上线的先决条件，未签字不发布"
+    },
+    "DEC-CAPTURE-PLC-001_not_signed": {
+      "risk": "MEDIUM",
+      "description": "PLC 协议未确认可能导致采集无法触发",
+      "mitigation": "上线的先决条件，未签字不发布"
+    },
+    "DEC-CAPTURE-CAMERA-001_not_signed": {
+      "risk": "MEDIUM",
+      "description": "相机型号未确认可能导致成像质量不满足检测需求",
+      "mitigation": "上线的先决条件，未签字不发布"
+    }
+  }
+}

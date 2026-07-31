@@ -1379,6 +1379,165 @@
         }
       }
     },
+    "/api/v1/datasets/{dataset_id}/versions": {
+      "get": {
+        "operationId": "listDatasetVersions",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DatasetId"
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "数据集版本分页摘要",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetVersionPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        }
+      }
+    },
+    "/api/v1/dataset-versions/diff": {
+      "get": {
+        "operationId": "diffDatasetVersions",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "两个不可变数据集版本的差异",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetVersionDiff"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/quality/metrics": {
+      "get": {
+        "operationId": "getQualityMetrics",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "model_version_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "按真实复核和处置记录汇总的质量指标",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualityMetrics"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        }
+      }
+    },
     "/api/v1/training-runs": {
       "post": {
         "operationId": "createTrainingRun",
@@ -1458,6 +1617,230 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/VersionedResource"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/internal/v1/training-runs/{training_run_id}/status": {
+      "put": {
+        "operationId": "updateTrainingRunStatus",
+        "tags": [
+          "internal"
+        ],
+        "security": [
+          {
+            "ServiceMtls": [],
+            "ServiceOAuth": [
+              "training:callback"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TrainingRunId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrainingRunStatusUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "训练运行状态已幂等更新",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Acknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "updateTrainingRunStatus"
+      }
+    },
+    "/api/v1/model-versions": {
+      "post": {
+        "operationId": "registerModelVersion",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelVersionRegisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "候选模型版本已登记",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelVersionRegistrationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "registerModelVersion"
+      },
+      "get": {
+        "operationId": "listModelVersions",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "model_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "模型版本列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelVersionPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        }
+      }
+    },
+    "/api/v1/model-versions/{model_version_id}": {
+      "get": {
+        "operationId": "getModelVersion",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ModelVersionId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "模型版本登记和审批状态",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelVersionResponse"
                 }
               }
             }
@@ -1711,6 +2094,45 @@
           }
         },
         "x-write-example-operation": "rollbackModelDeployment"
+      }
+    },
+    "/api/v1/model-deployments/{model_deployment_id}": {
+      "get": {
+        "operationId": "getModelDeployment",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ModelDeploymentId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "模型部署状态",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelDeploymentResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
       }
     },
     "/internal/v1/detection-tasks/{detection_task_id}/attempts": {
@@ -2050,7 +2472,8 @@
             "tokenUrl": "https://identity.example.invalid/oauth2/token",
             "scopes": {
               "inference:callback": "提交推理执行结果",
-              "runtime:read": "读取推理运行时健康"
+              "runtime:read": "读取推理运行时健康",
+              "training:callback": "回报受控训练运行状态"
             }
           }
         }
@@ -2150,6 +2573,14 @@
       },
       "DatasetVersionId": {
         "name": "dataset_version_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+        }
+      },
+      "DatasetId": {
+        "name": "dataset_id",
         "in": "path",
         "required": true,
         "schema": {
@@ -3234,6 +3665,244 @@
           }
         }
       },
+      "DatasetVersionSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version_id",
+          "dataset_id",
+          "version",
+          "sample_count",
+          "status",
+          "manifest_sha256",
+          "created_at"
+        ],
+        "properties": {
+          "version_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "dataset_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "version": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Version"
+          },
+          "sample_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "BUILDING",
+              "VALIDATING",
+              "FROZEN",
+              "REJECTED"
+            ]
+          },
+          "manifest_sha256": {
+            "oneOf": [
+              {
+                "$ref": "../json-schema/common-v1.schema.json#/$defs/Sha256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          }
+        }
+      },
+      "DatasetVersionPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatasetVersionSummary"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DatasetVersionDiffItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sample_id",
+          "change",
+          "diff_summary"
+        ],
+        "properties": {
+          "sample_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "change": {
+            "type": "string",
+            "enum": [
+              "ADDED",
+              "REMOVED",
+              "MODIFIED",
+              "UNCHANGED"
+            ]
+          },
+          "diff_summary": {
+            "type": "string",
+            "maxLength": 2048
+          }
+        }
+      },
+      "DatasetVersionDiff": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from_version",
+          "to_version",
+          "added_samples",
+          "removed_samples",
+          "modified_samples",
+          "unchanged_samples",
+          "sample_diff_details"
+        ],
+        "properties": {
+          "from_version": {
+            "$ref": "#/components/schemas/DatasetVersionSummary"
+          },
+          "to_version": {
+            "$ref": "#/components/schemas/DatasetVersionSummary"
+          },
+          "added_samples": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "removed_samples": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "modified_samples": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unchanged_samples": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sample_diff_details": {
+            "type": "array",
+            "maxItems": 10000,
+            "items": {
+              "$ref": "#/components/schemas/DatasetVersionDiffItem"
+            }
+          }
+        }
+      },
+      "QualityMetrics": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "time_window",
+          "auto_pass_fail_rate",
+          "model_overturn_rate",
+          "missed_detection_count",
+          "false_positive_count",
+          "mask_revision_reasons",
+          "total_sample_count",
+          "based_on_full_ground_truth"
+        ],
+        "properties": {
+          "time_window": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "start",
+              "end"
+            ],
+            "properties": {
+              "start": {
+                "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+              },
+              "end": {
+                "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+              }
+            }
+          },
+          "auto_pass_fail_rate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "model_overturn_rate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "missed_detection_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "false_positive_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "mask_revision_reasons": {
+            "type": "array",
+            "maxItems": 256,
+            "items": {
+              "$ref": "#/components/schemas/QualityMetricReason"
+            }
+          },
+          "total_sample_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "based_on_full_ground_truth": {
+            "type": "boolean"
+          }
+        }
+      },
+      "QualityMetricReason": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "reason",
+          "count",
+          "percentage"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "percentage": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
       "TrainingRunCreateRequest": {
         "type": "object",
         "additionalProperties": false,
@@ -3258,6 +3927,325 @@
                 "type": "null"
               }
             ]
+          }
+        }
+      },
+      "TrainingRunStatusUpdateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "registry_run_uri",
+          "started_at",
+          "finished_at",
+          "error_code"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "RUNNING",
+              "SUCCEEDED",
+              "FAILED",
+              "CANCELLED"
+            ]
+          },
+          "registry_run_uri": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "started_at": {
+            "oneOf": [
+              {
+                "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "finished_at": {
+            "oneOf": [
+              {
+                "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error_code": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ModelVersionRegisterRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model_id",
+          "training_run_id",
+          "dataset_version_id",
+          "registry_name",
+          "registry_version",
+          "artifact_bucket",
+          "artifact_object_key",
+          "artifact_sha256",
+          "sbom_sha256",
+          "signature_key_id",
+          "input_spec",
+          "output_spec",
+          "evaluation_summary"
+        ],
+        "properties": {
+          "model_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "training_run_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "dataset_version_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "registry_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "registry_version": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Version"
+          },
+          "artifact_bucket": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "artifact_object_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "artifact_sha256": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Sha256"
+          },
+          "sbom_sha256": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Sha256"
+          },
+          "signature_key_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "input_spec": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "output_spec": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "evaluation_summary": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        }
+      },
+      "ModelVersionRegistrationResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model_version_id",
+          "version",
+          "approval_state",
+          "created_at"
+        ],
+        "properties": {
+          "model_version_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "approval_state": {
+            "type": "string",
+            "enum": [
+              "CANDIDATE",
+              "VALIDATED",
+              "APPROVED",
+              "REJECTED",
+              "RETIRED"
+            ]
+          },
+          "created_at": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          }
+        }
+      },
+      "ModelVersionSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model_version_id",
+          "model_id",
+          "version",
+          "registry_name",
+          "registry_version",
+          "approval_state",
+          "created_at"
+        ],
+        "properties": {
+          "model_version_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "model_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "registry_name": {
+            "type": "string"
+          },
+          "registry_version": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Version"
+          },
+          "approval_state": {
+            "type": "string"
+          },
+          "created_at": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          }
+        }
+      },
+      "ModelVersionPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ModelVersionSummary"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ModelVersionResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model_version_id",
+          "model_id",
+          "version",
+          "registry_name",
+          "registry_version",
+          "artifact_sha256",
+          "approval_state",
+          "created_at"
+        ],
+        "properties": {
+          "model_version_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "model_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "registry_name": {
+            "type": "string"
+          },
+          "registry_version": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Version"
+          },
+          "artifact_sha256": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Sha256"
+          },
+          "approval_state": {
+            "type": "string"
+          },
+          "created_at": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          }
+        }
+      },
+      "ModelDeploymentResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "deployment_id",
+          "model_version_id",
+          "environment",
+          "strategy",
+          "status",
+          "record_version",
+          "created_at"
+        ],
+        "properties": {
+          "deployment_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "model_version_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "SHADOW",
+              "CANARY",
+              "PRODUCTION"
+            ]
+          },
+          "strategy": {
+            "type": "string",
+            "enum": [
+              "STATION",
+              "PERCENTAGE"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "record_version": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "created_at": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
           }
         }
       },

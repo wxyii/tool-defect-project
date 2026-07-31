@@ -1,0 +1,97 @@
+{
+  "schema_version": "tool-defect-production-recovery/v1",
+  "template_version": "2.0.0",
+  "description": "P7-03 生产恢复演练记录模板，用于记录每次恢复演练的完整结果",
+
+  "drill_id": "",
+  "date": "2026-07-31",
+  "executor_id": "PENDING_SITE_FILL",
+  "source_type": "PENDING_SITE_FILL",
+  "environment": "ISOLATED_PRODUCTION_EQUIVALENT",
+  "production_attestation_complete": false,
+  "exact_scenario_set": true,
+  "reference_baseline": {
+    "p5_drill": {
+      "report": "Docs/reports/P5-joint-recovery-drill.md",
+      "result": "自动化联合恢复通过；生产恢复未执行",
+      "limitation": "未连接真实生产数据库、对象存储、设备或生产模型"
+    }
+  },
+
+  "scenarios_tested": [
+    {
+      "phase": 1,
+      "name": "snapshot_backup",
+      "description": "备份快照存在性与散列有效性",
+      "target": "production PostgreSQL + S3 object storage",
+      "expected": "六类组件（业务记录、对象存储、当前模型、数据集清单、审批证据、人工复核链）完整且散列一致"
+    },
+    {
+      "phase": 2,
+      "name": "isolated_restore",
+      "description": "隔离临时环境恢复",
+      "target": "临时 PostgreSQL 实例 + 临时 S3 bucket",
+      "expected": "所有恢复文件 SHA-256 与源一致，对象数量、控制总数对账通过"
+    },
+    {
+      "phase": 3,
+      "name": "business_records",
+      "description": "采集、检测、复核、模型记录验证",
+      "target": "capture_event, detection_result, review_task, review_record, disposition_record, model_version, dataset_version",
+      "expected": "所有表行数 > 0，无孤儿引用"
+    },
+    {
+      "phase": 4,
+      "name": "object_storage",
+      "description": "图片/掩码/数据集/模型对象验证",
+      "target": "S3 RAW, DEFECT_MASK, model artifacts",
+      "expected": "全量对象存在，数量、总大小和 SHA-256 与已绑定迁移验证报告一致"
+    },
+    {
+      "phase": 5,
+      "name": "model_functionality",
+      "description": "模型加载与推断功能验证",
+      "target": "production model weights + config",
+      "expected": "模型可加载、可完成推断、输出格式符合契约"
+    },
+    {
+      "phase": 6,
+      "name": "approval_chain",
+      "description": "审批链完整性验证",
+      "target": "dataset_version.approved_by, model_version.approval_state, review_record.decision + review_training_decision",
+      "expected": "FROZEN 数据集有审批人, APPROVED 模型有评估, 训练样本有审批记录"
+    }
+  ],
+
+  "results": {
+    "overall": "BLOCKED",
+    "scenarios_passed": 0,
+    "scenarios_total": 6,
+    "failures": [],
+    "exit_code": 2
+  },
+
+  "duration": {
+    "started_at": "",
+    "finished_at": "",
+    "total_seconds": 0
+  },
+
+  "rpo_target_seconds": "PENDING_SITE_FILL",
+  "rpo_actual_seconds": "PENDING_EXECUTION",
+  "rto_target_seconds": "PENDING_SITE_FILL",
+  "rto_actual_seconds": "PENDING_EXECUTION",
+  "migration_verification_path": "PENDING_EXECUTION",
+  "migration_verification_sha256": "PENDING_EXECUTION",
+  "raw_log_path": "PENDING_EXECUTION",
+  "raw_log_sha256": "PENDING_EXECUTION",
+
+  "issues": [],
+
+  "sign_off": {
+    "signed_by": "PENDING_SITE_SIGNOFF",
+    "signed_at": "PENDING_SITE_SIGNOFF",
+    "decision": "PENDING_SITE_SIGNOFF",
+    "reason": "PENDING_SITE_SIGNOFF"
+  }
+}

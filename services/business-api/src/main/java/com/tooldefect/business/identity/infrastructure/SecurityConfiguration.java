@@ -5,6 +5,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplicat
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -85,6 +86,9 @@ public class SecurityConfiguration {
                     "/internal/v1/detection-attempts/*/result",
                     "/internal/v1/detection-attempts/*/failure"
                 ).hasAuthority("SCOPE_inference:callback")
+                .requestMatchers(
+                    "/internal/v1/training-runs/*/status"
+                ).hasAuthority("SCOPE_training:callback")
                 .requestMatchers("/internal/**")
                     .hasAuthority("SCOPE_runtime:read")
                 .anyRequest().authenticated());
@@ -158,11 +162,85 @@ public class SecurityConfiguration {
                     "/api/v1/review-tasks/*/annotation-upload-ticket",
                     "/api/v1/review-tasks/*/annotations/*/complete"
                 ).hasAuthority("review:annotate")
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v1/dataset-versions"
+                ).hasAuthority("dataset:create")
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v1/training-runs"
+                ).hasAuthority("training:create")
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/v1/training-runs/*"
+                ).hasAnyAuthority("training:read", "training:create", "audit:read")
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/v1/quality/metrics"
+                ).hasAnyAuthority("quality:read", "audit:read")
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/v1/datasets/*/versions",
+                    "/api/v1/dataset-versions/*",
+                    "/api/v1/dataset-versions/diff",
+                    "/api/v1/dataset-candidates"
+                ).hasAnyAuthority("dataset:create", "dataset:approve", "audit:read")
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v1/dataset-versions/*/approval"
+                ).hasAuthority("dataset:approve")
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v1/model-versions"
+                ).hasAuthority("model:register")
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/v1/model-versions",
+                    "/api/v1/model-versions/*"
+                ).hasAnyAuthority(
+                    "model:register", "model:validate", "model:deploy:approve", "audit:read")
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v1/model-versions/*/validation-decisions"
+                ).hasAuthority("model:validate")
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v1/model-deployments"
+                ).hasAuthority("model:deploy:execute")
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/v1/model-deployments/*"
+                ).hasAnyAuthority("model:deploy:execute", "model:deploy:approve", "audit:read")
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v1/model-deployments/*/approvals"
+                ).hasAnyAuthority("dataset:approve", "model:deploy:approve")
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v1/model-deployments/*/rollback"
+                ).hasAuthority("model:rollback")
                 .anyRequest().authenticated())
             .addFilterBefore(sessions, AnonymousAuthenticationFilter.class)
             .addFilterAfter(passwordChange, LocalSessionAuthenticationFilter.class)
             .addFilterAfter(csrfFilter, PasswordChangeRequiredFilter.class);
         return http.build();
+    }
+
+    /**
+     * CSRF 过滤器只应由 humanSecurity 链调用，不能被 Spring Boot 作为全局
+     * Servlet Filter 再注册一次，否则会拦截 edge JWT 请求和内部机器回调。
+     */
+    @Bean
+    LocalCsrfFilter localCsrfFilter(ObjectMapper json) {
+        return new LocalCsrfFilter(json);
+    }
+
+    @Bean
+    FilterRegistrationBean<LocalCsrfFilter> localCsrfFilterRegistration(
+            LocalCsrfFilter filter) {
+        var registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     @Bean

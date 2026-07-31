@@ -6,11 +6,15 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageBuilder;
 import org.springframework.amqp.core.MessageDeliveryMode;
+import org.springframework.amqp.core.ReturnedMessage;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
@@ -23,6 +27,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 public final class RabbitMessagePublisher implements MessagePublisher {
+    private static final long RETURN_CALLBACK_GRACE_MILLIS = 100L;
     private static final String OUTBOX_EVENT_TYPE =
         "tool_defect.outbox.inference_requested.v1";
     private static final String INFERENCE_TASK_EVENT_TYPE =
@@ -91,6 +96,8 @@ public final class RabbitMessagePublisher implements MessagePublisher {
     private final RabbitTemplate rabbit;
     private final Duration confirmTimeout;
     private final ObjectMapper json;
+    private final ConcurrentMap<String, CompletableFuture<ReturnedMessage>> pendingReturns =
+        new ConcurrentHashMap<>();
 
     public RabbitMessagePublisher(
             RabbitTemplate rabbit,
@@ -104,12 +111,24 @@ public final class RabbitMessagePublisher implements MessagePublisher {
             throw new DomainViolation("发布确认超时必须大于 0");
         }
         this.confirmTimeout = confirmTimeout;
+        this.rabbit.setReturnsCallback(returned -> {
+            String messageId = returned.getMessage().getMessageProperties().getMessageId();
+            if (messageId == null) {
+                return;
+            }
+            var pending = this.pendingReturns.get(messageId);
+            if (pending != null) {
+                pending.complete(returned);
+            }
+        });
     }
 
     @Override
     public void publishAndConfirm(OutboxEvent event) {
         MessageIdentity identity = messageIdentity(event);
         CorrelationData correlation = new CorrelationData(event.eventId().toString());
+        CompletableFuture<ReturnedMessage> returned = new CompletableFuture<>();
+        pendingReturns.put(identity.messageId(), returned);
         var builder = MessageBuilder
             .withBody(identity.payloadJson().getBytes(StandardCharsets.UTF_8))
             .setContentType("application/json")
@@ -138,10 +157,11 @@ public final class RabbitMessagePublisher implements MessagePublisher {
                     "RabbitMQ 拒绝发布：" + Objects.toString(confirm.reason(), "无原因")
                 );
             }
-            if (correlation.getReturned() != null) {
+            ReturnedMessage returnedMessage = returnedMessage(returned, correlation);
+            if (returnedMessage != null) {
                 throw new DomainViolation(
                     "RabbitMQ mandatory 发布不可路由："
-                        + correlation.getReturned().getReplyText()
+                        + returnedMessage.getReplyText()
                 );
             }
         } catch (InterruptedException interrupted) {
@@ -151,6 +171,28 @@ public final class RabbitMessagePublisher implements MessagePublisher {
             throw new DomainViolation("等待 RabbitMQ 发布确认超时", timeout);
         } catch (java.util.concurrent.ExecutionException failed) {
             throw new DomainViolation("RabbitMQ 发布确认失败", failed);
+        } finally {
+            pendingReturns.remove(identity.messageId(), returned);
+        }
+    }
+
+    private ReturnedMessage returnedMessage(
+            CompletableFuture<ReturnedMessage> returned,
+            CorrelationData correlation) throws InterruptedException {
+        ReturnedMessage immediate = correlation.getReturned();
+        if (immediate != null) {
+            return immediate;
+        }
+        ReturnedMessage callbackValue = returned.getNow(null);
+        if (callbackValue != null) {
+            return callbackValue;
+        }
+        try {
+            return returned.get(RETURN_CALLBACK_GRACE_MILLIS, TimeUnit.MILLISECONDS);
+        } catch (java.util.concurrent.TimeoutException ignored) {
+            return correlation.getReturned();
+        } catch (java.util.concurrent.ExecutionException ignored) {
+            return correlation.getReturned();
         }
     }
 

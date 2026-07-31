@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "generator_version": "1.0.0",
-  "requirement_count": 352,
+  "requirement_count": 355,
   "documents": {
     "01": {
       "path": "Docs/01-核心设计原则.md",
@@ -29,13 +29,13 @@
     },
     "05": {
       "path": "Docs/05-数据库设计.md",
-      "source_sha256": "0ab0fed83adb8d45a0523a1feb6dba237b4bab461d0e487e2687e6235bc7e6e6",
-      "requirement_count": 15,
-      "requirement_ids_sha256": "0cde2c2f3460e628f3aa5cc2e57057cf125c30281514f68b717426bff888a5c0"
+      "source_sha256": "82cce69c4d969399cda5a561edec33f16a2ad2f4a9895cd7f43188cb8c2e838e",
+      "requirement_count": 16,
+      "requirement_ids_sha256": "b6309e0eda46cafa68a8515b67e282458f607a5fc25b2d07ed8950234852c536"
     },
     "06": {
       "path": "Docs/06-接口设计.md",
-      "source_sha256": "ec6026ac84df41b5d1d9400da36359bb54bb36da399df5ed46de777475594300",
+      "source_sha256": "e0dd505b407c45ba7aeb55768b83b434da3a4e76a91d14d788079ddeece8d59d",
       "requirement_count": 18,
       "requirement_ids_sha256": "fb36be51fa18db8316aa768385234a23736298fee6d695c17ad67a5fe3ef2d55"
     },
@@ -71,9 +71,9 @@
     },
     "12": {
       "path": "Docs/12-安全权限与角色.md",
-      "source_sha256": "4bd96d10afd0b99c198ce6aafb40b5f396dbcf0170bb9427e466c3f74d15a14d",
-      "requirement_count": 38,
-      "requirement_ids_sha256": "b5a06bb6fdfe10485305d32977e6eb3cf4e0fcc90f68872a8d21385bccef048e"
+      "source_sha256": "a241b1c1f229880e17d15268be6defa56a19cb36af968c5a68fb1c2a73653064",
+      "requirement_count": 39,
+      "requirement_ids_sha256": "66a99001037952d60e1ab6805e4dd4c62b63e6a4bbaa3c160a21579f4520001b"
     },
     "13": {
       "path": "Docs/13-推荐项目代码结构.md",
@@ -83,10 +83,10 @@
     },
     "14": {
       "path": "Docs/14-技术选型.md",
-      "source_sha256": "1ad11365380080ef518809d1459bc9141ef1e10f80093045af18bd4923fc7b1a",
-      "requirement_count": 22,
-      "requirement_ids_sha256": "ee5ffdf1bda05b70688d10373aed4bd16ecc4ce7d96b9420c61b46a10fae8ba5"
+      "source_sha256": "631721ce331cdf579a8ece8e6428fd13d6daea9e9559b5fe46acc8f1f1109e9c",
+      "requirement_count": 23,
+      "requirement_ids_sha256": "7f1a69a938f0ee0298a190893e7b97974bed886d7c3d369cb69a24650822b2cd"
     }
   },
-  "stable_requirements_sha256": "7d72c2fb4e89fcd66f00f399b38b1fa12574670a890652b64be1e1743706e37b"
+  "stable_requirements_sha256": "dd73a39ef9c6ea413678bc8f8f5c3d451756c840e7fc5577670b42228506c803"
 }

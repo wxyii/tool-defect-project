@@ -64,6 +64,15 @@ MAKE_TARGETS = (
     "verify-p5-offline",
     "verify-data",
     "verify-models",
+    "verify-p6-01",
+    "verify-p6-02",
+    "verify-p6-03",
+    "verify-p6-04",
+    "verify-p6-05",
+    "verify-p6-06",
+    "verify-p6-07",
+    "verify-p6-08",
+    "verify-g6",
     "verify-all",
 )
 IGNORED_PARTS = {".git", ".venv", "node_modules", "target", ".pytest_cache", "__pycache__"}

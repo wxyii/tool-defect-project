@@ -8,7 +8,6 @@ import java.util.Base64;
 import java.util.Set;
 
 import org.springframework.http.ResponseCookie;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.tooldefect.business.shared.api.StandardErrorFactory;
@@ -19,7 +18,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import tools.jackson.databind.ObjectMapper;
 
-@Component
 public class LocalCsrfFilter extends OncePerRequestFilter {
     public static final String COOKIE = "TD-XSRF-TOKEN";
     public static final String HEADER = "X-TD-CSRF";

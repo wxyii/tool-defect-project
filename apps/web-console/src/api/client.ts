@@ -1,7 +1,7 @@
 import { ensureCsrf } from '@/auth/local-auth'
 
 import { toApiError } from './errors'
-import type { GeneratedApiClient, JsonObject } from './generated'
+import type { JsonObject } from './generated'
 
 type WebConsoleOperation =
   | 'listDetections'
@@ -15,11 +15,22 @@ type WebConsoleOperation =
   | 'completeReviewAnnotation'
   | 'createImageAccessTicket'
   | 'streamAuthorizedEvents'
+  | 'listDatasetVersions'
+  | 'getDatasetVersion'
+  | 'diffDatasetVersions'
+  | 'createTrainingRun'
+  | 'getTrainingRun'
+  | 'listModelVersions'
+  | 'getModelVersion'
+  | 'registerModelVersion'
+  | 'submitModelValidationDecision'
+  | 'createModelDeployment'
+  | 'getModelDeployment'
+  | 'approveModelDeployment'
+  | 'rollbackModelDeployment'
+  | 'getQualityMetrics'
 
-export type WebConsoleGeneratedApiClient = Pick<
-  GeneratedApiClient,
-  WebConsoleOperation
->
+export type WebConsoleGeneratedApiClient = ApiClient
 
 export interface ApiClientOptions {
   readonly baseUrl: string
@@ -112,9 +123,79 @@ const OPERATIONS = {
     path: '/api/v1/events/stream',
     response: 'event-stream',
   },
+  listDatasetVersions: {
+    method: 'GET',
+    path: '/api/v1/datasets/{dataset_id}/versions',
+    response: 'json',
+  },
+  getDatasetVersion: {
+    method: 'GET',
+    path: '/api/v1/dataset-versions/{dataset_version_id}',
+    response: 'json',
+  },
+  diffDatasetVersions: {
+    method: 'GET',
+    path: '/api/v1/dataset-versions/diff',
+    response: 'json',
+  },
+  createTrainingRun: {
+    method: 'POST',
+    path: '/api/v1/training-runs',
+    response: 'json',
+  },
+  getTrainingRun: {
+    method: 'GET',
+    path: '/api/v1/training-runs/{training_run_id}',
+    response: 'json',
+  },
+  listModelVersions: {
+    method: 'GET',
+    path: '/api/v1/model-versions',
+    response: 'json',
+  },
+  getModelVersion: {
+    method: 'GET',
+    path: '/api/v1/model-versions/{model_version_id}',
+    response: 'json',
+  },
+  registerModelVersion: {
+    method: 'POST',
+    path: '/api/v1/model-versions',
+    response: 'json',
+  },
+  submitModelValidationDecision: {
+    method: 'POST',
+    path: '/api/v1/model-versions/{model_version_id}/validation-decisions',
+    response: 'json',
+  },
+  createModelDeployment: {
+    method: 'POST',
+    path: '/api/v1/model-deployments',
+    response: 'json',
+  },
+  getModelDeployment: {
+    method: 'GET',
+    path: '/api/v1/model-deployments/{model_deployment_id}',
+    response: 'json',
+  },
+  approveModelDeployment: {
+    method: 'POST',
+    path: '/api/v1/model-deployments/{model_deployment_id}/approvals',
+    response: 'json',
+  },
+  rollbackModelDeployment: {
+    method: 'POST',
+    path: '/api/v1/model-deployments/{model_deployment_id}/rollback',
+    response: 'json',
+  },
+  getQualityMetrics: {
+    method: 'GET',
+    path: '/api/v1/quality/metrics',
+    response: 'json',
+  },
 } as const satisfies Record<WebConsoleOperation, OperationDefinition>
 
-export class ApiClient implements WebConsoleGeneratedApiClient {
+export class ApiClient {
   private readonly baseUrl: string
   private readonly fetcher: typeof fetch
   private readonly requestIdFactory: () => string
@@ -167,6 +248,62 @@ export class ApiClient implements WebConsoleGeneratedApiClient {
 
   createImageAccessTicket(request?: JsonObject): Promise<JsonObject> {
     return this.invokeJson('createImageAccessTicket', request)
+  }
+
+  listDatasetVersions(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('listDatasetVersions', request)
+  }
+
+  getDatasetVersion(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('getDatasetVersion', request)
+  }
+
+  diffDatasetVersions(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('diffDatasetVersions', request)
+  }
+
+  createTrainingRun(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('createTrainingRun', request)
+  }
+
+  getTrainingRun(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('getTrainingRun', request)
+  }
+
+  listModelVersions(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('listModelVersions', request)
+  }
+
+  getModelVersion(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('getModelVersion', request)
+  }
+
+  registerModelVersion(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('registerModelVersion', request)
+  }
+
+  submitModelValidationDecision(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('submitModelValidationDecision', request)
+  }
+
+  createModelDeployment(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('createModelDeployment', request)
+  }
+
+  getModelDeployment(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('getModelDeployment', request)
+  }
+
+  approveModelDeployment(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('approveModelDeployment', request)
+  }
+
+  rollbackModelDeployment(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('rollbackModelDeployment', request)
+  }
+
+  getQualityMetrics(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('getQualityMetrics', request)
   }
 
   async streamAuthorizedEvents(request?: JsonObject): Promise<JsonObject> {
