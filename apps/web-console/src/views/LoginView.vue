@@ -42,6 +42,13 @@ async function beginLogin(): Promise<void> {
 <template>
   <main class="login-page">
     <section class="login-card" aria-labelledby="login-title">
+      <header class="login-brand">
+        <span class="login-brand__mark" aria-hidden="true"></span>
+        <span class="login-brand__text">
+          <strong>刀具缺陷检测系统</strong>
+          <small>TOOL DEFECT VISION CONSOLE</small>
+        </span>
+      </header>
       <p class="eyebrow">受控质量系统</p>
       <h1 id="login-title">登录刀具缺陷检测平台</h1>
       <p>使用本系统账号和密码登录。</p>

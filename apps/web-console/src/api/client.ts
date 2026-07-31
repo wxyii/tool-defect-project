@@ -122,7 +122,8 @@ export class ApiClient implements WebConsoleGeneratedApiClient {
 
   constructor(options: ApiClientOptions) {
     this.baseUrl = normalizeBaseUrl(options.baseUrl)
-    this.fetcher = options.fetcher ?? fetch
+    this.fetcher =
+      options.fetcher ?? ((input, init) => window.fetch(input, init))
     this.requestIdFactory =
       options.requestIdFactory ?? (() => crypto.randomUUID())
     this.onAuthenticationFailure = options.onAuthenticationFailure ?? (() => undefined)

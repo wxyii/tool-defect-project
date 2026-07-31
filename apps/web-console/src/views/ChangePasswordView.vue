@@ -35,6 +35,13 @@ async function submit(): Promise<void> {
 <template>
   <main class="login-page">
     <section class="login-card" aria-labelledby="password-title">
+      <header class="login-brand">
+        <span class="login-brand__mark" aria-hidden="true"></span>
+        <span class="login-brand__text">
+          <strong>刀具缺陷检测系统</strong>
+          <small>TOOL DEFECT VISION CONSOLE</small>
+        </span>
+      </header>
       <p class="eyebrow">账号安全</p>
       <h1 id="password-title">修改密码</h1>
       <p>新密码长度为 12～128 个字符，且不能与账号相同。</p>

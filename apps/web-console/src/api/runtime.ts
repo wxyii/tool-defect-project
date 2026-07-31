@@ -8,7 +8,7 @@ export function configureApplicationApiClient(
   environment: ImportMetaEnv,
   origin: string,
   auth: ReturnType<typeof useAuthStore>,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = (input, init) => window.fetch(input, init),
 ): ApiClient {
   const client = new ApiClient({
     baseUrl: environment.VITE_API_BASE_URL?.trim() || origin,
