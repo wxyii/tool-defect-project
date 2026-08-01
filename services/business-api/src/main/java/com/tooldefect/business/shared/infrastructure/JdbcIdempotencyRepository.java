@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementCallback;
 import org.springframework.stereotype.Repository;
 
 import tools.jackson.databind.ObjectMapper;
@@ -25,10 +26,16 @@ public class JdbcIdempotencyRepository implements IdempotencyRepository {
 
     @Override
     public void lock(String operation, String actorId, String idempotencyKey) {
-        jdbc.queryForObject(
+        jdbc.execute(
             "SELECT pg_advisory_xact_lock(hashtextextended(?, 0))",
-            Long.class,
-            operation + "\u001f" + actorId + "\u001f" + idempotencyKey
+            (PreparedStatementCallback<Void>) statement -> {
+                statement.setString(
+                    1,
+                    operation + "\u001f" + actorId + "\u001f" + idempotencyKey
+                );
+                statement.execute();
+                return null;
+            }
         );
     }
 

@@ -70,13 +70,34 @@ public class JdbcDatasetRepository implements DatasetRepository, DatasetQueryRep
     }
 
     @Override
+    public void updateCandidateManifest(CandidateManifest manifest) {
+        int count = jdbc.update(
+            """
+            UPDATE dataset_candidate_manifest
+            SET approval_state = ?, approved_by = ?::uuid, approved_at = ?
+            WHERE candidate_manifest_id = ?::uuid
+              AND approval_state = 'REGISTERED'
+            """,
+            manifest.approvalState().name(),
+            manifest.approvedBy(),
+            timestamp(manifest.approvedAt()),
+            manifest.candidateManifestId()
+        );
+        if (count != 1) {
+            throw new DomainViolation(
+                "候选清单审批冲突或不存在: " + manifest.candidateManifestId()
+            );
+        }
+    }
+
+    @Override
     public void insertVersion(DatasetVersion version) {
         jdbc.update(
             """
             INSERT INTO dataset_version
             (dataset_version_id, dataset_id, version, parent_version_id,
              candidate_manifest_id, purpose,
-             manifest_object_key, manifest_object_bucket, manifest_sha256,
+             manifest_object_key, manifest_bucket, manifest_sha256,
              sample_count, stratification, status, approved_by, created_at, approved_at, record_version)
             VALUES (?::uuid, ?::uuid, ?, ?::uuid, ?::uuid, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, ?::uuid, ?, ?, ?)""",
             version.datasetVersionId(), version.datasetId(), version.version(),
@@ -85,7 +106,8 @@ public class JdbcDatasetRepository implements DatasetRepository, DatasetQueryRep
             version.manifestObjectKey(), version.manifestObjectBucket(), version.manifestSha256(),
             version.sampleCount(), version.stratificationJson(),
             version.state().name(), version.approvedBy(),
-            version.createdAt(), version.approvedAt(), version.recordVersion()
+            timestamp(version.createdAt()), timestamp(version.approvedAt()),
+            version.recordVersion()
         );
     }
 
@@ -99,7 +121,7 @@ public class JdbcDatasetRepository implements DatasetRepository, DatasetQueryRep
             WHERE dataset_version_id = ?::uuid AND record_version = ?""",
             version.sampleCount(), version.stratificationJson(),
             version.state().name(), version.approvedBy(),
-            version.approvedAt(), version.recordVersion(),
+            timestamp(version.approvedAt()), version.recordVersion(),
             version.datasetVersionId(), version.recordVersion() - 1
         );
         if (count != 1) {
@@ -135,7 +157,8 @@ public class JdbcDatasetRepository implements DatasetRepository, DatasetQueryRep
             candidate.maskImageId(), candidate.label(), candidate.split(),
             candidate.groupKey(), candidate.contentSha256(),
             candidate.sourceReviewRecordId(), candidate.status().name(),
-            candidate.addedAt(), candidate.approvedAt(), candidate.approvedBy()
+            timestamp(candidate.addedAt()), timestamp(candidate.approvedAt()),
+            candidate.approvedBy()
         );
     }
 
@@ -146,7 +169,7 @@ public class JdbcDatasetRepository implements DatasetRepository, DatasetQueryRep
             UPDATE dataset_candidate_sample SET status = ?,
             approved_at = ?, approved_by = ?::uuid
             WHERE candidate_id = ?::uuid""",
-            candidate.status().name(), candidate.approvedAt(),
+            candidate.status().name(), timestamp(candidate.approvedAt()),
             candidate.approvedBy(), candidate.candidateId()
         );
     }
@@ -339,6 +362,61 @@ public class JdbcDatasetRepository implements DatasetRepository, DatasetQueryRep
     }
 
     @Override
+    public Map<String, Object> listCandidateManifests(
+            String actorId,
+            UUID datasetId,
+            String approvalState,
+            int pageSize,
+            String cursor) {
+        List<Object> args = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("""
+            SELECT candidate_manifest_id, dataset_id, manifest_bucket,
+                   manifest_object_key, manifest_sha256, sample_count,
+                   approval_state, approved_by, approved_at, created_at
+            FROM dataset_candidate_manifest
+            WHERE dataset_id = ?::uuid
+            """);
+        args.add(datasetId);
+        if (approvalState != null && !approvalState.isBlank()) {
+            sql.append("AND approval_state = ? ");
+            args.add(approvalState);
+        }
+        if (cursor != null && !cursor.isBlank()) {
+            CursorValue decoded = decodeCursor(cursor);
+            sql.append(
+                "AND (created_at, candidate_manifest_id) < (?, ?::uuid) "
+            );
+            args.add(decoded.createdAt());
+            args.add(decoded.datasetVersionId());
+        }
+        sql.append(
+            "ORDER BY created_at DESC, candidate_manifest_id DESC LIMIT ?"
+        );
+        args.add(pageSize + 1);
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            sql.toString(), args.toArray()
+        );
+        boolean hasMore = rows.size() > pageSize;
+        if (hasMore) rows = rows.subList(0, pageSize);
+        List<Map<String, Object>> items = rows.stream()
+            .map(JdbcDatasetRepository::candidateManifestSummary)
+            .toList();
+        String nextCursor = null;
+        if (hasMore && !rows.isEmpty()) {
+            Map<String, Object> last = rows.get(rows.size() - 1);
+            nextCursor = encodeCursor(
+                ((java.sql.Timestamp) last.get("created_at")).toInstant(),
+                UUID.fromString(String.valueOf(last.get("candidate_manifest_id")))
+            );
+        }
+        Map<String, Object> page = new LinkedHashMap<>();
+        page.put("items", items);
+        page.put("next_cursor", nextCursor);
+        page.put("has_more", hasMore);
+        return page;
+    }
+
+    @Override
     public Map<String, Object> diffVersions(UUID fromVersionId, UUID toVersionId) {
         Map<String, Object> from = versionSummaryRow(fromVersionId);
         Map<String, Object> to = versionSummaryRow(toVersionId);
@@ -473,6 +551,41 @@ public class JdbcDatasetRepository implements DatasetRepository, DatasetQueryRep
         return result;
     }
 
+    private static Map<String, Object> candidateManifestSummary(
+            Map<String, Object> row) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put(
+            "candidate_manifest_id",
+            String.valueOf(row.get("candidate_manifest_id"))
+        );
+        result.put("dataset_id", String.valueOf(row.get("dataset_id")));
+        result.put("manifest_bucket", String.valueOf(row.get("manifest_bucket")));
+        result.put(
+            "manifest_object_key",
+            String.valueOf(row.get("manifest_object_key"))
+        );
+        result.put("manifest_sha256", String.valueOf(row.get("manifest_sha256")));
+        result.put("sample_count", ((Number) row.get("sample_count")).intValue());
+        result.put("approval_state", String.valueOf(row.get("approval_state")));
+        result.put(
+            "approved_by",
+            row.get("approved_by") == null
+                ? null : String.valueOf(row.get("approved_by"))
+        );
+        result.put(
+            "approved_at",
+            row.get("approved_at") == null
+                ? null
+                : ((java.sql.Timestamp) row.get("approved_at"))
+                    .toInstant().toString()
+        );
+        result.put(
+            "created_at",
+            ((java.sql.Timestamp) row.get("created_at")).toInstant().toString()
+        );
+        return result;
+    }
+
     private static String encodeCursor(Instant createdAt, UUID datasetVersionId) {
         String value = createdAt.toString() + "|" + datasetVersionId;
         return Base64.getUrlEncoder().withoutPadding()
@@ -507,7 +620,7 @@ public class JdbcDatasetRepository implements DatasetRepository, DatasetQueryRep
             uuid(rs, "candidate_manifest_id"),
             rs.getString("purpose"),
             rs.getString("manifest_object_key"),
-            rs.getString("manifest_object_bucket"),
+            rs.getString("manifest_bucket"),
             rs.getString("manifest_sha256"),
             rs.getInt("sample_count"),
             rs.getString("stratification"),
@@ -557,5 +670,9 @@ public class JdbcDatasetRepository implements DatasetRepository, DatasetQueryRep
     private static UUID uuid(ResultSet rs, String column) throws SQLException {
         String value = rs.getString(column);
         return value != null ? UUID.fromString(value) : null;
+    }
+
+    private static java.sql.Timestamp timestamp(Instant value) {
+        return value == null ? null : java.sql.Timestamp.from(value);
     }
 }

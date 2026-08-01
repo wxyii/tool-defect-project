@@ -22,6 +22,8 @@ public interface DatasetRepository {
 
     Optional<CandidateManifest> findCandidateManifest(UUID candidateManifestId);
 
+    void updateCandidateManifest(CandidateManifest manifest);
+
     void insertVersion(DatasetVersion version);
 
     void updateVersion(DatasetVersion version);

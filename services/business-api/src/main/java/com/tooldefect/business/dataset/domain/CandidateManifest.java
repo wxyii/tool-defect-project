@@ -49,6 +49,42 @@ public record CandidateManifest(
         }
     }
 
+    public CandidateManifest approve(UUID approverId, Instant approvalTime) {
+        if (approvalState != ApprovalState.REGISTERED) {
+            throw new DomainViolation("只有已登记候选清单可以批准");
+        }
+        return new CandidateManifest(
+            candidateManifestId,
+            datasetId,
+            manifestBucket,
+            manifestObjectKey,
+            manifestSha256,
+            sampleCount,
+            ApprovalState.APPROVED,
+            Objects.requireNonNull(approverId),
+            Objects.requireNonNull(approvalTime),
+            createdAt
+        );
+    }
+
+    public CandidateManifest reject() {
+        if (approvalState != ApprovalState.REGISTERED) {
+            throw new DomainViolation("只有已登记候选清单可以驳回");
+        }
+        return new CandidateManifest(
+            candidateManifestId,
+            datasetId,
+            manifestBucket,
+            manifestObjectKey,
+            manifestSha256,
+            sampleCount,
+            ApprovalState.REJECTED,
+            null,
+            null,
+            createdAt
+        );
+    }
+
     private static void requireText(String value, String field) {
         if (value == null || value.isBlank()) {
             throw new DomainViolation(field + " 不能为空");

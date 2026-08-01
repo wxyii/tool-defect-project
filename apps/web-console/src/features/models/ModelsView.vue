@@ -17,11 +17,21 @@ import type {
 } from './deployment-service'
 import type { ModelDeploymentCreateRequest, RollbackRequest } from '@/api/generated'
 import { useApplicationApiClient } from '@/api/runtime'
+import { DatasetService } from '@/features/datasets/service'
+import type { DatasetVersionSummary } from '@/features/datasets/service'
+import { TrainingService } from '@/features/training/service'
+import type { TrainingRunSummary } from '@/features/training/service'
 import { useAuthStore } from '@/stores/auth'
+import {
+  buildModelRegistrationRequest,
+  ModelRegistrationInputError,
+} from './registration'
 
 const api = useApplicationApiClient()
 const service = new ModelService(api)
 const deploymentService = new DeploymentService(api)
+const datasetService = new DatasetService(api)
+const trainingService = new TrainingService(api)
 const auth = useAuthStore()
 const modelId = ref('')
 const modelCatalog = ref<readonly ModelCatalogSummary[]>([])
@@ -34,6 +44,25 @@ const page = ref<ModelVersionPage | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 const approvalFilter = ref<'' | ModelVersionSummary['approval_state']>('')
+
+const frozenDatasetVersions = ref<readonly DatasetVersionSummary[]>([])
+const successfulTrainingRuns = ref<readonly TrainingRunSummary[]>([])
+const registrationReferencesLoading = ref(false)
+const registrationRunId = ref('')
+const registryName = ref('tool-defect-multitask')
+const registryVersion = ref('1')
+const artifactBucket = ref('')
+const artifactObjectKey = ref('')
+const artifactSha256 = ref('')
+const sbomSha256 = ref('')
+const signatureKeyId = ref('')
+const inputSpec = ref('{}')
+const outputSpec = ref('{}')
+const registrationEvaluationReportSha256 = ref('')
+const thresholdGateSha256 = ref('')
+const registrationSubmitting = ref(false)
+const registrationError = ref<string | null>(null)
+const registrationNotice = ref<string | null>(null)
 
 const showDecisionForm = ref(false)
 const decisionTarget = ref<ModelVersionSummary | null>(null)
@@ -76,6 +105,26 @@ const visibleItems = computed(() => {
     : items.filter((item) => item.approval_state === approvalFilter.value)
 })
 
+const selectedRegistrationRun = computed(() =>
+  successfulTrainingRuns.value.find(
+    (item) => item.training_run_id === registrationRunId.value,
+  ) ?? null,
+)
+
+const registrationDatasetVersion = computed(() => {
+  const datasetVersionId = selectedRegistrationRun.value?.dataset_version_id
+  if (datasetVersionId === undefined) return null
+  return frozenDatasetVersions.value.find(
+    (item) => item.version_id === datasetVersionId,
+  ) ?? null
+})
+
+const registrationReady = computed(() =>
+  selectedModel.value !== null
+  && selectedRegistrationRun.value !== null
+  && registrationDatasetVersion.value !== null,
+)
+
 onMounted(() => {
   const queryModelId = new URLSearchParams(window.location.search).get('model_id')
   void initialize(queryModelId ?? undefined)
@@ -86,7 +135,77 @@ async function initialize(preferredModelId?: string): Promise<void> {
     loadCatalog(preferredModelId),
     loadApprovedModelVersions(),
     loadDeployments(),
+    loadRegistrationReferences(),
   ])
+}
+
+async function loadRegistrationReferences(): Promise<void> {
+  registrationReferencesLoading.value = true
+  registrationError.value = null
+  try {
+    const [datasets, runs] = await Promise.all([
+      datasetService.listVersionCatalog({ status: 'FROZEN', pageSize: 200 }),
+      trainingService.list({ status: 'SUCCEEDED', pageSize: 200 }),
+    ])
+    frozenDatasetVersions.value = datasets.items
+    successfulTrainingRuns.value = runs.items
+    if (
+      !successfulTrainingRuns.value.some(
+        (item) => item.training_run_id === registrationRunId.value,
+      )
+    ) {
+      registrationRunId.value = successfulTrainingRuns.value[0]?.training_run_id ?? ''
+    }
+  } catch {
+    frozenDatasetVersions.value = []
+    successfulTrainingRuns.value = []
+    registrationRunId.value = ''
+    registrationError.value = '登记前置目录暂时无法读取'
+  } finally {
+    registrationReferencesLoading.value = false
+  }
+}
+
+async function registerModelVersion(): Promise<void> {
+  registrationError.value = null
+  registrationNotice.value = null
+  const run = selectedRegistrationRun.value
+  const datasetVersion = registrationDatasetVersion.value
+  if (selectedModel.value === null || run === null || datasetVersion === null) {
+    registrationError.value = run === null
+      ? '必须选择已成功完成的训练运行'
+      : '训练运行引用的数据集版本不存在或尚未冻结'
+    return
+  }
+  registrationSubmitting.value = true
+  try {
+    const response = await service.registerModelVersion(
+      buildModelRegistrationRequest({
+        modelId: modelId.value,
+        trainingRunId: run.training_run_id,
+        datasetVersionId: datasetVersion.version_id,
+        registryName: registryName.value,
+        registryVersion: registryVersion.value,
+        artifactBucket: artifactBucket.value,
+        artifactObjectKey: artifactObjectKey.value,
+        artifactSha256: artifactSha256.value,
+        sbomSha256: sbomSha256.value,
+        signatureKeyId: signatureKeyId.value,
+        inputSpec: inputSpec.value,
+        outputSpec: outputSpec.value,
+        evaluationReportSha256: registrationEvaluationReportSha256.value,
+        thresholdGateSha256: thresholdGateSha256.value,
+      }),
+    )
+    registrationNotice.value = `候选版本 v${response.version} 已登记：${response.model_version_id}`
+    await loadCatalog(modelId.value)
+  } catch (failure) {
+    registrationError.value = failure instanceof ModelRegistrationInputError
+      ? failure.message
+      : '模型版本登记失败；后端未确认完整证据链时不会创建候选版本'
+  } finally {
+    registrationSubmitting.value = false
+  }
 }
 
 async function loadCatalog(preferredModelId?: string): Promise<void> {
@@ -419,7 +538,7 @@ async function rollbackDeployment(): Promise<void> {
 }
 
 function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim())
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim())
 }
 </script>
 
@@ -483,6 +602,94 @@ function isUuid(value: string): boolean {
         </form>
         <p v-if="catalogNotice !== null" class="panel-notice" role="status">{{ catalogNotice }}</p>
       </template>
+    </section>
+
+    <section
+      v-if="auth.hasPermission('model:register')"
+      class="resource-directory model-registration"
+      aria-labelledby="model-registration-title"
+    >
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">受控制品 · 安全失败</p>
+          <h3 id="model-registration-title">导入已验证模型包</h3>
+        </div>
+        <button
+          type="button"
+          class="text-button"
+          :disabled="registrationReferencesLoading"
+          @click="loadRegistrationReferences"
+        >
+          刷新前置条件
+        </button>
+      </div>
+
+      <div class="model-registration__warning">
+        <strong>这里不上传或拼装本地权重。</strong>
+        <span>请先由训练/发布服务完成模型包校验、签名和对象存储上传，再登记不可变对象引用。</span>
+      </div>
+
+      <ol class="model-registration__steps" aria-label="模型登记阶段">
+        <li :data-state="selectedModel === null ? 'blocked' : 'ready'"><span>01</span><strong>选择模型</strong><small>{{ selectedModel?.model_name ?? '未选择' }}</small></li>
+        <li :data-state="selectedRegistrationRun === null ? 'blocked' : 'ready'"><span>02</span><strong>绑定训练</strong><small>{{ selectedRegistrationRun === null ? '缺少成功运行' : shortId(selectedRegistrationRun.training_run_id) }}</small></li>
+        <li :data-state="registrationDatasetVersion === null ? 'blocked' : 'ready'"><span>03</span><strong>核对数据</strong><small>{{ registrationDatasetVersion === null ? '未冻结或不匹配' : `冻结 v${registrationDatasetVersion.version}` }}</small></li>
+        <li data-state="pending"><span>04</span><strong>登记候选</strong><small>提交后进入 CANDIDATE</small></li>
+      </ol>
+
+      <form class="model-registration__form" aria-label="登记模型版本" @submit.prevent="registerModelVersion">
+        <fieldset>
+          <legend>来源绑定</legend>
+          <label>
+            已成功训练运行
+            <select v-model="registrationRunId" required :disabled="registrationReferencesLoading || successfulTrainingRuns.length === 0">
+              <option value="" disabled>{{ successfulTrainingRuns.length === 0 ? '暂无成功训练运行' : '请选择训练运行' }}</option>
+              <option v-for="item in successfulTrainingRuns" :key="item.training_run_id" :value="item.training_run_id">
+                {{ item.training_config_version }} · {{ shortId(item.training_run_id) }}
+              </option>
+            </select>
+          </label>
+          <label>
+            自动绑定的冻结数据集
+            <input
+              :value="registrationDatasetVersion === null ? '' : `${registrationDatasetVersion.version_id} · v${registrationDatasetVersion.version}`"
+              readonly
+              :placeholder="selectedRegistrationRun === null ? '先选择训练运行' : '该运行的数据集尚未冻结'"
+            />
+          </label>
+          <label>注册表名称<input v-model="registryName" required maxlength="256" /></label>
+          <label>注册表版本<input v-model="registryVersion" required maxlength="128" /></label>
+        </fieldset>
+
+        <fieldset>
+          <legend>不可变制品</legend>
+          <label>模型制品桶<input v-model="artifactBucket" required maxlength="128" placeholder="例如：td-models" /></label>
+          <label class="span-two">完整模型包对象键<input v-model="artifactObjectKey" required maxlength="1024" placeholder="models/…/package.tar.gz；不能填写单个 weights.h5" /></label>
+          <label class="span-two">模型包 SHA-256<input v-model="artifactSha256" required maxlength="64" pattern="[0-9a-f]{64}" placeholder="64 位小写十六进制" /></label>
+          <label class="span-two">SBOM SHA-256<input v-model="sbomSha256" required maxlength="64" pattern="[0-9a-f]{64}" placeholder="64 位小写十六进制" /></label>
+          <label>签名密钥 ID<input v-model="signatureKeyId" required maxlength="256" /></label>
+        </fieldset>
+
+        <fieldset>
+          <legend>运行规格与评估证据</legend>
+          <label class="span-two">输入规格 JSON<textarea v-model="inputSpec" required rows="4" spellcheck="false" /></label>
+          <label class="span-two">输出规格 JSON<textarea v-model="outputSpec" required rows="4" spellcheck="false" /></label>
+          <label class="span-two">评估报告 SHA-256<input v-model="registrationEvaluationReportSha256" required maxlength="64" pattern="[0-9a-f]{64}" /></label>
+          <label class="span-two">门槛报告 SHA-256<input v-model="thresholdGateSha256" required maxlength="64" pattern="[0-9a-f]{64}" /></label>
+        </fieldset>
+
+        <div class="model-registration__action">
+          <p>提交只创建候选版本，不会批准、部署或切换生产流量。</p>
+          <button class="primary-button compact" type="submit" :disabled="registrationSubmitting || !registrationReady">
+            {{ registrationSubmitting ? '登记中…' : '登记为候选版本' }}
+          </button>
+        </div>
+      </form>
+
+      <p v-if="successfulTrainingRuns.length === 0 && !registrationReferencesLoading" class="decision-caveat">
+        当前没有成功训练运行；请先完成真实训练，不能用排队、运行中或失败记录登记模型。
+      </p>
+      <p v-if="registrationNotice !== null" class="panel-notice hash-text" role="status">{{ registrationNotice }}</p>
+      <p v-if="registrationError !== null" class="panel-error" role="alert">{{ registrationError }}</p>
     </section>
 
     <form class="filter-rail" aria-label="模型版本筛选" @submit.prevent="load()">

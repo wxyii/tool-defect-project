@@ -195,11 +195,13 @@ public class SecurityConfiguration {
                     "/api/v1/datasets/*/versions",
                     "/api/v1/dataset-versions/*",
                     "/api/v1/dataset-versions/diff",
+                    "/api/v1/dataset-candidate-manifests",
                     "/api/v1/dataset-candidates"
                 ).hasAnyAuthority("dataset:create", "dataset:approve", "audit:read")
                 .requestMatchers(
                     HttpMethod.POST,
-                    "/api/v1/dataset-versions/*/approval"
+                    "/api/v1/dataset-versions/*/approval",
+                    "/api/v1/dataset-candidate-manifests/*/approval"
                 ).hasAuthority("dataset:approve")
                 .requestMatchers(
                     HttpMethod.POST,

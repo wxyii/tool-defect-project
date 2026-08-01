@@ -29,8 +29,14 @@ public final class DatasetController {
         "dataset_id", "candidate_manifest_id", "purpose"
     );
 
+    private static final Set<String> APPROVAL_FIELDS = Set.of("decision");
+
     private static final Set<String> VERSION_STATES = Set.of(
         "BUILDING", "VALIDATING", "FROZEN", "REJECTED"
+    );
+
+    private static final Set<String> CANDIDATE_APPROVAL_STATES = Set.of(
+        "REGISTERED", "APPROVED", "REJECTED"
     );
 
     private final DatasetWorkflowService datasets;
@@ -99,6 +105,39 @@ public final class DatasetController {
         return ResponseEntity.status(response.status()).body(response.body());
     }
 
+    @GetMapping("/dataset-candidate-manifests")
+    ResponseEntity<Map<String, Object>> listCandidateManifests(
+            @RequestParam("dataset_id") UUID datasetId,
+            @RequestParam(name = "approval_state", required = false)
+            String approvalState,
+            @RequestParam(name = "page_size", defaultValue = "50") int pageSize,
+            @RequestParam(name = "cursor", required = false) String cursor,
+            Authentication authentication) {
+        requirePageSize(pageSize, 200);
+        if (approvalState != null
+                && !CANDIDATE_APPROVAL_STATES.contains(approvalState)) {
+            throw new ContractValues.ContractInputViolation(
+                "approval_state 不是合法的候选清单审批状态"
+            );
+        }
+        return ResponseEntity.ok(queries.listCandidateManifests(
+            actor(authentication), datasetId, approvalState, pageSize, cursor
+        ));
+    }
+
+    @PostMapping("/dataset-candidate-manifests/{candidate_manifest_id}/approval")
+    ResponseEntity<Map<String, Object>> approveCandidateManifest(
+            @PathVariable("candidate_manifest_id") UUID candidateManifestId,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @RequestBody Map<String, Object> body,
+            Authentication authentication) {
+        var request = approvalRequest(body, "候选清单审批请求");
+        var response = datasets.approveCandidateManifest(
+            actor(authentication), idempotencyKey, candidateManifestId, request
+        );
+        return ResponseEntity.status(response.status()).body(response.body());
+    }
+
     @GetMapping("/dataset-versions/{dataset_version_id}")
     ResponseEntity<Map<String, Object>> getDatasetVersion(
             @PathVariable("dataset_version_id") UUID datasetVersionId) {
@@ -149,8 +188,9 @@ public final class DatasetController {
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestBody Map<String, Object> body,
             Authentication authentication) {
+        var request = approvalRequest(body, "数据集版本审批请求");
         var response = datasets.approveVersion(
-            actor(authentication), idempotencyKey, datasetVersionId, body);
+            actor(authentication), idempotencyKey, datasetVersionId, request);
         return ResponseEntity.status(response.status()).body(response.body());
     }
 
@@ -173,5 +213,15 @@ public final class DatasetController {
                 "page_size 必须位于 1 到 " + maximum
             );
         }
+    }
+
+    private static Map<String, Object> approvalRequest(
+            Map<String, Object> body,
+            String name) {
+        var request = ContractValues.object(body, APPROVAL_FIELDS, name);
+        ContractValues.oneOf(
+            request, "decision", Set.of("APPROVE", "REJECT")
+        );
+        return request;
     }
 }

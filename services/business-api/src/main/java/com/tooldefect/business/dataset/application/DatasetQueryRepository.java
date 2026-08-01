@@ -23,5 +23,13 @@ public interface DatasetQueryRepository {
 
     Map<String, Object> listCandidates(String actorId, String status, int pageSize, String cursor);
 
+    Map<String, Object> listCandidateManifests(
+        String actorId,
+        UUID datasetId,
+        String approvalState,
+        int pageSize,
+        String cursor
+    );
+
     Map<String, Object> diffVersions(UUID fromVersionId, UUID toVersionId);
 }

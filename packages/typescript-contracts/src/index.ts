@@ -1,6 +1,6 @@
 // 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。
-// 契约主版本: 1；源哈希: 0eb4fa625dfd7124be9b43ac4bd71e2b31b407f16b22da27f37689085803ca57
-export const CONTRACT_SOURCE_SHA256 = "0eb4fa625dfd7124be9b43ac4bd71e2b31b407f16b22da27f37689085803ca57" as const;
+// 契约主版本: 1；源哈希: 159efe83cd0f071d155864372a56d28b72668271b4f6b4e4a4b3d895f9193540
+export const CONTRACT_SOURCE_SHA256 = "159efe83cd0f071d155864372a56d28b72668271b4f6b4e4a4b3d895f9193540" as const;
 export const CONTRACT_MAJOR_VERSION = 1 as const;
 
 export type JsonObject = Readonly<Record<string, unknown>>;
@@ -39,9 +39,14 @@ export type CaptureSyncQueryRequest = Readonly<{ readonly "capture_ids": Readonl
 export type CaptureSyncQueryResponse = Readonly<{ readonly "items": ReadonlyArray<CaptureStatusResponse>; }>;
 export type ClientImage = Readonly<{ readonly "client_image_id": string; readonly "file_name": string; readonly "height": number; readonly "image_role": string; readonly "media_type": "image/png" | "image/jpeg"; readonly "sha256": Sha256; readonly "size_bytes": number; readonly "width": number; }>;
 export type CsrfTokenResponse = Readonly<{ readonly "header_name": "X-TD-CSRF"; readonly "token": string; }>;
+export type DatasetApprovalRequest = Readonly<{ readonly "decision": "APPROVE" | "REJECT"; }>;
+export type DatasetCandidateManifestApprovalResponse = Readonly<{ readonly "approval_state": "APPROVED" | "REJECTED"; readonly "approved_at": (UtcTimestamp) | (null); readonly "approved_by": (Uuid) | (null); readonly "candidate_manifest_id": Uuid; readonly "message": string; }>;
+export type DatasetCandidateManifestPage = Readonly<{ readonly "has_more": boolean; readonly "items": ReadonlyArray<DatasetCandidateManifestSummary>; readonly "next_cursor": string | null; }>;
+export type DatasetCandidateManifestSummary = Readonly<{ readonly "approval_state": "REGISTERED" | "APPROVED" | "REJECTED"; readonly "approved_at": (UtcTimestamp) | (null); readonly "approved_by": (Uuid) | (null); readonly "candidate_manifest_id": Uuid; readonly "created_at": UtcTimestamp; readonly "dataset_id": Uuid; readonly "manifest_bucket": string; readonly "manifest_object_key": string; readonly "manifest_sha256": Sha256; readonly "sample_count": number; }>;
 export type DatasetCreateRequest = Readonly<{ readonly "dataset_name": string; readonly "purpose": string; }>;
 export type DatasetPage = Readonly<{ readonly "has_more": boolean; readonly "items": ReadonlyArray<DatasetSummary>; readonly "next_cursor": string | null; }>;
 export type DatasetSummary = Readonly<{ readonly "created_at": UtcTimestamp; readonly "dataset_id": Uuid; readonly "dataset_name": string; readonly "latest_status": ("BUILDING" | "VALIDATING" | "FROZEN" | "REJECTED") | (null); readonly "latest_version": (Version) | (null); readonly "purpose": string; readonly "version_count": number; }>;
+export type DatasetVersionApprovalResponse = Readonly<{ readonly "approved_at": (UtcTimestamp) | (null); readonly "dataset_version_id": Uuid; readonly "message": string; readonly "state": "FROZEN" | "REJECTED"; readonly "version": Version; }>;
 export type DatasetVersionCreateRequest = Readonly<{ readonly "candidate_manifest_id": Uuid; readonly "dataset_id": Uuid; readonly "purpose": string; }>;
 export type DatasetVersionDiff = Readonly<{ readonly "added_samples": number; readonly "from_version": DatasetVersionSummary; readonly "modified_samples": number; readonly "removed_samples": number; readonly "sample_diff_details": ReadonlyArray<DatasetVersionDiffItem>; readonly "to_version": DatasetVersionSummary; readonly "unchanged_samples": number; }>;
 export type DatasetVersionDiffItem = Readonly<{ readonly "change": "ADDED" | "REMOVED" | "MODIFIED" | "UNCHANGED"; readonly "diff_summary": string; readonly "sample_id": string; }>;

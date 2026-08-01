@@ -55,7 +55,7 @@ class DatabaseMigrationIT {
 
         var result = flyway.migrate();
 
-        assertThat(result.migrationsExecuted).isEqualTo(12);
+        assertThat(result.migrationsExecuted).isEqualTo(14);
         flyway.validate();
         JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
         assertThat(jdbc.queryForObject(
@@ -65,7 +65,7 @@ class DatabaseMigrationIT {
             WHERE success AND version IS NOT NULL
             """,
             Integer.class
-        )).isEqualTo(12);
+        )).isEqualTo(14);
         assertThat(jdbc.queryForObject(
             """
             SELECT COUNT(*)
@@ -97,7 +97,9 @@ class DatabaseMigrationIT {
             "AUDITOR:quality:read",
             "AUDITOR:training:read",
             "MODEL_APPROVER:training:read",
-            "QUALITY_MANAGER:quality:read"
+            "QUALITY_MANAGER:quality:read",
+            "SYSTEM_OPERATOR:quality:read",
+            "SYSTEM_OPERATOR:training:read"
         );
     }
 
@@ -241,7 +243,7 @@ class DatabaseMigrationIT {
         );
 
         Flyway latest = flyway(POSTGRES.getJdbcUrl(), schema, null);
-        assertThat(latest.migrate().migrationsExecuted).isEqualTo(10);
+        assertThat(latest.migrate().migrationsExecuted).isEqualTo(12);
 
         assertThat(jdbc.queryForObject(
             "SELECT organization_id FROM production_line WHERE line_id = ?",
@@ -520,12 +522,17 @@ class DatabaseMigrationIT {
             "4".repeat(64),
             datasetVersionId
         )).isEqualTo(1);
+        UUID datasetApproverId = seedUser(
+            jdbc, "dataset-approval-integrity"
+        );
         assertThat(jdbc.update(
             """
             UPDATE dataset_version
-            SET status = 'FROZEN', record_version = record_version + 1
+            SET status = 'FROZEN', approved_by = ?, approved_at = now(),
+                record_version = record_version + 1
             WHERE dataset_version_id = ?
             """,
+            datasetApproverId,
             datasetVersionId
         )).isEqualTo(1);
         UUID mutableDatasetVersionId = UUID.randomUUID();
@@ -929,7 +936,7 @@ class DatabaseMigrationIT {
         assertThat(restored.queryForObject(
             "SELECT COUNT(*) FROM flyway_schema_history WHERE success",
             Integer.class
-        )).isEqualTo(12);
+        )).isEqualTo(14);
         flyway(databaseUrl(restoredDatabase), "public", null).validate();
     }
 

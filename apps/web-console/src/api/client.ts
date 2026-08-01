@@ -20,9 +20,13 @@ type WebConsoleOperation =
   | 'listDatasets'
   | 'createDataset'
   | 'listDatasetVersionCatalog'
+  | 'createDatasetVersion'
   | 'listDatasetVersions'
   | 'getDatasetVersion'
   | 'diffDatasetVersions'
+  | 'listDatasetCandidateManifests'
+  | 'approveDatasetCandidateManifest'
+  | 'approveDatasetVersion'
   | 'createTrainingRun'
   | 'listTrainingRuns'
   | 'getTrainingRun'
@@ -157,6 +161,11 @@ const OPERATIONS = {
     path: '/api/v1/dataset-versions',
     response: 'json',
   },
+  createDatasetVersion: {
+    method: 'POST',
+    path: '/api/v1/dataset-versions',
+    response: 'json',
+  },
   listDatasetVersions: {
     method: 'GET',
     path: '/api/v1/datasets/{dataset_id}/versions',
@@ -170,6 +179,21 @@ const OPERATIONS = {
   diffDatasetVersions: {
     method: 'GET',
     path: '/api/v1/dataset-versions/diff',
+    response: 'json',
+  },
+  listDatasetCandidateManifests: {
+    method: 'GET',
+    path: '/api/v1/dataset-candidate-manifests',
+    response: 'json',
+  },
+  approveDatasetCandidateManifest: {
+    method: 'POST',
+    path: '/api/v1/dataset-candidate-manifests/{candidate_manifest_id}/approval',
+    response: 'json',
+  },
+  approveDatasetVersion: {
+    method: 'POST',
+    path: '/api/v1/dataset-versions/{dataset_version_id}/approval',
     response: 'json',
   },
   createTrainingRun: {
@@ -324,6 +348,10 @@ export class ApiClient {
     return this.invokeJson('listDatasetVersionCatalog', request)
   }
 
+  createDatasetVersion(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('createDatasetVersion', request)
+  }
+
   listDatasetVersions(request?: JsonObject): Promise<JsonObject> {
     return this.invokeJson('listDatasetVersions', request)
   }
@@ -334,6 +362,18 @@ export class ApiClient {
 
   diffDatasetVersions(request?: JsonObject): Promise<JsonObject> {
     return this.invokeJson('diffDatasetVersions', request)
+  }
+
+  listDatasetCandidateManifests(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('listDatasetCandidateManifests', request)
+  }
+
+  approveDatasetCandidateManifest(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('approveDatasetCandidateManifest', request)
+  }
+
+  approveDatasetVersion(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('approveDatasetVersion', request)
   }
 
   createTrainingRun(request?: JsonObject): Promise<JsonObject> {

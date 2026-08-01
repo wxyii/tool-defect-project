@@ -466,6 +466,46 @@
       }
     },
     {
+      "operation_id": "approveDatasetCandidateManifest",
+      "success_request": {
+        "decision": "APPROVE"
+      },
+      "success_response": {
+        "candidate_manifest_id": "019f0000-0000-7000-8000-000000000121",
+        "approval_state": "APPROVED",
+        "approved_by": "019f0000-0000-7000-8000-000000000201",
+        "approved_at": "2026-07-31T09:20:00.000Z",
+        "message": "候选清单已批准"
+      },
+      "cases": {
+        "success": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "approveDatasetVersion",
+      "success_request": {
+        "decision": "APPROVE"
+      },
+      "success_response": {
+        "dataset_version_id": "019f0000-0000-7000-8000-000000000122",
+        "version": "1",
+        "state": "FROZEN",
+        "approved_at": "2026-07-31T09:40:00.000Z",
+        "message": "数据集版本已冻结"
+      },
+      "cases": {
+        "success": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
       "operation_id": "createTrainingRun",
       "success_request": {
         "dataset_version_id": "019f0000-0000-7000-8000-000000000123",

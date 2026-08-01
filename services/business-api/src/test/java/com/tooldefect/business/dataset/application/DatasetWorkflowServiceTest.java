@@ -23,6 +23,7 @@ import org.mockito.ArgumentCaptor;
 
 import com.tooldefect.business.dataset.domain.CandidateManifest;
 import com.tooldefect.business.dataset.domain.DatasetVersion;
+import com.tooldefect.business.dataset.domain.DatasetVersionState;
 import com.tooldefect.business.shared.application.IdempotencyRepository;
 import com.tooldefect.business.shared.application.IdempotencyService;
 import com.tooldefect.business.shared.application.Uuid7Generator;
@@ -132,6 +133,84 @@ class DatasetWorkflowServiceTest {
             )
         )).isInstanceOf(DomainViolation.class)
             .hasMessageContaining("独立质量审批");
+    }
+
+    @Test
+    void approvesRegisteredCandidateManifestWithStableContractShape() {
+        CandidateManifest registered = candidate(
+            CandidateManifest.ApprovalState.REGISTERED
+        );
+        when(repository.findCandidateManifest(CANDIDATE_ID))
+            .thenReturn(Optional.of(registered));
+
+        var response = service.approveCandidateManifest(
+            APPROVER_ID.toString(),
+            "candidate-approval-key",
+            CANDIDATE_ID,
+            Map.of("decision", "APPROVE")
+        );
+
+        assertThat(response.status()).isEqualTo(200);
+        assertThat(response.body())
+            .containsEntry("candidate_manifest_id", CANDIDATE_ID.toString())
+            .containsEntry("approval_state", "APPROVED")
+            .containsEntry("approved_by", APPROVER_ID.toString())
+            .containsEntry("approved_at", NOW.toString())
+            .containsEntry("message", "候选清单已批准");
+        ArgumentCaptor<CandidateManifest> captured = ArgumentCaptor.forClass(
+            CandidateManifest.class
+        );
+        verify(repository).updateCandidateManifest(captured.capture());
+        assertThat(captured.getValue().approvalState())
+            .isEqualTo(CandidateManifest.ApprovalState.APPROVED);
+    }
+
+    @Test
+    void freezesValidatedDatasetVersionWithStableContractShape() {
+        DatasetVersion validating = new DatasetVersion(
+            UUID.fromString("019fb1b0-0000-7000-8000-000000000005"),
+            DATASET_ID,
+            "1",
+            null,
+            CANDIDATE_ID,
+            "受控增量训练",
+            "candidate/production-candidate-v1/manifest.csv",
+            "td-datasets",
+            "a".repeat(64),
+            172,
+            "{}",
+            DatasetVersionState.VALIDATING,
+            null,
+            NOW.minusSeconds(30),
+            null,
+            1
+        );
+        when(repository.findVersion(validating.datasetVersionId()))
+            .thenReturn(Optional.of(validating));
+
+        var response = service.approveVersion(
+            APPROVER_ID.toString(),
+            "version-approval-key",
+            validating.datasetVersionId(),
+            Map.of("decision", "APPROVE")
+        );
+
+        assertThat(response.status()).isEqualTo(200);
+        assertThat(response.body())
+            .containsEntry(
+                "dataset_version_id",
+                validating.datasetVersionId().toString()
+            )
+            .containsEntry("version", "1")
+            .containsEntry("state", "FROZEN")
+            .containsEntry("approved_at", NOW.toString())
+            .containsEntry("message", "数据集版本已冻结");
+        ArgumentCaptor<DatasetVersion> captured = ArgumentCaptor.forClass(
+            DatasetVersion.class
+        );
+        verify(repository).updateVersion(captured.capture());
+        assertThat(captured.getValue().state())
+            .isEqualTo(DatasetVersionState.FROZEN);
     }
 
     private static CandidateManifest candidate(CandidateManifest.ApprovalState state) {

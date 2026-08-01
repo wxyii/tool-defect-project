@@ -52,6 +52,18 @@ public class DatasetQueryService {
     }
 
     @Transactional(readOnly = true)
+    public Map<String, Object> listCandidateManifests(
+            String actorId,
+            UUID datasetId,
+            String approvalState,
+            int pageSize,
+            String cursor) {
+        return repository.listCandidateManifests(
+            actorId, datasetId, approvalState, pageSize, cursor
+        );
+    }
+
+    @Transactional(readOnly = true)
     public Map<String, Object> diffVersions(UUID fromVersionId, UUID toVersionId) {
         return repository.diffVersions(fromVersionId, toVersionId);
     }

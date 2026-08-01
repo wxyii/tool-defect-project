@@ -1,5 +1,5 @@
 // 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。
-// 契约主版本: 1；源哈希: 0eb4fa625dfd7124be9b43ac4bd71e2b31b407f16b22da27f37689085803ca57
+// 契约主版本: 1；源哈希: 159efe83cd0f071d155864372a56d28b72668271b4f6b4e4a4b3d895f9193540
 import type {
   Acknowledgement,
   ActionRequest,
@@ -21,9 +21,14 @@ import type {
   CaptureSyncQueryResponse,
   ClientImage,
   CsrfTokenResponse,
+  DatasetApprovalRequest,
+  DatasetCandidateManifestApprovalResponse,
+  DatasetCandidateManifestPage,
+  DatasetCandidateManifestSummary,
   DatasetCreateRequest,
   DatasetPage,
   DatasetSummary,
+  DatasetVersionApprovalResponse,
   DatasetVersionCreateRequest,
   DatasetVersionDiff,
   DatasetVersionDiffItem,
@@ -129,6 +134,18 @@ export type ApiResponseMediaCategory =
   | "mixed";
 
 export const API_OPERATION_METADATA = {
+  approveDatasetCandidateManifest: {
+    method: "POST",
+    path: "/api/v1/dataset-candidate-manifests/{candidate_manifest_id}/approval",
+    responseMediaCategory: "json",
+    responseMediaTypes: ["application/json"],
+  },
+  approveDatasetVersion: {
+    method: "POST",
+    path: "/api/v1/dataset-versions/{dataset_version_id}/approval",
+    responseMediaCategory: "json",
+    responseMediaTypes: ["application/json"],
+  },
   approveModelDeployment: {
     method: "POST",
     path: "/api/v1/model-deployments/{model_deployment_id}/approvals",
@@ -294,6 +311,12 @@ export const API_OPERATION_METADATA = {
   listAuditRecords: {
     method: "GET",
     path: "/api/v1/audit-records",
+    responseMediaCategory: "json",
+    responseMediaTypes: ["application/json"],
+  },
+  listDatasetCandidateManifests: {
+    method: "GET",
+    path: "/api/v1/dataset-candidate-manifests",
     responseMediaCategory: "json",
     responseMediaTypes: ["application/json"],
   },
@@ -492,6 +515,20 @@ export const API_OPERATION_METADATA = {
 
 export type ApiOperationId = keyof typeof API_OPERATION_METADATA;
 
+export type ApproveDatasetCandidateManifestRequestEnvelope = Readonly<{
+  readonly path: Readonly<{ readonly "candidate_manifest_id": Uuid; }>;
+  readonly query?: never;
+  readonly headers: Readonly<{ readonly "Idempotency-Key": string; }>;
+  readonly body: (DatasetApprovalRequest);
+}>;
+
+export type ApproveDatasetVersionRequestEnvelope = Readonly<{
+  readonly path: Readonly<{ readonly "dataset_version_id": Uuid; }>;
+  readonly query?: never;
+  readonly headers: Readonly<{ readonly "Idempotency-Key": string; }>;
+  readonly body: (DatasetApprovalRequest);
+}>;
+
 export type ApproveModelDeploymentRequestEnvelope = Readonly<{
   readonly path: Readonly<{ readonly "model_deployment_id": Uuid; }>;
   readonly query?: never;
@@ -685,6 +722,13 @@ export type ListAuditRecordsRequestEnvelope = Readonly<{
   readonly path?: never;
   readonly query?: Readonly<{ readonly "action"?: string; readonly "actor_id"?: string; readonly "cursor"?: string; readonly "end_time"?: UtcTimestamp; readonly "page_size"?: number; readonly "resource_id"?: string; readonly "resource_type"?: string; readonly "result"?: string; readonly "start_time"?: UtcTimestamp; }>;
   readonly headers?: Readonly<{ readonly "X-Request-Id"?: Uuid; readonly "traceparent"?: Traceparent; }>;
+  readonly body?: never;
+}>;
+
+export type ListDatasetCandidateManifestsRequestEnvelope = Readonly<{
+  readonly path?: never;
+  readonly query: Readonly<{ readonly "approval_state"?: "REGISTERED" | "APPROVED" | "REJECTED"; readonly "cursor"?: string; readonly "dataset_id": Uuid; readonly "page_size"?: number; }>;
+  readonly headers?: never;
   readonly body?: never;
 }>;
 
@@ -906,6 +950,8 @@ export type UpdateTrainingRunStatusRequestEnvelope = Readonly<{
 }>;
 
 export type ApiOperationRequestMap = Readonly<{
+  readonly approveDatasetCandidateManifest: ApproveDatasetCandidateManifestRequestEnvelope;
+  readonly approveDatasetVersion: ApproveDatasetVersionRequestEnvelope;
   readonly approveModelDeployment: ApproveModelDeploymentRequestEnvelope;
   readonly changeLocalPassword: ChangeLocalPasswordRequestEnvelope;
   readonly claimReviewTask: ClaimReviewTaskRequestEnvelope;
@@ -934,6 +980,7 @@ export type ApiOperationRequestMap = Readonly<{
   readonly getSystemOverview: GetSystemOverviewRequestEnvelope;
   readonly getTrainingRun: GetTrainingRunRequestEnvelope;
   readonly listAuditRecords: ListAuditRecordsRequestEnvelope;
+  readonly listDatasetCandidateManifests: ListDatasetCandidateManifestsRequestEnvelope;
   readonly listDatasetVersionCatalog: ListDatasetVersionCatalogRequestEnvelope;
   readonly listDatasetVersions: ListDatasetVersionsRequestEnvelope;
   readonly listDatasets: ListDatasetsRequestEnvelope;
@@ -968,6 +1015,8 @@ export type ApiOperationRequestMap = Readonly<{
 }>;
 
 export interface ApiClient {
+  approveDatasetCandidateManifest(request: ApproveDatasetCandidateManifestRequestEnvelope): Promise<JsonObject>;
+  approveDatasetVersion(request: ApproveDatasetVersionRequestEnvelope): Promise<JsonObject>;
   approveModelDeployment(request: ApproveModelDeploymentRequestEnvelope): Promise<JsonObject>;
   changeLocalPassword(request: ChangeLocalPasswordRequestEnvelope): Promise<JsonObject>;
   claimReviewTask(request: ClaimReviewTaskRequestEnvelope): Promise<JsonObject>;
@@ -996,6 +1045,7 @@ export interface ApiClient {
   getSystemOverview(request?: GetSystemOverviewRequestEnvelope): Promise<JsonObject>;
   getTrainingRun(request: GetTrainingRunRequestEnvelope): Promise<JsonObject>;
   listAuditRecords(request?: ListAuditRecordsRequestEnvelope): Promise<JsonObject>;
+  listDatasetCandidateManifests(request: ListDatasetCandidateManifestsRequestEnvelope): Promise<JsonObject>;
   listDatasetVersionCatalog(request?: ListDatasetVersionCatalogRequestEnvelope): Promise<JsonObject>;
   listDatasetVersions(request: ListDatasetVersionsRequestEnvelope): Promise<JsonObject>;
   listDatasets(request?: ListDatasetsRequestEnvelope): Promise<JsonObject>;

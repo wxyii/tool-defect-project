@@ -1,8 +1,15 @@
 import type { ApiClient } from '@/api/client'
 import type {
+  AsyncAccepted,
+  DatasetApprovalRequest,
+  DatasetCandidateManifestApprovalResponse,
+  DatasetCandidateManifestPage as ContractDatasetCandidateManifestPage,
+  DatasetCandidateManifestSummary as ContractDatasetCandidateManifestSummary,
   DatasetCreateRequest,
   DatasetPage,
   DatasetSummary,
+  DatasetVersionApprovalResponse,
+  DatasetVersionCreateRequest,
   DatasetVersionDiff as ContractDatasetVersionDiff,
   DatasetVersionDiffItem as ContractDatasetVersionDiffItem,
   DatasetVersionPage as ContractDatasetVersionPage,
@@ -27,6 +34,12 @@ export type DatasetCatalogSummary = DatasetSummary
 
 export type DatasetVersionSummary = ContractDatasetVersionSummary
 export type DatasetVersionPage = ContractDatasetVersionPage
+export type DatasetCandidateManifestSummary = ContractDatasetCandidateManifestSummary
+export type DatasetCandidateManifestPage = ContractDatasetCandidateManifestPage
+export type DatasetBuildAccepted = AsyncAccepted
+export type DatasetApproval = DatasetApprovalRequest
+export type CandidateManifestApproval = DatasetCandidateManifestApprovalResponse
+export type VersionApproval = DatasetVersionApprovalResponse
 export type VersionDiff = ContractDatasetVersionDiff
 export type VersionDiffItem = ContractDatasetVersionDiffItem
 
@@ -77,6 +90,50 @@ export class DatasetService {
         query,
       }),
     )
+  }
+
+  async listCandidateManifests(
+    datasetId: string,
+    filter: DatasetVersionFilter = {},
+  ): Promise<DatasetCandidateManifestPage> {
+    const query: Record<string, string | number> = {
+      dataset_id: datasetId,
+      page_size: filter.pageSize ?? 50,
+    }
+    if (filter.cursor !== undefined) query.cursor = filter.cursor
+    return candidateManifestPage(
+      await this.api.listDatasetCandidateManifests({ query }),
+    )
+  }
+
+  async createVersion(
+    request: DatasetVersionCreateRequest,
+  ): Promise<DatasetBuildAccepted> {
+    return buildAccepted(await this.api.createDatasetVersion({
+      body: request as unknown as JsonObject,
+    }))
+  }
+
+  async approveCandidateManifest(
+    candidateManifestId: string,
+    request: DatasetApproval,
+  ): Promise<CandidateManifestApproval> {
+    return candidateManifestApproval(
+      await this.api.approveDatasetCandidateManifest({
+        path: { candidate_manifest_id: candidateManifestId },
+        body: request as unknown as JsonObject,
+      }),
+    )
+  }
+
+  async approveVersion(
+    datasetVersionId: string,
+    request: DatasetApproval,
+  ): Promise<VersionApproval> {
+    return versionApproval(await this.api.approveDatasetVersion({
+      path: { dataset_version_id: datasetVersionId },
+      body: request as unknown as JsonObject,
+    }))
   }
 
   async detailVersion(versionId: string): Promise<VersionedResource> {
@@ -167,6 +224,118 @@ function datasetVersionPage(value: JsonObject): DatasetVersionPage {
     next_cursor: value.next_cursor,
     has_more: value.has_more,
   }) as DatasetVersionPage
+}
+
+function candidateManifestPage(value: JsonObject): DatasetCandidateManifestPage {
+  exact(value, ['items', 'next_cursor', 'has_more'])
+  if (
+    !Array.isArray(value.items)
+    || !(value.next_cursor === null || typeof value.next_cursor === 'string')
+    || typeof value.has_more !== 'boolean'
+  ) {
+    throw incompatible()
+  }
+  return Object.freeze({
+    items: Object.freeze(value.items.map(candidateManifestSummary)),
+    next_cursor: value.next_cursor,
+    has_more: value.has_more,
+  }) as DatasetCandidateManifestPage
+}
+
+function candidateManifestSummary(
+  value: unknown,
+): DatasetCandidateManifestSummary {
+  if (!isObject(value)) throw incompatible()
+  exact(value, [
+    'candidate_manifest_id',
+    'dataset_id',
+    'manifest_bucket',
+    'manifest_object_key',
+    'manifest_sha256',
+    'sample_count',
+    'approval_state',
+    'approved_by',
+    'approved_at',
+    'created_at',
+  ])
+  if (
+    typeof value.candidate_manifest_id !== 'string'
+    || typeof value.dataset_id !== 'string'
+    || typeof value.manifest_bucket !== 'string'
+    || typeof value.manifest_object_key !== 'string'
+    || typeof value.manifest_sha256 !== 'string'
+    || typeof value.sample_count !== 'number'
+    || !Number.isInteger(value.sample_count)
+    || !['REGISTERED', 'APPROVED', 'REJECTED']
+      .includes(String(value.approval_state))
+    || !(value.approved_by === null || typeof value.approved_by === 'string')
+    || !(value.approved_at === null || typeof value.approved_at === 'string')
+    || typeof value.created_at !== 'string'
+  ) {
+    throw incompatible()
+  }
+  return Object.freeze(value) as DatasetCandidateManifestSummary
+}
+
+function buildAccepted(value: JsonObject): DatasetBuildAccepted {
+  exact(value, ['job_id', 'status', 'poll_after_ms'])
+  if (
+    typeof value.job_id !== 'string'
+    || value.status !== 'QUEUED'
+    || typeof value.poll_after_ms !== 'number'
+    || !Number.isInteger(value.poll_after_ms)
+    || value.poll_after_ms < 100
+    || value.poll_after_ms > 60000
+  ) {
+    throw incompatible()
+  }
+  return Object.freeze({
+    job_id: value.job_id,
+    status: 'QUEUED',
+    poll_after_ms: value.poll_after_ms,
+  }) as DatasetBuildAccepted
+}
+
+function candidateManifestApproval(
+  value: JsonObject,
+): CandidateManifestApproval {
+  exact(value, [
+    'candidate_manifest_id',
+    'approval_state',
+    'approved_by',
+    'approved_at',
+    'message',
+  ])
+  if (
+    typeof value.candidate_manifest_id !== 'string'
+    || !['APPROVED', 'REJECTED'].includes(String(value.approval_state))
+    || !(value.approved_by === null || typeof value.approved_by === 'string')
+    || !(value.approved_at === null || typeof value.approved_at === 'string')
+    || typeof value.message !== 'string'
+  ) {
+    throw incompatible()
+  }
+  return Object.freeze(value) as CandidateManifestApproval
+}
+
+function versionApproval(value: JsonObject): VersionApproval {
+  exact(value, [
+    'dataset_version_id',
+    'version',
+    'state',
+    'approved_at',
+    'message',
+  ])
+  if (
+    typeof value.dataset_version_id !== 'string'
+    || typeof value.version !== 'string'
+    || !['FROZEN', 'REJECTED'].includes(String(value.state))
+    || !(value.approved_at === null || typeof value.approved_at === 'string')
+    || typeof value.message !== 'string'
+  ) {
+    throw incompatible()
+  }
+  return Object.freeze(value) as VersionApproval
 }
 
 function datasetVersionSummary(value: unknown): DatasetVersionSummary {

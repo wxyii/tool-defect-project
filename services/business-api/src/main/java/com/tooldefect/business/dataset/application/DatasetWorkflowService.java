@@ -127,6 +127,47 @@ public class DatasetWorkflowService {
     }
 
     @Transactional
+    public IdempotencyService.Response approveCandidateManifest(
+            String actorId,
+            String idempotencyKey,
+            UUID candidateManifestId,
+            Map<String, Object> request) {
+        return idempotency.execute(
+            "approveDatasetCandidateManifest:" + candidateManifestId,
+            actorId,
+            idempotencyKey,
+            request,
+            () -> {
+                CandidateManifest manifest = datasets
+                    .findCandidateManifest(candidateManifestId)
+                    .orElseThrow(() -> new DatasetNotFound(
+                        "候选清单不存在: " + candidateManifestId
+                    ));
+                String decision = String.valueOf(request.get("decision"));
+                CandidateManifest.ApprovalState requestedState = "APPROVE".equals(decision)
+                    ? CandidateManifest.ApprovalState.APPROVED
+                    : CandidateManifest.ApprovalState.REJECTED;
+                if (manifest.approvalState() == requestedState) {
+                    return new IdempotencyService.Response(
+                        200, candidateApprovalResponse(manifest)
+                    );
+                }
+                if (manifest.approvalState() != CandidateManifest.ApprovalState.REGISTERED) {
+                    throw new DomainViolation("候选清单已经完成相反结论，不能覆盖");
+                }
+                CandidateManifest decided = requestedState
+                    == CandidateManifest.ApprovalState.APPROVED
+                    ? manifest.approve(requiredActor(actorId), Instant.now(clock))
+                    : manifest.reject();
+                datasets.updateCandidateManifest(decided);
+                return new IdempotencyService.Response(
+                    200, candidateApprovalResponse(decided)
+                );
+            }
+        );
+    }
+
+    @Transactional
     public IdempotencyService.Response approveVersion(
             String actorId, String idempotencyKey, UUID datasetVersionId, Map<String, Object> request) {
         return idempotency.execute(
@@ -136,31 +177,36 @@ public class DatasetWorkflowService {
                     .orElseThrow(() -> new DatasetNotFound(datasetVersionId));
 
                 if (version.state() == DatasetVersionState.FROZEN) {
-                    return new IdempotencyService.Response(200, Map.of(
-                        "dataset_version_id", version.datasetVersionId().toString(),
-                        "state", version.state().name(),
-                        "message", "数据集版本已冻结"
-                    ));
+                    if (!"APPROVE".equals(request.get("decision"))) {
+                        throw new DomainViolation("已冻结的数据集版本不能改为驳回");
+                    }
+                    return new IdempotencyService.Response(
+                        200, versionApprovalResponse(version)
+                    );
+                }
+                if (version.state() == DatasetVersionState.REJECTED) {
+                    if (!"REJECT".equals(request.get("decision"))) {
+                        throw new DomainViolation("已驳回的数据集版本不能改为冻结");
+                    }
+                    return new IdempotencyService.Response(
+                        200, versionApprovalResponse(version)
+                    );
                 }
 
                 var decision = (String) request.get("decision");
                 if ("APPROVE".equals(decision)) {
                     var approved = version.withApproval(
-                        UUID.fromString(actorId), Instant.now(clock));
+                        requiredActor(actorId), Instant.now(clock));
                     datasets.updateVersion(approved);
-                    return new IdempotencyService.Response(200, Map.of(
-                        "dataset_version_id", approved.datasetVersionId().toString(),
-                        "version", approved.version(),
-                        "state", approved.state().name(),
-                        "approved_at", approved.approvedAt().toString()
-                    ));
+                    return new IdempotencyService.Response(
+                        200, versionApprovalResponse(approved)
+                    );
                 } else if ("REJECT".equals(decision)) {
                     var rejected = version.withState(DatasetVersionState.REJECTED);
                     datasets.updateVersion(rejected);
-                    return new IdempotencyService.Response(200, Map.of(
-                        "dataset_version_id", rejected.datasetVersionId().toString(),
-                        "state", rejected.state().name()
-                    ));
+                    return new IdempotencyService.Response(
+                        200, versionApprovalResponse(rejected)
+                    );
                 }
                 throw new DomainViolation("审批决定必须是 APPROVE 或 REJECT");
             }
@@ -205,6 +251,54 @@ public class DatasetWorkflowService {
         } catch (IllegalArgumentException error) {
             throw new DomainViolation("未认证用户不能创建数据集版本");
         }
+    }
+
+    private static Map<String, Object> candidateApprovalResponse(
+            CandidateManifest manifest) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put(
+            "candidate_manifest_id",
+            manifest.candidateManifestId().toString()
+        );
+        body.put("approval_state", manifest.approvalState().name());
+        body.put(
+            "approved_by",
+            manifest.approvedBy() == null
+                ? null : manifest.approvedBy().toString()
+        );
+        body.put(
+            "approved_at",
+            manifest.approvedAt() == null
+                ? null : manifest.approvedAt().toString()
+        );
+        body.put(
+            "message",
+            manifest.approvalState() == CandidateManifest.ApprovalState.APPROVED
+                ? "候选清单已批准" : "候选清单已驳回"
+        );
+        return body;
+    }
+
+    private static Map<String, Object> versionApprovalResponse(
+            DatasetVersion version) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put(
+            "dataset_version_id",
+            version.datasetVersionId().toString()
+        );
+        body.put("version", version.version());
+        body.put("state", version.state().name());
+        body.put(
+            "approved_at",
+            version.approvedAt() == null
+                ? null : version.approvedAt().toString()
+        );
+        body.put(
+            "message",
+            version.state() == DatasetVersionState.FROZEN
+                ? "数据集版本已冻结" : "数据集版本已驳回"
+        );
+        return body;
     }
 
     private static String nextVersion(DatasetVersion latest) {

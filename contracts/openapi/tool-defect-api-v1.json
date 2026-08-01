@@ -1591,6 +1591,136 @@
         "x-write-example-operation": "createDatasetVersion"
       }
     },
+    "/api/v1/dataset-candidate-manifests": {
+      "get": {
+        "operationId": "listDatasetCandidateManifests",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+            }
+          },
+          {
+            "name": "approval_state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "REGISTERED",
+                "APPROVED",
+                "REJECTED"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "数据集候选清单目录",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetCandidateManifestPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        }
+      }
+    },
+    "/api/v1/dataset-candidate-manifests/{candidate_manifest_id}/approval": {
+      "post": {
+        "operationId": "approveDatasetCandidateManifest",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "candidate_manifest_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatasetApprovalRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "候选清单审批结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetCandidateManifestApprovalResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "approveDatasetCandidateManifest"
+      }
+    },
     "/api/v1/dataset-versions/{dataset_version_id}": {
       "get": {
         "operationId": "getDatasetVersion",
@@ -1628,6 +1758,68 @@
             "$ref": "#/components/responses/NotFound"
           }
         }
+      }
+    },
+    "/api/v1/dataset-versions/{dataset_version_id}/approval": {
+      "post": {
+        "operationId": "approveDatasetVersion",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DatasetVersionId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatasetApprovalRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "数据集版本审批结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetVersionApprovalResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "approveDatasetVersion"
       }
     },
     "/api/v1/datasets/{dataset_id}/versions": {
@@ -4521,6 +4713,168 @@
           }
         }
       },
+      "DatasetCandidateManifestSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_manifest_id",
+          "dataset_id",
+          "manifest_bucket",
+          "manifest_object_key",
+          "manifest_sha256",
+          "sample_count",
+          "approval_state",
+          "approved_by",
+          "approved_at",
+          "created_at"
+        ],
+        "properties": {
+          "candidate_manifest_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "dataset_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "manifest_bucket": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "manifest_object_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "manifest_sha256": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Sha256"
+          },
+          "sample_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "approval_state": {
+            "type": "string",
+            "enum": [
+              "REGISTERED",
+              "APPROVED",
+              "REJECTED"
+            ]
+          },
+          "approved_by": {
+            "oneOf": [
+              {
+                "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approved_at": {
+            "oneOf": [
+              {
+                "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          }
+        }
+      },
+      "DatasetCandidateManifestPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatasetCandidateManifestSummary"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DatasetApprovalRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "decision"
+        ],
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "APPROVE",
+              "REJECT"
+            ]
+          }
+        }
+      },
+      "DatasetCandidateManifestApprovalResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_manifest_id",
+          "approval_state",
+          "approved_by",
+          "approved_at",
+          "message"
+        ],
+        "properties": {
+          "candidate_manifest_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "approval_state": {
+            "type": "string",
+            "enum": [
+              "APPROVED",
+              "REJECTED"
+            ]
+          },
+          "approved_by": {
+            "oneOf": [
+              {
+                "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approved_at": {
+            "oneOf": [
+              {
+                "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      },
       "DatasetVersionCreateRequest": {
         "type": "object",
         "additionalProperties": false,
@@ -4537,6 +4891,47 @@
             "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
           },
           "purpose": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      },
+      "DatasetVersionApprovalResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "dataset_version_id",
+          "version",
+          "state",
+          "approved_at",
+          "message"
+        ],
+        "properties": {
+          "dataset_version_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "version": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Version"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "FROZEN",
+              "REJECTED"
+            ]
+          },
+          "approved_at": {
+            "oneOf": [
+              {
+                "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
             "type": "string",
             "minLength": 1,
             "maxLength": 256
