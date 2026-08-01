@@ -16,7 +16,7 @@ final class ArchitectureBoundaryTest {
     private static final String ROOT = "com.tooldefect.business.";
     private static final Set<String> MODULES = Set.of(
         "capture", "detection", "review", "storage", "dataset",
-        "model", "device", "identity", "audit", "shared"
+        "model", "device", "identity", "audit", "overview", "shared"
     );
     private static JavaClasses classes;
 

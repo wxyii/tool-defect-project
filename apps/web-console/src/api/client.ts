@@ -4,6 +4,8 @@ import { toApiError } from './errors'
 import type { JsonObject } from './generated'
 
 type WebConsoleOperation =
+  | 'getSystemOverview'
+  | 'listAuditRecords'
   | 'listDetections'
   | 'getDetection'
   | 'listReviewTasks'
@@ -75,6 +77,16 @@ interface OperationEnvelope {
 }
 
 const OPERATIONS = {
+  getSystemOverview: {
+    method: 'GET',
+    path: '/api/v1/dashboard/overview',
+    response: 'json',
+  },
+  listAuditRecords: {
+    method: 'GET',
+    path: '/api/v1/audit-records',
+    response: 'json',
+  },
   listDetections: {
     method: 'GET',
     path: '/api/v1/detections',
@@ -250,6 +262,14 @@ export class ApiClient {
     this.requestIdFactory =
       options.requestIdFactory ?? (() => crypto.randomUUID())
     this.onAuthenticationFailure = options.onAuthenticationFailure ?? (() => undefined)
+  }
+
+  getSystemOverview(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('getSystemOverview', request)
+  }
+
+  listAuditRecords(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('listAuditRecords', request)
   }
 
   listDetections(request?: JsonObject): Promise<JsonObject> {

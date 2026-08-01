@@ -1,5 +1,5 @@
 // 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。
-// 契约主版本: 1；源哈希: 2f444d447ff4c6c90eef3880736497a01d3b1ffae2b368b6964e4fac6b9f4672
+// 契约主版本: 1；源哈希: 0eb4fa625dfd7124be9b43ac4bd71e2b31b407f16b22da27f37689085803ca57
 import type {
   Acknowledgement,
   ActionRequest,
@@ -10,6 +10,8 @@ import type {
   AttemptStartRequest,
   AttemptStartResponse,
   AttemptStatus,
+  AuditRecordPage,
+  AuditRecordSummary,
   BusinessDisposition,
   CaptureCreateRequest,
   CaptureCreateResponse,
@@ -67,6 +69,17 @@ import type {
   ObjectCompleteResponse,
   ObjectReference,
   ObjectState,
+  OverviewCaptureCounts,
+  OverviewFleetHealth,
+  OverviewInferenceHealth,
+  OverviewModelRuntime,
+  OverviewOutcomeComparison,
+  OverviewOutcomeCounts,
+  OverviewProductionModel,
+  OverviewQualityComparison,
+  OverviewQualityCounts,
+  OverviewReviewBacklog,
+  OverviewWindow,
   PasswordChangeRequest,
   PreprocessQualityStatus,
   QualityMetricReason,
@@ -88,6 +101,7 @@ import type {
   StandardError,
   SubmitCaptureRequest,
   SubmitCaptureResponse,
+  SystemOverview,
   Traceparent,
   TrainingRunCreateRequest,
   TrainingRunPage,
@@ -265,9 +279,21 @@ export const API_OPERATION_METADATA = {
     responseMediaCategory: "json",
     responseMediaTypes: ["application/json"],
   },
+  getSystemOverview: {
+    method: "GET",
+    path: "/api/v1/dashboard/overview",
+    responseMediaCategory: "json",
+    responseMediaTypes: ["application/json"],
+  },
   getTrainingRun: {
     method: "GET",
     path: "/api/v1/training-runs/{training_run_id}",
+    responseMediaCategory: "json",
+    responseMediaTypes: ["application/json"],
+  },
+  listAuditRecords: {
+    method: "GET",
+    path: "/api/v1/audit-records",
     responseMediaCategory: "json",
     responseMediaTypes: ["application/json"],
   },
@@ -641,10 +667,24 @@ export type GetReviewWorkspaceRequestEnvelope = Readonly<{
   readonly body?: never;
 }>;
 
+export type GetSystemOverviewRequestEnvelope = Readonly<{
+  readonly path?: never;
+  readonly query?: never;
+  readonly headers?: never;
+  readonly body?: never;
+}>;
+
 export type GetTrainingRunRequestEnvelope = Readonly<{
   readonly path: Readonly<{ readonly "training_run_id": Uuid; }>;
   readonly query?: never;
   readonly headers?: never;
+  readonly body?: never;
+}>;
+
+export type ListAuditRecordsRequestEnvelope = Readonly<{
+  readonly path?: never;
+  readonly query?: Readonly<{ readonly "action"?: string; readonly "actor_id"?: string; readonly "cursor"?: string; readonly "end_time"?: UtcTimestamp; readonly "page_size"?: number; readonly "resource_id"?: string; readonly "resource_type"?: string; readonly "result"?: string; readonly "start_time"?: UtcTimestamp; }>;
+  readonly headers?: Readonly<{ readonly "X-Request-Id"?: Uuid; readonly "traceparent"?: Traceparent; }>;
   readonly body?: never;
 }>;
 
@@ -891,7 +931,9 @@ export type ApiOperationRequestMap = Readonly<{
   readonly getModelVersion: GetModelVersionRequestEnvelope;
   readonly getQualityMetrics: GetQualityMetricsRequestEnvelope;
   readonly getReviewWorkspace: GetReviewWorkspaceRequestEnvelope;
+  readonly getSystemOverview: GetSystemOverviewRequestEnvelope;
   readonly getTrainingRun: GetTrainingRunRequestEnvelope;
+  readonly listAuditRecords: ListAuditRecordsRequestEnvelope;
   readonly listDatasetVersionCatalog: ListDatasetVersionCatalogRequestEnvelope;
   readonly listDatasetVersions: ListDatasetVersionsRequestEnvelope;
   readonly listDatasets: ListDatasetsRequestEnvelope;
@@ -951,7 +993,9 @@ export interface ApiClient {
   getModelVersion(request: GetModelVersionRequestEnvelope): Promise<JsonObject>;
   getQualityMetrics(request?: GetQualityMetricsRequestEnvelope): Promise<JsonObject>;
   getReviewWorkspace(request: GetReviewWorkspaceRequestEnvelope): Promise<JsonObject>;
+  getSystemOverview(request?: GetSystemOverviewRequestEnvelope): Promise<JsonObject>;
   getTrainingRun(request: GetTrainingRunRequestEnvelope): Promise<JsonObject>;
+  listAuditRecords(request?: ListAuditRecordsRequestEnvelope): Promise<JsonObject>;
   listDatasetVersionCatalog(request?: ListDatasetVersionCatalogRequestEnvelope): Promise<JsonObject>;
   listDatasetVersions(request: ListDatasetVersionsRequestEnvelope): Promise<JsonObject>;
   listDatasets(request?: ListDatasetsRequestEnvelope): Promise<JsonObject>;

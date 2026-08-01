@@ -55,7 +55,7 @@ class P4AuthorizationTest(unittest.TestCase):
             self.assertGreater(fallback, source.index(authority))
         self.assertIn('"/api/v1/review-tasks/*"', source)
 
-    def test_role_baseline_separates_quality_download_and_administration(self) -> None:
+    def test_system_operator_has_all_personnel_permissions(self) -> None:
         matrix = (
             ROOT
             / "services/business-api/src/main/java/com/tooldefect/business/identity/"
@@ -71,12 +71,47 @@ class P4AuthorizationTest(unittest.TestCase):
             self.assertIsNotNone(match, role)
             return set(re.findall(r'"([^"]+)"', match.group(1)))
 
+        system_operator = permissions("SYSTEM_OPERATOR")
         self.assertNotIn("review:submit", permissions("OPERATOR"))
         self.assertNotIn("quality:override", permissions("ALGORITHM_ENGINEER"))
-        self.assertNotIn("review:submit", permissions("SYSTEM_OPERATOR"))
         self.assertNotIn("review:claim", permissions("AUDITOR"))
         self.assertNotIn("image:original:download", permissions("AUDITOR"))
         self.assertIn("dataset:approve", permissions("QUALITY_MANAGER"))
+        self.assertTrue({
+            "capture:read",
+            "detection:read",
+            "image:view",
+            "image:original:download",
+            "review:read",
+            "review:claim",
+            "review:submit",
+            "review:annotate",
+            "review:escalate",
+            "quality:override",
+            "quality:read",
+            "dataset:approve",
+            "dataset:create",
+            "training:create",
+            "training:read",
+            "model:register",
+            "model:validate",
+            "model:deploy:approve",
+            "model:rollback",
+            "device:configure",
+            "user:manage",
+            "model:deploy:execute",
+            "certificate:manage",
+            "security:policy:manage",
+            "audit:read",
+        }.issubset(system_operator))
+
+        migration = (
+            ROOT
+            / "services/business-api/src/main/resources/db/migration/"
+            "V13__system_operator_full_permissions.sql"
+        ).read_text(encoding="utf-8")
+        self.assertIn("role.role_code = 'SYSTEM_OPERATOR'", migration)
+        self.assertIn("CROSS JOIN sys_permission permission", migration)
 
     def test_review_audit_and_training_decisions_are_append_only(self) -> None:
         migration = (

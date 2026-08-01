@@ -14,6 +14,8 @@ const DatasetVersionsView = () => import('@/features/datasets/DatasetVersionsVie
 const TrainingRunsView = () => import('@/features/training/TrainingRunsView.vue')
 const ModelsView = () => import('@/features/models/ModelsView.vue')
 const QualityDashboard = () => import('@/features/quality/QualityDashboard.vue')
+const SystemOverviewView = () => import('@/features/overview/SystemOverviewView.vue')
+const AuditTrailView = () => import('@/features/audit/AuditTrailView.vue')
 
 export const applicationRoutes: readonly RouteRecordRaw[] = [
   {
@@ -113,10 +115,8 @@ export const applicationRoutes: readonly RouteRecordRaw[] = [
 
 function placeholderRoutes(): RouteRecordRaw[] {
   const definitions = [
-    ['/dashboard', 'dashboard', '系统总览', 'detection:read'],
     ['/devices', 'devices', '设备与工位', 'device:read'],
     ['/alerts', 'alerts', '告警', 'alert:read'],
-    ['/audit', 'audit', '审计', 'audit:read'],
     ['/settings', 'settings', '受控配置', 'configuration:read'],
   ] as const
   return definitions.map(([path, name, label, permission]) => ({
@@ -135,6 +135,28 @@ function placeholderRoutes(): RouteRecordRaw[] {
 
 function featureRoutes(): RouteRecordRaw[] {
   return [
+    {
+      path: '/dashboard',
+      name: 'dashboard',
+      component: SystemOverviewView,
+      meta: {
+        requiresAuth: true,
+        permissions: ['detection:read'],
+        menuLabel: '系统总览',
+        menuIcon: '▦',
+      },
+    },
+    {
+      path: '/audit',
+      name: 'audit',
+      component: AuditTrailView,
+      meta: {
+        requiresAuth: true,
+        permissions: ['audit:read'],
+        menuLabel: '审计',
+        menuIcon: '≡',
+      },
+    },
     {
       path: '/datasets',
       name: 'datasets',

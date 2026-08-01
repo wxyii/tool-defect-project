@@ -68,6 +68,8 @@
         "updateLocalUserStatus",
         "updateLocalUserRoles",
         "resetLocalUserPassword",
+        "getSystemOverview",
+        "listAuditRecords",
         "listDetections",
         "getDetection",
         "listReviewTasks",

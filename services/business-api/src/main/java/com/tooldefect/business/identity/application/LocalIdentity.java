@@ -1,5 +1,6 @@
 package com.tooldefect.business.identity.application;
 
+import java.security.Principal;
 import java.util.List;
 import java.util.UUID;
 
@@ -11,5 +12,9 @@ public record LocalIdentity(
         String status,
         boolean passwordChangeRequired,
         List<String> roles,
-        List<String> permissions) {
+        List<String> permissions) implements Principal {
+    @Override
+    public String getName() {
+        return userId.toString();
+    }
 }

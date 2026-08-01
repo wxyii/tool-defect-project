@@ -1,6 +1,6 @@
 // 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。
-// 契约主版本: 1；源哈希: 2f444d447ff4c6c90eef3880736497a01d3b1ffae2b368b6964e4fac6b9f4672
-export const CONTRACT_SOURCE_SHA256 = "2f444d447ff4c6c90eef3880736497a01d3b1ffae2b368b6964e4fac6b9f4672" as const;
+// 契约主版本: 1；源哈希: 0eb4fa625dfd7124be9b43ac4bd71e2b31b407f16b22da27f37689085803ca57
+export const CONTRACT_SOURCE_SHA256 = "0eb4fa625dfd7124be9b43ac4bd71e2b31b407f16b22da27f37689085803ca57" as const;
 export const CONTRACT_MAJOR_VERSION = 1 as const;
 
 export type JsonObject = Readonly<Record<string, unknown>>;
@@ -30,6 +30,8 @@ export type ApprovalRequest = Readonly<{ readonly "decision": "APPROVE" | "REJEC
 export type AsyncAccepted = Readonly<{ readonly "job_id": Uuid; readonly "poll_after_ms": number; readonly "status": "QUEUED"; }>;
 export type AttemptStartRequest = Readonly<{ readonly "message_id": Uuid; readonly "model_sha256": Sha256; readonly "runtime_version": Version; readonly "worker_id": string; }>;
 export type AttemptStartResponse = Readonly<{ readonly "attempt_id": Uuid; readonly "attempt_no": number; readonly "status": "RUNNING"; }>;
+export type AuditRecordPage = Readonly<{ readonly "has_more": boolean; readonly "items": ReadonlyArray<AuditRecordSummary>; readonly "next_cursor": string | null; }>;
+export type AuditRecordSummary = Readonly<{ readonly "action": string; readonly "actor_id": string; readonly "actor_ip": string | null; readonly "actor_type": string; readonly "after_digest": (Sha256) | (null); readonly "audit_id": Uuid; readonly "before_digest": (Sha256) | (null); readonly "error_code": string | null; readonly "occurred_at": UtcTimestamp; readonly "reason": string | null; readonly "request_id": string; readonly "resource_id": string; readonly "resource_type": string; readonly "result": string; readonly "trace_id": string; }>;
 export type CaptureCreateRequest = Readonly<{ readonly "capture_id": Uuid; readonly "images": ReadonlyArray<ClientImage>; readonly "quality": QualitySummary; readonly "recipe_id": Uuid; readonly "station_id": Uuid; readonly "trigger": Trigger; }>;
 export type CaptureCreateResponse = Readonly<{ readonly "capture_id": Uuid; readonly "images": ReadonlyArray<UploadTicketResponse>; readonly "status": "UPLOADING"; }>;
 export type CaptureStatusResponse = Readonly<{ readonly "business_disposition": (BusinessDisposition) | (null); readonly "capture_id": Uuid; readonly "capture_status": CaptureStatus; readonly "detection"?: DetectionSummary; readonly "poll_after_ms": number; readonly "review"?: ReviewSummary; }>;
@@ -74,6 +76,17 @@ export type ModelVersionResponse = Readonly<{ readonly "approval_state": string;
 export type ModelVersionSummary = Readonly<{ readonly "approval_state": string; readonly "created_at": UtcTimestamp; readonly "model_id": Uuid; readonly "model_version_id": Uuid; readonly "registry_name": string; readonly "registry_version": Version; readonly "version": number; }>;
 export type ObjectCompleteRequest = Readonly<{ readonly "sha256": Sha256; readonly "size_bytes": number; readonly "upload_receipt": string; }>;
 export type ObjectCompleteResponse = Readonly<{ readonly "image_id": Uuid; readonly "sha256": Sha256; readonly "state": "AVAILABLE"; }>;
+export type OverviewCaptureCounts = Readonly<{ readonly "fail": number; readonly "hold": number; readonly "pass": number; readonly "total": number; readonly "unresolved": number; }>;
+export type OverviewFleetHealth = Readonly<{ readonly "devices_degraded": number; readonly "devices_offline": number; readonly "devices_online": number; readonly "devices_total": number; readonly "heartbeat_freshness_seconds": number; readonly "stations_maintenance": number; readonly "stations_online": number; readonly "stations_total": number; }>;
+export type OverviewInferenceHealth = Readonly<{ readonly "completed_in_window": number; readonly "dead": number; readonly "failures_24h": number; readonly "p95_duration_ms": number | null; readonly "queued": number; readonly "retry_wait": number; readonly "running": number; }>;
+export type OverviewModelRuntime = Readonly<{ readonly "active_canary_deployments": number; readonly "active_shadow_deployments": number; readonly "canary_traffic_ratio": number; readonly "production": (OverviewProductionModel) | (null); }>;
+export type OverviewOutcomeComparison = Readonly<{ readonly "current": OverviewOutcomeCounts; readonly "previous": OverviewOutcomeCounts; }>;
+export type OverviewOutcomeCounts = Readonly<{ readonly "inconclusive": number; readonly "qualified": number; readonly "unqualified": number; }>;
+export type OverviewProductionModel = Readonly<{ readonly "deployment_id": Uuid; readonly "effective_at": (UtcTimestamp) | (null); readonly "model_version_id": Uuid; readonly "registry_name": string | null; readonly "registry_version": string | null; readonly "traffic_ratio": number; }>;
+export type OverviewQualityComparison = Readonly<{ readonly "current": OverviewQualityCounts; readonly "previous": OverviewQualityCounts; }>;
+export type OverviewQualityCounts = Readonly<{ readonly "ok": number; readonly "rejected": number; readonly "warning": number; }>;
+export type OverviewReviewBacklog = Readonly<{ readonly "claimed": number; readonly "escalated": number; readonly "oldest_age_seconds": number; readonly "pending": number; readonly "second_review_pending": number; readonly "total": number; }>;
+export type OverviewWindow = Readonly<{ readonly "current_end": UtcTimestamp; readonly "current_start": UtcTimestamp; readonly "previous_end": UtcTimestamp; readonly "previous_start": UtcTimestamp; readonly "timezone": string; }>;
 export type PasswordChangeRequest = Readonly<{ readonly "current_password": string; readonly "new_password": string; }>;
 export type QualityMetricReason = Readonly<{ readonly "count": number; readonly "percentage": number; readonly "reason": string; }>;
 export type QualityMetrics = Readonly<{ readonly "auto_pass_fail_rate": number; readonly "based_on_full_ground_truth": boolean; readonly "false_positive_count": number; readonly "mask_revision_reasons": ReadonlyArray<QualityMetricReason>; readonly "missed_detection_count": number; readonly "model_overturn_rate": number; readonly "time_window": Readonly<{ readonly "end": UtcTimestamp; readonly "start": UtcTimestamp; }>; readonly "total_sample_count": number; }>;
@@ -91,6 +104,7 @@ export type RollbackRequest = Readonly<{ readonly "reason": string; readonly "ta
 export type RuntimeModelsResponse = Readonly<{ readonly "models": ReadonlyArray<Readonly<{ readonly "model_version": Version; readonly "ready": boolean; readonly "sha256": Sha256; }>>; }>;
 export type SubmitCaptureRequest = Readonly<{ readonly "requested_at": UtcTimestamp; }>;
 export type SubmitCaptureResponse = Readonly<{ readonly "capture_id": Uuid; readonly "detection_task_id": Uuid; readonly "pipeline_version": Version; readonly "poll_after_ms": number; readonly "status": "SUBMITTED"; }>;
+export type SystemOverview = Readonly<{ readonly "captures": OverviewCaptureCounts; readonly "fleet": OverviewFleetHealth; readonly "generated_at": UtcTimestamp; readonly "inference": OverviewInferenceHealth; readonly "model_runtime": OverviewModelRuntime; readonly "outcome_comparison": OverviewOutcomeComparison; readonly "quality_comparison": OverviewQualityComparison; readonly "reviews": OverviewReviewBacklog; readonly "window": OverviewWindow; }>;
 export type TrainingRunCreateRequest = Readonly<{ readonly "dataset_version_id": Uuid; readonly "initial_model_version_id": (Uuid) | (null); readonly "training_config_version": Version; }>;
 export type TrainingRunPage = Readonly<{ readonly "has_more": boolean; readonly "items": ReadonlyArray<TrainingRunSummary>; readonly "next_cursor": string | null; }>;
 export type TrainingRunStatusUpdateRequest = Readonly<{ readonly "error_code": (string) | (null); readonly "finished_at": (UtcTimestamp) | (null); readonly "registry_run_uri": (string) | (null); readonly "started_at": (UtcTimestamp) | (null); readonly "status": "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELLED"; }>;

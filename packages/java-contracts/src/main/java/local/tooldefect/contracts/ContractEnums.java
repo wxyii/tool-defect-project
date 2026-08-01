@@ -1,9 +1,9 @@
 // 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。
-// 契约主版本: 1；源哈希: 2f444d447ff4c6c90eef3880736497a01d3b1ffae2b368b6964e4fac6b9f4672
+// 契约主版本: 1；源哈希: 0eb4fa625dfd7124be9b43ac4bd71e2b31b407f16b22da27f37689085803ca57
 package local.tooldefect.contracts;
 
 public final class ContractEnums {
-    public static final String SOURCE_SHA256 = "2f444d447ff4c6c90eef3880736497a01d3b1ffae2b368b6964e4fac6b9f4672";
+    public static final String SOURCE_SHA256 = "0eb4fa625dfd7124be9b43ac4bd71e2b31b407f16b22da27f37689085803ca57";
     public static final int MAJOR_VERSION = 1;
     private ContractEnums() {}
 

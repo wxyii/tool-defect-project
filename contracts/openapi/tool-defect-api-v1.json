@@ -4,7 +4,7 @@
   "info": {
     "title": "刀具缺陷检测系统接口",
     "version": "1.0.0",
-    "description": "采集、业务查询、复核、数据集、训练、模型发布和内部推理接口的 v1 唯一契约源。"
+    "description": "采集、业务查询、系统总览、审计、复核、数据集、训练、模型发布和内部推理接口的 v1 唯一契约源。"
   },
   "servers": [
     {
@@ -18,6 +18,12 @@
     },
     {
       "name": "detections"
+    },
+    {
+      "name": "overview"
+    },
+    {
+      "name": "audit"
     },
     {
       "name": "reviews"
@@ -264,6 +270,93 @@
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
           "409": {"$ref": "#/components/responses/Conflict"},
+          "422": {"$ref": "#/components/responses/ValidationError"}
+        }
+      }
+    },
+    "/api/v1/dashboard/overview": {
+      "get": {
+        "operationId": "getSystemOverview",
+        "tags": ["overview"],
+        "security": [{"UserSession": []}],
+        "responses": {
+          "200": {
+            "description": "按当前人员数据范围汇总的系统运行态势",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/SystemOverview"}
+              }
+            }
+          },
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"}
+        }
+      }
+    },
+    "/api/v1/audit-records": {
+      "get": {
+        "operationId": "listAuditRecords",
+        "tags": ["audit"],
+        "security": [{"UserSession": []}],
+        "parameters": [
+          {"$ref": "#/components/parameters/RequestId"},
+          {"$ref": "#/components/parameters/Traceparent"},
+          {"$ref": "#/components/parameters/Cursor"},
+          {"$ref": "#/components/parameters/PageSize"},
+          {
+            "name": "start_time",
+            "in": "query",
+            "required": false,
+            "schema": {"$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"}
+          },
+          {
+            "name": "end_time",
+            "in": "query",
+            "required": false,
+            "schema": {"$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"}
+          },
+          {
+            "name": "actor_id",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "string", "minLength": 1, "maxLength": 256}
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "string", "minLength": 1, "maxLength": 128}
+          },
+          {
+            "name": "resource_type",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "string", "minLength": 1, "maxLength": 128}
+          },
+          {
+            "name": "resource_id",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "string", "minLength": 1, "maxLength": 256}
+          },
+          {
+            "name": "result",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "string", "minLength": 1, "maxLength": 24}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "只读审计记录游标分页结果；查询动作本身也追加审计",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/AuditRecordPage"}
+              }
+            }
+          },
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
           "422": {"$ref": "#/components/responses/ValidationError"}
         }
       }
@@ -3210,6 +3303,297 @@
           }
         },
         "additionalProperties": false
+      },
+      "OverviewWindow": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "timezone",
+          "current_start",
+          "current_end",
+          "previous_start",
+          "previous_end"
+        ],
+        "properties": {
+          "timezone": {"type": "string", "minLength": 1, "maxLength": 64},
+          "current_start": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          },
+          "current_end": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          },
+          "previous_start": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          },
+          "previous_end": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          }
+        }
+      },
+      "OverviewCaptureCounts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["total", "pass", "fail", "hold", "unresolved"],
+        "properties": {
+          "total": {"type": "integer", "minimum": 0},
+          "pass": {"type": "integer", "minimum": 0},
+          "fail": {"type": "integer", "minimum": 0},
+          "hold": {"type": "integer", "minimum": 0},
+          "unresolved": {"type": "integer", "minimum": 0}
+        }
+      },
+      "OverviewReviewBacklog": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "total",
+          "pending",
+          "claimed",
+          "second_review_pending",
+          "escalated",
+          "oldest_age_seconds"
+        ],
+        "properties": {
+          "total": {"type": "integer", "minimum": 0},
+          "pending": {"type": "integer", "minimum": 0},
+          "claimed": {"type": "integer", "minimum": 0},
+          "second_review_pending": {"type": "integer", "minimum": 0},
+          "escalated": {"type": "integer", "minimum": 0},
+          "oldest_age_seconds": {"type": "integer", "minimum": 0}
+        }
+      },
+      "OverviewFleetHealth": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "stations_total",
+          "stations_online",
+          "stations_maintenance",
+          "devices_total",
+          "devices_online",
+          "devices_degraded",
+          "devices_offline",
+          "heartbeat_freshness_seconds"
+        ],
+        "properties": {
+          "stations_total": {"type": "integer", "minimum": 0},
+          "stations_online": {"type": "integer", "minimum": 0},
+          "stations_maintenance": {"type": "integer", "minimum": 0},
+          "devices_total": {"type": "integer", "minimum": 0},
+          "devices_online": {"type": "integer", "minimum": 0},
+          "devices_degraded": {"type": "integer", "minimum": 0},
+          "devices_offline": {"type": "integer", "minimum": 0},
+          "heartbeat_freshness_seconds": {"type": "integer", "minimum": 1}
+        }
+      },
+      "OverviewInferenceHealth": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "queued",
+          "running",
+          "retry_wait",
+          "dead",
+          "failures_24h",
+          "completed_in_window",
+          "p95_duration_ms"
+        ],
+        "properties": {
+          "queued": {"type": "integer", "minimum": 0},
+          "running": {"type": "integer", "minimum": 0},
+          "retry_wait": {"type": "integer", "minimum": 0},
+          "dead": {"type": "integer", "minimum": 0},
+          "failures_24h": {"type": "integer", "minimum": 0},
+          "completed_in_window": {"type": "integer", "minimum": 0},
+          "p95_duration_ms": {
+            "type": ["number", "null"],
+            "minimum": 0
+          }
+        }
+      },
+      "OverviewProductionModel": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "deployment_id",
+          "model_version_id",
+          "registry_name",
+          "registry_version",
+          "traffic_ratio",
+          "effective_at"
+        ],
+        "properties": {
+          "deployment_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "model_version_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "registry_name": {"type": ["string", "null"], "maxLength": 256},
+          "registry_version": {"type": ["string", "null"], "maxLength": 128},
+          "traffic_ratio": {"type": "number", "minimum": 0, "maximum": 1},
+          "effective_at": {
+            "oneOf": [
+              {"$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"},
+              {"type": "null"}
+            ]
+          }
+        }
+      },
+      "OverviewModelRuntime": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "production",
+          "active_shadow_deployments",
+          "active_canary_deployments",
+          "canary_traffic_ratio"
+        ],
+        "properties": {
+          "production": {
+            "oneOf": [
+              {"$ref": "#/components/schemas/OverviewProductionModel"},
+              {"type": "null"}
+            ]
+          },
+          "active_shadow_deployments": {"type": "integer", "minimum": 0},
+          "active_canary_deployments": {"type": "integer", "minimum": 0},
+          "canary_traffic_ratio": {"type": "number", "minimum": 0, "maximum": 1}
+        }
+      },
+      "OverviewOutcomeCounts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["qualified", "unqualified", "inconclusive"],
+        "properties": {
+          "qualified": {"type": "integer", "minimum": 0},
+          "unqualified": {"type": "integer", "minimum": 0},
+          "inconclusive": {"type": "integer", "minimum": 0}
+        }
+      },
+      "OverviewOutcomeComparison": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["current", "previous"],
+        "properties": {
+          "current": {"$ref": "#/components/schemas/OverviewOutcomeCounts"},
+          "previous": {"$ref": "#/components/schemas/OverviewOutcomeCounts"}
+        }
+      },
+      "OverviewQualityCounts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ok", "warning", "rejected"],
+        "properties": {
+          "ok": {"type": "integer", "minimum": 0},
+          "warning": {"type": "integer", "minimum": 0},
+          "rejected": {"type": "integer", "minimum": 0}
+        }
+      },
+      "OverviewQualityComparison": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["current", "previous"],
+        "properties": {
+          "current": {"$ref": "#/components/schemas/OverviewQualityCounts"},
+          "previous": {"$ref": "#/components/schemas/OverviewQualityCounts"}
+        }
+      },
+      "SystemOverview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "generated_at",
+          "window",
+          "captures",
+          "reviews",
+          "fleet",
+          "inference",
+          "model_runtime",
+          "outcome_comparison",
+          "quality_comparison"
+        ],
+        "properties": {
+          "generated_at": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          },
+          "window": {"$ref": "#/components/schemas/OverviewWindow"},
+          "captures": {"$ref": "#/components/schemas/OverviewCaptureCounts"},
+          "reviews": {"$ref": "#/components/schemas/OverviewReviewBacklog"},
+          "fleet": {"$ref": "#/components/schemas/OverviewFleetHealth"},
+          "inference": {"$ref": "#/components/schemas/OverviewInferenceHealth"},
+          "model_runtime": {"$ref": "#/components/schemas/OverviewModelRuntime"},
+          "outcome_comparison": {
+            "$ref": "#/components/schemas/OverviewOutcomeComparison"
+          },
+          "quality_comparison": {
+            "$ref": "#/components/schemas/OverviewQualityComparison"
+          }
+        }
+      },
+      "AuditRecordSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "audit_id",
+          "occurred_at",
+          "actor_type",
+          "actor_id",
+          "actor_ip",
+          "action",
+          "resource_type",
+          "resource_id",
+          "before_digest",
+          "after_digest",
+          "reason",
+          "request_id",
+          "trace_id",
+          "result",
+          "error_code"
+        ],
+        "properties": {
+          "audit_id": {"$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"},
+          "occurred_at": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          },
+          "actor_type": {"type": "string", "minLength": 1, "maxLength": 24},
+          "actor_id": {"type": "string", "minLength": 1, "maxLength": 256},
+          "actor_ip": {"type": ["string", "null"], "maxLength": 64},
+          "action": {"type": "string", "minLength": 1, "maxLength": 128},
+          "resource_type": {"type": "string", "minLength": 1, "maxLength": 128},
+          "resource_id": {"type": "string", "minLength": 1, "maxLength": 256},
+          "before_digest": {
+            "oneOf": [
+              {"$ref": "../json-schema/common-v1.schema.json#/$defs/Sha256"},
+              {"type": "null"}
+            ]
+          },
+          "after_digest": {
+            "oneOf": [
+              {"$ref": "../json-schema/common-v1.schema.json#/$defs/Sha256"},
+              {"type": "null"}
+            ]
+          },
+          "reason": {"type": ["string", "null"], "maxLength": 2048},
+          "request_id": {"type": "string", "minLength": 1, "maxLength": 128},
+          "trace_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+          "result": {"type": "string", "minLength": 1, "maxLength": 24},
+          "error_code": {"type": ["string", "null"], "maxLength": 64}
+        }
+      },
+      "AuditRecordPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items", "next_cursor", "has_more"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {"$ref": "#/components/schemas/AuditRecordSummary"}
+          },
+          "next_cursor": {"type": ["string", "null"]},
+          "has_more": {"type": "boolean"}
+        }
       },
       "CaptureCreateRequest": {
         "type": "object",

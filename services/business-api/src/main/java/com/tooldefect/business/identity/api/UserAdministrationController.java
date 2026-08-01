@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.http.HttpStatus;
 
+import com.tooldefect.business.identity.application.LocalIdentity;
 import com.tooldefect.business.identity.application.LocalIdentityService;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -38,7 +39,7 @@ public class UserAdministrationController {
             @RequestBody CreateUserRequest body) {
         UUID id = identities.createUser(
             body.username(), body.displayName(), body.initialPassword(),
-            body.roles(), authentication.getName());
+            body.roles(), actor(authentication));
         return Map.of("user_id", id.toString());
     }
 
@@ -48,7 +49,7 @@ public class UserAdministrationController {
             Authentication authentication,
             @org.springframework.web.bind.annotation.PathVariable UUID userId,
             @RequestBody StatusRequest body) {
-        identities.setStatus(userId, body.status(), authentication.getName());
+        identities.setStatus(userId, body.status(), actor(authentication));
     }
 
     @PutMapping("/{userId}/roles")
@@ -57,7 +58,7 @@ public class UserAdministrationController {
             Authentication authentication,
             @org.springframework.web.bind.annotation.PathVariable UUID userId,
             @RequestBody RolesRequest body) {
-        identities.setRoles(userId, body.roles(), authentication.getName());
+        identities.setRoles(userId, body.roles(), actor(authentication));
     }
 
     @PostMapping("/{userId}/password-reset")
@@ -67,7 +68,15 @@ public class UserAdministrationController {
             @org.springframework.web.bind.annotation.PathVariable UUID userId,
             @RequestBody PasswordResetRequest body) {
         identities.resetPassword(
-            userId, body.temporaryPassword(), authentication.getName());
+            userId, body.temporaryPassword(), actor(authentication));
+    }
+
+    static String actor(Authentication authentication) {
+        if (authentication != null
+                && authentication.getPrincipal() instanceof LocalIdentity identity) {
+            return identity.userId().toString();
+        }
+        return authentication == null ? "unknown" : authentication.getName();
     }
 
     public record CreateUserRequest(

@@ -2,6 +2,8 @@ package com.tooldefect.business.identity.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Set;
+
 import org.junit.jupiter.api.Test;
 
 class RolePermissionMatrixTest {
@@ -30,15 +32,37 @@ class RolePermissionMatrixTest {
     }
 
     @Test
-    void administratorCannotSubmitQualityConclusionByDefault() {
-        assertThat(RolePermissionMatrix.allows(
-            SystemRole.SYSTEM_OPERATOR,
-            "review:submit"
-        )).isFalse();
-        assertThat(RolePermissionMatrix.allows(
-            SystemRole.SYSTEM_OPERATOR,
-            "quality:override"
-        )).isFalse();
+    void systemAdministratorHasAllPersonnelPermissions() {
+        Set<String> expected = Set.of(
+            "capture:read",
+            "detection:read",
+            "image:view",
+            "image:original:download",
+            "review:read",
+            "review:claim",
+            "review:submit",
+            "review:annotate",
+            "review:escalate",
+            "quality:override",
+            "quality:read",
+            "dataset:approve",
+            "dataset:create",
+            "training:create",
+            "training:read",
+            "model:register",
+            "model:validate",
+            "model:deploy:approve",
+            "model:rollback",
+            "device:configure",
+            "user:manage",
+            "model:deploy:execute",
+            "certificate:manage",
+            "security:policy:manage",
+            "audit:read"
+        );
+
+        assertThat(RolePermissionMatrix.permissions(SystemRole.SYSTEM_OPERATOR))
+            .containsExactlyInAnyOrderElementsOf(expected);
     }
 
     @Test

@@ -26,6 +26,7 @@ public class JdbcAuditTrail implements AuditTrail {
                 occurred_at,
                 actor_type,
                 actor_id,
+                actor_ip,
                 action,
                 resource_type,
                 resource_id,
@@ -36,12 +37,13 @@ public class JdbcAuditTrail implements AuditTrail {
                 trace_id,
                 result,
                 error_code
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?::inet, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             record.auditId(),
             Timestamp.from(record.occurredAt()),
             record.actorType(),
             record.actorId(),
+            record.actorIp(),
             record.action(),
             record.resourceType(),
             record.resourceId(),

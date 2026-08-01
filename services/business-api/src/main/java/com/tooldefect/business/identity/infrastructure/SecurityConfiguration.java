@@ -136,6 +136,14 @@ public class SecurityConfiguration {
                     .hasAuthority("user:manage")
                 .requestMatchers(
                     HttpMethod.GET,
+                    "/api/v1/dashboard/overview"
+                ).hasAuthority("detection:read")
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/v1/audit-records"
+                ).hasAuthority("audit:read")
+                .requestMatchers(
+                    HttpMethod.GET,
                     "/api/v1/detections",
                     "/api/v1/detections/*"
                 ).hasAuthority("detection:read")
