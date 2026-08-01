@@ -3,9 +3,14 @@ import { onMounted, ref } from 'vue'
 import type { QualityMetrics } from './service'
 import { QualityService } from './service'
 import { useApplicationApiClient } from '@/api/runtime'
+import { ModelService } from '@/features/models/service'
+import type { ModelVersionSummary } from '@/features/models/service'
 
-const service = new QualityService(useApplicationApiClient())
+const api = useApplicationApiClient()
+const service = new QualityService(api)
+const models = new ModelService(api)
 const metrics = ref<QualityMetrics | null>(null)
+const modelVersions = ref<readonly ModelVersionSummary[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
 
@@ -13,7 +18,20 @@ const startDate = ref('')
 const endDate = ref('')
 const modelVersionId = ref('')
 
-onMounted(() => void load())
+onMounted(() => {
+  void load()
+  void loadModelVersions()
+})
+
+async function loadModelVersions(): Promise<void> {
+  try {
+    modelVersions.value = (
+      await models.listModelVersions(undefined, { pageSize: 100 })
+    ).items
+  } catch {
+    modelVersions.value = []
+  }
+}
 
 async function load(): Promise<void> {
   loading.value = true
@@ -69,7 +87,12 @@ function formatDate(iso: string): string {
       </label>
       <label>
         模型版本
-        <input v-model="modelVersionId" maxlength="128" placeholder="例如 model/3" />
+        <select v-model="modelVersionId">
+          <option value="">全部模型版本</option>
+          <option v-for="item in modelVersions" :key="item.model_version_id" :value="item.model_version_id">
+            {{ item.registry_name }} · {{ item.registry_version }} · {{ item.approval_state }}
+          </option>
+        </select>
       </label>
       <button type="submit" class="primary-button compact">刷新指标</button>
     </form>

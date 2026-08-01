@@ -1284,7 +1284,165 @@
         "x-write-example-operation": "completeReviewAnnotation"
       }
     },
+    "/api/v1/datasets": {
+      "get": {
+        "operationId": "listDatasets",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PageSize"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "数据集目录",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createDataset",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatasetCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "数据集目录项已创建",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "createDataset"
+      }
+    },
     "/api/v1/dataset-versions": {
+      "get": {
+        "operationId": "listDatasetVersionCatalog",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "BUILDING",
+                "VALIDATING",
+                "FROZEN",
+                "REJECTED"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "跨数据集版本目录",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetVersionPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        }
+      },
       "post": {
         "operationId": "createDatasetVersion",
         "tags": [
@@ -1539,6 +1697,61 @@
       }
     },
     "/api/v1/training-runs": {
+      "get": {
+        "operationId": "listTrainingRuns",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "QUEUED",
+                "RUNNING",
+                "SUCCEEDED",
+                "FAILED",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "训练运行目录",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrainingRunPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        }
+      },
       "post": {
         "operationId": "createTrainingRun",
         "tags": [
@@ -1698,6 +1911,102 @@
         "x-write-example-operation": "updateTrainingRunStatus"
       }
     },
+    "/api/v1/models": {
+      "get": {
+        "operationId": "listModels",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PageSize"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "模型目录",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createModel",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "模型目录项已创建",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        },
+        "x-write-example-operation": "createModel"
+      }
+    },
     "/api/v1/model-versions": {
       "post": {
         "operationId": "registerModelVersion",
@@ -1767,9 +2076,24 @@
           {
             "name": "model_id",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+            }
+          },
+          {
+            "name": "approval_state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CANDIDATE",
+                "VALIDATED",
+                "APPROVED",
+                "REJECTED",
+                "RETIRED"
+              ]
             }
           },
           {
@@ -1917,6 +2241,69 @@
       }
     },
     "/api/v1/model-deployments": {
+      "get": {
+        "operationId": "listModelDeployments",
+        "tags": [
+          "mlops"
+        ],
+        "security": [
+          {
+            "UserSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "model_version_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "REQUESTED",
+                "APPROVED",
+                "ACTIVE",
+                "ROLLED_BACK",
+                "REJECTED"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "模型部署目录",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelDeploymentPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        }
+      },
       "post": {
         "operationId": "createModelDeployment",
         "tags": [
@@ -3643,6 +4030,113 @@
           }
         }
       },
+      "DatasetCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "dataset_name",
+          "purpose"
+        ],
+        "properties": {
+          "dataset_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      },
+      "DatasetSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "dataset_id",
+          "dataset_name",
+          "purpose",
+          "version_count",
+          "latest_version",
+          "latest_status",
+          "created_at"
+        ],
+        "properties": {
+          "dataset_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "dataset_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "version_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "latest_version": {
+            "oneOf": [
+              {
+                "$ref": "../json-schema/common-v1.schema.json#/$defs/Version"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "latest_status": {
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "BUILDING",
+                  "VALIDATING",
+                  "FROZEN",
+                  "REJECTED"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          }
+        }
+      },
+      "DatasetPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatasetSummary"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        }
+      },
       "DatasetVersionCreateRequest": {
         "type": "object",
         "additionalProperties": false,
@@ -3903,6 +4397,108 @@
           }
         }
       },
+      "TrainingRunSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "training_run_id",
+          "dataset_version_id",
+          "training_config_version",
+          "initial_model_version_id",
+          "status",
+          "failure_code",
+          "started_at",
+          "finished_at",
+          "created_at"
+        ],
+        "properties": {
+          "training_run_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "dataset_version_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "training_config_version": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Version"
+          },
+          "initial_model_version_id": {
+            "oneOf": [
+              {
+                "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "RUNNING",
+              "SUCCEEDED",
+              "FAILED",
+              "CANCELLED"
+            ]
+          },
+          "failure_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128
+          },
+          "started_at": {
+            "oneOf": [
+              {
+                "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "finished_at": {
+            "oneOf": [
+              {
+                "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          }
+        }
+      },
+      "TrainingRunPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrainingRunSummary"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        }
+      },
       "TrainingRunCreateRequest": {
         "type": "object",
         "additionalProperties": false,
@@ -3993,6 +4589,111 @@
                 "type": "null"
               }
             ]
+          }
+        }
+      },
+      "ModelCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model_name",
+          "task_type"
+        ],
+        "properties": {
+          "model_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "task_type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        }
+      },
+      "ModelSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model_id",
+          "model_name",
+          "task_type",
+          "version_count",
+          "latest_version",
+          "latest_approval_state",
+          "created_at"
+        ],
+        "properties": {
+          "model_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "model_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "task_type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "version_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "latest_version": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "latest_approval_state": {
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "CANDIDATE",
+                  "VALIDATED",
+                  "APPROVED",
+                  "REJECTED",
+                  "RETIRED"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          }
+        }
+      },
+      "ModelPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ModelSummary"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
           }
         }
       },
@@ -4200,6 +4901,80 @@
           },
           "created_at": {
             "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          }
+        }
+      },
+      "ModelDeploymentSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "deployment_id",
+          "model_version_id",
+          "environment",
+          "strategy",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "deployment_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "model_version_id": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "SHADOW",
+              "CANARY",
+              "PRODUCTION"
+            ]
+          },
+          "strategy": {
+            "type": "string",
+            "enum": [
+              "STATION",
+              "PERCENTAGE"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "REQUESTED",
+              "APPROVED",
+              "ACTIVE",
+              "ROLLED_BACK",
+              "REJECTED"
+            ]
+          },
+          "created_at": {
+            "$ref": "../json-schema/common-v1.schema.json#/$defs/UtcTimestamp"
+          }
+        }
+      },
+      "ModelDeploymentPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ModelDeploymentSummary"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
           }
         }
       },

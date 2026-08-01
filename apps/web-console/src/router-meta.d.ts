@@ -7,6 +7,7 @@ declare module 'vue-router' {
     requiresAuth: boolean
     standalone?: boolean
     permissions?: readonly string[]
+    anyPermissions?: readonly string[]
     menuLabel?: string
     menuIcon?: string
     workstation?: boolean

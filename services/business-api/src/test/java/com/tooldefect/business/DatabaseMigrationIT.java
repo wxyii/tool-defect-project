@@ -27,8 +27,12 @@ import org.testcontainers.utility.DockerImageName;
 
 import com.tooldefect.business.detection.domain.DetectionNotFound;
 import com.tooldefect.business.detection.infrastructure.JdbcDetectionQueryRepository;
+import com.tooldefect.business.dataset.infrastructure.JdbcDatasetRepository;
+import com.tooldefect.business.deployment.infrastructure.JdbcDeploymentRepository;
+import com.tooldefect.business.model.infrastructure.JdbcModelRepository;
 import com.tooldefect.business.review.domain.ReviewStatus;
 import com.tooldefect.business.review.infrastructure.JdbcReviewRepository;
+import com.tooldefect.business.training.infrastructure.JdbcTrainingRunRepository;
 
 /**
  * 真实 PostgreSQL 上验证空库、向前迁移、约束以及备份恢复。Docker 不可用时
@@ -51,7 +55,7 @@ class DatabaseMigrationIT {
 
         var result = flyway.migrate();
 
-        assertThat(result.migrationsExecuted).isEqualTo(11);
+        assertThat(result.migrationsExecuted).isEqualTo(12);
         flyway.validate();
         JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
         assertThat(jdbc.queryForObject(
@@ -61,7 +65,7 @@ class DatabaseMigrationIT {
             WHERE success AND version IS NOT NULL
             """,
             Integer.class
-        )).isEqualTo(11);
+        )).isEqualTo(12);
         assertThat(jdbc.queryForObject(
             """
             SELECT COUNT(*)
@@ -77,6 +81,73 @@ class DatabaseMigrationIT {
             Boolean.class,
             schema + ".upload_session"
         )).isTrue();
+        assertThat(jdbc.queryForList(
+            """
+            SELECT role.role_code || ':' || permission.permission_code
+            FROM sys_role role
+            JOIN sys_role_permission mapping ON mapping.role_id = role.role_id
+            JOIN sys_permission permission
+              ON permission.permission_id = mapping.permission_id
+            WHERE permission.permission_code IN ('quality:read', 'training:read')
+            ORDER BY role.role_code, permission.permission_code
+            """,
+            String.class
+        )).containsExactly(
+            "ALGORITHM_ENGINEER:training:read",
+            "AUDITOR:quality:read",
+            "AUDITOR:training:read",
+            "MODEL_APPROVER:training:read",
+            "QUALITY_MANAGER:quality:read"
+        );
+    }
+
+    @Test
+    void managementCatalogsExposeCreatedRootsAndEmptyLifecycleLists() {
+        String schema = uniqueName("management_catalogs");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+        UUID datasetId = UUID.randomUUID();
+        UUID modelId = UUID.randomUUID();
+        Instant createdAt = Instant.parse("2026-08-01T00:00:00Z");
+
+        var datasets = new JdbcDatasetRepository(jdbc);
+        datasets.insertDataset(
+            datasetId, "生产候选集", "增量训练", createdAt
+        );
+        Map<String, Object> datasetPage = datasets.listDatasets(
+            "auditor", 50, null
+        );
+        assertThat((List<?>) datasetPage.get("items")).singleElement()
+            .isInstanceOfSatisfying(Map.class, item -> assertThat(item)
+                .containsEntry("dataset_id", datasetId.toString())
+                .containsEntry("dataset_name", "生产候选集")
+                .containsEntry("version_count", 0));
+        assertThat(datasets.listVersions(
+            "auditor", null, "FROZEN", 50, null
+        )).containsEntry("items", List.of());
+
+        var models = new JdbcModelRepository(jdbc);
+        models.insertModel(
+            modelId, "多任务模型", "classification-segmentation", createdAt
+        );
+        Map<String, Object> modelPage = models.listModels(
+            "auditor", 50, null
+        );
+        assertThat((List<?>) modelPage.get("items")).singleElement()
+            .isInstanceOfSatisfying(Map.class, item -> assertThat(item)
+                .containsEntry("model_id", modelId.toString())
+                .containsEntry("model_name", "多任务模型")
+                .containsEntry("version_count", 0));
+        assertThat(models.listVersions(
+            "auditor", null, "APPROVED", 50, null
+        )).containsEntry("items", List.of());
+
+        assertThat(new JdbcTrainingRunRepository(jdbc).listRuns(
+            "auditor", null, 50, null
+        )).containsEntry("items", List.of());
+        assertThat(new JdbcDeploymentRepository(jdbc).listDeployments(
+            "auditor", null, null, 50, null
+        )).containsEntry("items", List.of());
     }
 
     @Test
@@ -170,7 +241,7 @@ class DatabaseMigrationIT {
         );
 
         Flyway latest = flyway(POSTGRES.getJdbcUrl(), schema, null);
-        assertThat(latest.migrate().migrationsExecuted).isEqualTo(9);
+        assertThat(latest.migrate().migrationsExecuted).isEqualTo(10);
 
         assertThat(jdbc.queryForObject(
             "SELECT organization_id FROM production_line WHERE line_id = ?",
@@ -858,7 +929,7 @@ class DatabaseMigrationIT {
         assertThat(restored.queryForObject(
             "SELECT COUNT(*) FROM flyway_schema_history WHERE success",
             Integer.class
-        )).isEqualTo(11);
+        )).isEqualTo(12);
         flyway(databaseUrl(restoredDatabase), "public", null).validate();
     }
 

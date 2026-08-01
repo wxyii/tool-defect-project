@@ -1,5 +1,5 @@
 // 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。
-// 契约主版本: 1；源哈希: 698d11ac5202bb62df31a09ed1c46be7280d905bc497c612fa9ab557e35b26cc
+// 契约主版本: 1；源哈希: 2f444d447ff4c6c90eef3880736497a01d3b1ffae2b368b6964e4fac6b9f4672
 package local.tooldefect.contracts;
 
 import java.util.Map;
@@ -12,9 +12,11 @@ public interface ApiClient {
     Map<String, Object> completeReviewAnnotation(Map<String, Object> request);
     Map<String, Object> createAnnotationUploadTicket(Map<String, Object> request);
     Map<String, Object> createCapture(Map<String, Object> request);
+    Map<String, Object> createDataset(Map<String, Object> request);
     Map<String, Object> createDatasetVersion(Map<String, Object> request);
     Map<String, Object> createImageAccessTicket(Map<String, Object> request);
     Map<String, Object> createLocalUser(Map<String, Object> request);
+    Map<String, Object> createModel(Map<String, Object> request);
     Map<String, Object> createModelDeployment(Map<String, Object> request);
     Map<String, Object> createTrainingRun(Map<String, Object> request);
     Map<String, Object> diffDatasetVersions(Map<String, Object> request);
@@ -29,12 +31,17 @@ public interface ApiClient {
     Map<String, Object> getQualityMetrics(Map<String, Object> request);
     Map<String, Object> getReviewWorkspace(Map<String, Object> request);
     Map<String, Object> getTrainingRun(Map<String, Object> request);
+    Map<String, Object> listDatasetVersionCatalog(Map<String, Object> request);
     Map<String, Object> listDatasetVersions(Map<String, Object> request);
+    Map<String, Object> listDatasets(Map<String, Object> request);
     Map<String, Object> listDetections(Map<String, Object> request);
     Map<String, Object> listLocalUsers(Map<String, Object> request);
+    Map<String, Object> listModelDeployments(Map<String, Object> request);
     Map<String, Object> listModelVersions(Map<String, Object> request);
+    Map<String, Object> listModels(Map<String, Object> request);
     Map<String, Object> listReviewTasks(Map<String, Object> request);
     Map<String, Object> listRuntimeModels(Map<String, Object> request);
+    Map<String, Object> listTrainingRuns(Map<String, Object> request);
     Map<String, Object> loginLocalUser(Map<String, Object> request);
     Map<String, Object> logoutLocalUser(Map<String, Object> request);
     Map<String, Object> queryCaptureSync(Map<String, Object> request);

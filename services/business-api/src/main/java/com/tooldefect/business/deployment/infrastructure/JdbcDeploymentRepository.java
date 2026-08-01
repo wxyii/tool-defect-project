@@ -117,17 +117,36 @@ public class JdbcDeploymentRepository implements DeploymentRepository, Deploymen
     @Override
     public Map<String, Object> listDeployments(
             String actorId, UUID modelVersionId, int pageSize, String cursor) {
+        return listDeployments(
+            actorId, modelVersionId, null, pageSize, cursor
+        );
+    }
+
+    @Override
+    public Map<String, Object> listDeployments(
+            String actorId,
+            UUID modelVersionId,
+            String status,
+            int pageSize,
+            String cursor) {
         List<Object> args = new ArrayList<>();
         StringBuilder sql = new StringBuilder(
             "SELECT md.model_deployment_id AS deployment_id, md.model_version_id, " +
             "md.environment, md.deployment_strategy AS strategy, md.status, " +
             "md.release_approved_by AS approved_by, md.created_at " +
-            "FROM model_deployment md WHERE md.model_version_id = ?::uuid "
+            "FROM model_deployment md WHERE 1=1 "
         );
-        args.add(modelVersionId);
-        if (cursor != null) {
+        if (modelVersionId != null) {
+            sql.append("AND md.model_version_id = ?::uuid ");
+            args.add(modelVersionId);
+        }
+        if (status != null && !status.isBlank()) {
+            sql.append("AND md.status = ? ");
+            args.add(status);
+        }
+        if (cursor != null && !cursor.isBlank()) {
             sql.append("AND md.created_at < ?::timestamptz ");
-            args.add(Instant.parse(cursor));
+            args.add(parseCursor(cursor));
         }
         sql.append("ORDER BY md.created_at DESC LIMIT ?");
         args.add(pageSize + 1);
@@ -136,12 +155,16 @@ public class JdbcDeploymentRepository implements DeploymentRepository, Deploymen
         if (hasMore) {
             rows = rows.subList(0, pageSize);
         }
+        List<Map<String, Object>> items = rows.stream()
+            .map(JdbcDeploymentRepository::deploymentSummary)
+            .toList();
         String nextCursor = null;
         if (hasMore && !rows.isEmpty()) {
-            nextCursor = String.valueOf(rows.get(rows.size() - 1).get("created_at"));
+            nextCursor = ((java.sql.Timestamp) rows.get(rows.size() - 1)
+                .get("created_at")).toInstant().toString();
         }
         Map<String, Object> page = new LinkedHashMap<>();
-        page.put("items", rows);
+        page.put("items", items);
         page.put("next_cursor", nextCursor);
         page.put("has_more", hasMore);
         return page;
@@ -158,34 +181,37 @@ public class JdbcDeploymentRepository implements DeploymentRepository, Deploymen
     @Override
     public Map<String, Object> listByStatus(
             String actorId, String status, int pageSize, String cursor) {
-        List<Object> args = new ArrayList<>();
-        StringBuilder sql = new StringBuilder(
-            "SELECT md.model_deployment_id AS deployment_id, md.model_version_id, " +
-            "md.environment, md.deployment_strategy AS strategy, md.status, " +
-            "md.release_approved_by AS approved_by, md.created_at " +
-            "FROM model_deployment md WHERE md.status = ? "
+        return listDeployments(
+            actorId, null, status, pageSize, cursor
         );
-        args.add(status);
-        if (cursor != null) {
-            sql.append("AND md.created_at < ?::timestamptz ");
-            args.add(Instant.parse(cursor));
+    }
+
+    private static Map<String, Object> deploymentSummary(
+            Map<String, Object> row) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("deployment_id", String.valueOf(row.get("deployment_id")));
+        result.put(
+            "model_version_id", String.valueOf(row.get("model_version_id"))
+        );
+        result.put("environment", String.valueOf(row.get("environment")));
+        result.put("strategy", String.valueOf(row.get("strategy")));
+        result.put("status", String.valueOf(row.get("status")));
+        result.put(
+            "created_at",
+            ((java.sql.Timestamp) row.get("created_at")).toInstant().toString()
+        );
+        return result;
+    }
+
+    private static Instant parseCursor(String cursor) {
+        try {
+            return Instant.parse(cursor);
+        } catch (java.time.DateTimeException invalid) {
+            throw new com.tooldefect.business.shared.api.ContractValues
+                .ContractInputViolation(
+                    "cursor 不符合模型部署分页契约", invalid
+                );
         }
-        sql.append("ORDER BY md.created_at DESC LIMIT ?");
-        args.add(pageSize + 1);
-        List<Map<String, Object>> rows = jdbc.queryForList(sql.toString(), args.toArray());
-        boolean hasMore = rows.size() > pageSize;
-        if (hasMore) {
-            rows = rows.subList(0, pageSize);
-        }
-        String nextCursor = null;
-        if (hasMore && !rows.isEmpty()) {
-            nextCursor = String.valueOf(rows.get(rows.size() - 1).get("created_at"));
-        }
-        Map<String, Object> page = new LinkedHashMap<>();
-        page.put("items", rows);
-        page.put("next_cursor", nextCursor);
-        page.put("has_more", hasMore);
-        return page;
     }
 
     private static ModelDeployment mapDeployment(ResultSet rs, int rowNum) throws SQLException {

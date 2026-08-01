@@ -1,6 +1,9 @@
 import type { ApiClient } from '@/api/client'
 import type {
   Acknowledgement,
+  ModelCreateRequest,
+  ModelPage,
+  ModelSummary,
   ModelVersionRegisterRequest,
   ModelVersionRegistrationResponse,
   ValidationDecisionRequest,
@@ -49,18 +52,42 @@ export type ModelValidationDecisionRequest = ValidationDecisionRequest
 export interface ModelVersionFilter {
   readonly cursor?: string
   readonly pageSize?: number
+  readonly approvalState?: ModelApprovalState
 }
+
+export type ModelCreate = ModelCreateRequest
+export type ModelCatalogPage = ModelPage
+export type ModelCatalogSummary = ModelSummary
 
 export class ModelService {
   constructor(private readonly api: ApiClient) {}
 
+  async listModels(
+    filter: Pick<ModelVersionFilter, 'cursor' | 'pageSize'> = {},
+  ): Promise<ModelCatalogPage> {
+    const query: Record<string, string | number> = {
+      page_size: filter.pageSize ?? 50,
+    }
+    if (filter.cursor !== undefined) query.cursor = filter.cursor
+    return modelPage(await this.api.listModels({ query }))
+  }
+
+  async createModel(request: ModelCreate): Promise<ModelCatalogSummary> {
+    return modelSummary(await this.api.createModel({
+      body: request as unknown as JsonObject,
+    }))
+  }
+
   async listModelVersions(
-    modelId: string,
+    modelId?: string,
     filter: ModelVersionFilter = {},
   ): Promise<ModelVersionPage> {
     const query: Record<string, string | number> = {
-      model_id: modelId,
       page_size: filter.pageSize ?? 25,
+    }
+    if (modelId !== undefined && modelId !== '') query.model_id = modelId
+    if (filter.approvalState !== undefined) {
+      query.approval_state = filter.approvalState
     }
     if (filter.cursor !== undefined) query.cursor = filter.cursor
     return modelVersionPage(
@@ -97,6 +124,51 @@ export class ModelService {
       }),
     )
   }
+}
+
+function modelPage(value: JsonObject): ModelCatalogPage {
+  exact(value, ['items', 'next_cursor', 'has_more'])
+  if (
+    !Array.isArray(value.items)
+    || !(value.next_cursor === null || typeof value.next_cursor === 'string')
+    || typeof value.has_more !== 'boolean'
+  ) {
+    throw incompatible()
+  }
+  return Object.freeze({
+    items: Object.freeze(value.items.map(modelSummary)),
+    next_cursor: value.next_cursor,
+    has_more: value.has_more,
+  }) as ModelCatalogPage
+}
+
+function modelSummary(value: unknown): ModelCatalogSummary {
+  if (!isObject(value)) throw incompatible()
+  exact(value, [
+    'model_id',
+    'model_name',
+    'task_type',
+    'version_count',
+    'latest_version',
+    'latest_approval_state',
+    'created_at',
+  ])
+  if (
+    typeof value.model_id !== 'string'
+    || typeof value.model_name !== 'string'
+    || typeof value.task_type !== 'string'
+    || typeof value.version_count !== 'number'
+    || !Number.isInteger(value.version_count)
+    || !(value.latest_version === null
+      || (typeof value.latest_version === 'number'
+        && Number.isInteger(value.latest_version)))
+    || !(value.latest_approval_state === null
+      || APPROVAL_STATES.has(value.latest_approval_state as ModelApprovalState))
+    || typeof value.created_at !== 'string'
+  ) {
+    throw incompatible()
+  }
+  return Object.freeze(value) as ModelCatalogSummary
 }
 
 function modelVersionPage(value: JsonObject): ModelVersionPage {
@@ -219,6 +291,10 @@ function exact(value: JsonObject, keys: readonly string[]): void {
   ) {
     throw incompatible()
   }
+}
+
+function isObject(value: unknown): value is JsonObject {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function incompatible(): Error {

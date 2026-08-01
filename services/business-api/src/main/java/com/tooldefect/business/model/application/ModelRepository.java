@@ -8,6 +8,13 @@ import java.util.UUID;
 
 public interface ModelRepository {
 
+    void insertModel(
+        UUID modelId,
+        String modelName,
+        String taskType,
+        Instant createdAt
+    );
+
     Optional<ModelVersion> findVersion(UUID modelVersionId);
 
     void insertVersion(ModelVersion version);

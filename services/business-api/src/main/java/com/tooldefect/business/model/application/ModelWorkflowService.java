@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -42,6 +43,35 @@ public class ModelWorkflowService {
         this.identifiers = Objects.requireNonNull(identifiers);
         this.clock = Objects.requireNonNull(clock);
         this.json = Objects.requireNonNull(json);
+    }
+
+    @Transactional
+    public IdempotencyService.Response createModel(
+            String actorId,
+            String idempotencyKey,
+            Map<String, Object> request) {
+        return idempotency.execute(
+            "createModel",
+            actorId,
+            idempotencyKey,
+            request,
+            () -> {
+                UUID modelId = identifiers.next();
+                String modelName = String.valueOf(request.get("model_name"));
+                String taskType = String.valueOf(request.get("task_type"));
+                Instant createdAt = Instant.now(clock);
+                models.insertModel(modelId, modelName, taskType, createdAt);
+                Map<String, Object> body = new LinkedHashMap<>();
+                body.put("model_id", modelId.toString());
+                body.put("model_name", modelName);
+                body.put("task_type", taskType);
+                body.put("version_count", 0);
+                body.put("latest_version", null);
+                body.put("latest_approval_state", null);
+                body.put("created_at", createdAt.toString());
+                return new IdempotencyService.Response(201, body);
+            }
+        );
     }
 
     @Transactional

@@ -1,5 +1,9 @@
 import type { ApiClient } from '@/api/client'
-import type { TrainingRunCreateRequest } from '@/api/generated'
+import type {
+  TrainingRunCreateRequest,
+  TrainingRunPage as ContractTrainingRunPage,
+  TrainingRunSummary as ContractTrainingRunSummary,
+} from '@/api/generated'
 import type { JsonObject } from '@/api/generated'
 
 export interface TrainingRunView {
@@ -15,8 +19,26 @@ export interface TrainingAccepted {
   readonly poll_after_ms: number
 }
 
+export type TrainingRunSummary = ContractTrainingRunSummary
+export type TrainingRunPage = ContractTrainingRunPage
+
+export interface TrainingRunFilter {
+  readonly status?: TrainingRunSummary['status']
+  readonly cursor?: string
+  readonly pageSize?: number
+}
+
 export class TrainingService {
   constructor(private readonly api: ApiClient) {}
+
+  async list(filter: TrainingRunFilter = {}): Promise<TrainingRunPage> {
+    const query: Record<string, string | number> = {
+      page_size: filter.pageSize ?? 50,
+    }
+    if (filter.status !== undefined) query.status = filter.status
+    if (filter.cursor !== undefined) query.cursor = filter.cursor
+    return trainingRunPage(await this.api.listTrainingRuns({ query }))
+  }
 
   async create(request: TrainingRunCreateRequest): Promise<TrainingAccepted> {
     return accepted(
@@ -33,6 +55,53 @@ export class TrainingService {
       }),
     )
   }
+}
+
+function trainingRunPage(value: JsonObject): TrainingRunPage {
+  exact(value, ['items', 'next_cursor', 'has_more'])
+  if (
+    !Array.isArray(value.items)
+    || !(value.next_cursor === null || typeof value.next_cursor === 'string')
+    || typeof value.has_more !== 'boolean'
+  ) {
+    throw incompatible()
+  }
+  return Object.freeze({
+    items: Object.freeze(value.items.map(trainingRunSummary)),
+    next_cursor: value.next_cursor,
+    has_more: value.has_more,
+  }) as TrainingRunPage
+}
+
+function trainingRunSummary(value: unknown): TrainingRunSummary {
+  if (!isObject(value)) throw incompatible()
+  exact(value, [
+    'training_run_id',
+    'dataset_version_id',
+    'training_config_version',
+    'initial_model_version_id',
+    'status',
+    'failure_code',
+    'started_at',
+    'finished_at',
+    'created_at',
+  ])
+  if (
+    typeof value.training_run_id !== 'string'
+    || typeof value.dataset_version_id !== 'string'
+    || typeof value.training_config_version !== 'string'
+    || !(value.initial_model_version_id === null
+      || typeof value.initial_model_version_id === 'string')
+    || !['QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'CANCELLED']
+      .includes(String(value.status))
+    || !(value.failure_code === null || typeof value.failure_code === 'string')
+    || !(value.started_at === null || typeof value.started_at === 'string')
+    || !(value.finished_at === null || typeof value.finished_at === 'string')
+    || typeof value.created_at !== 'string'
+  ) {
+    throw incompatible()
+  }
+  return Object.freeze(value) as TrainingRunSummary
 }
 
 function trainingRun(value: JsonObject): TrainingRunView {
@@ -83,4 +152,8 @@ function exact(value: JsonObject, keys: readonly string[]): void {
 
 function incompatible(): Error {
   return new Error('TD-CONTRACT-INCOMPATIBLE-001')
+}
+
+function isObject(value: unknown): value is JsonObject {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

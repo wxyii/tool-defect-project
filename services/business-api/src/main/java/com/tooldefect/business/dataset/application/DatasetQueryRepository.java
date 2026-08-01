@@ -5,7 +5,19 @@ import java.util.UUID;
 
 public interface DatasetQueryRepository {
 
+    Map<String, Object> listDatasets(
+        String actorId, int pageSize, String cursor
+    );
+
     Map<String, Object> listVersions(String actorId, UUID datasetId, int pageSize, String cursor);
+
+    Map<String, Object> listVersions(
+        String actorId,
+        UUID datasetId,
+        String status,
+        int pageSize,
+        String cursor
+    );
 
     Map<String, Object> detailVersion(String actorId, UUID datasetVersionId);
 

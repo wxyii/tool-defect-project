@@ -79,14 +79,13 @@ async function beginLogin(): Promise<void> {
             required
           />
         </label>
-      <button
-        type="submit"
-        class="primary-button"
-        :disabled="busy"
-        @click="beginLogin"
-      >
-        {{ busy ? '正在登录…' : '登录' }}
-      </button>
+        <button
+          type="submit"
+          class="primary-button"
+          :disabled="busy"
+        >
+          {{ busy ? '正在登录…' : '登录' }}
+        </button>
       </form>
     </section>
   </main>

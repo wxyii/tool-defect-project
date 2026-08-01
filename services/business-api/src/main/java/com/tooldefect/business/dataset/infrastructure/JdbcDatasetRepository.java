@@ -8,7 +8,9 @@ import com.tooldefect.business.dataset.domain.CandidateManifest;
 import com.tooldefect.business.dataset.domain.DatasetVersion;
 import com.tooldefect.business.dataset.domain.DatasetVersionState;
 import com.tooldefect.business.dataset.domain.DatasetNotFound;
+import com.tooldefect.business.shared.domain.DomainViolation;
 
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -25,6 +27,27 @@ public class JdbcDatasetRepository implements DatasetRepository, DatasetQueryRep
 
     public JdbcDatasetRepository(JdbcTemplate jdbc) {
         this.jdbc = Objects.requireNonNull(jdbc);
+    }
+
+    @Override
+    public void insertDataset(
+            UUID datasetId,
+            String datasetName,
+            String purpose,
+            Instant createdAt) {
+        try {
+            jdbc.update(
+                """
+                INSERT INTO dataset
+                (dataset_id, dataset_name, purpose, created_at)
+                VALUES (?::uuid, ?, ?, ?)
+                """,
+                datasetId, datasetName, purpose,
+                java.sql.Timestamp.from(createdAt)
+            );
+        } catch (DuplicateKeyException duplicate) {
+            throw new DomainViolation("数据集名称已存在", duplicate);
+        }
     }
 
     @Override
@@ -177,15 +200,86 @@ public class JdbcDatasetRepository implements DatasetRepository, DatasetQueryRep
     }
 
     @Override
-    public Map<String, Object> listVersions(String actorId, UUID datasetId, int pageSize, String cursor) {
+    public Map<String, Object> listDatasets(
+            String actorId, int pageSize, String cursor) {
+        List<Object> args = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("""
+            SELECT d.dataset_id, d.dataset_name, d.purpose, d.created_at,
+                   (SELECT COUNT(*) FROM dataset_version counted
+                    WHERE counted.dataset_id = d.dataset_id) AS version_count,
+                   (SELECT latest.version FROM dataset_version latest
+                    WHERE latest.dataset_id = d.dataset_id
+                    ORDER BY latest.created_at DESC,
+                             latest.dataset_version_id DESC LIMIT 1) AS latest_version,
+                   (SELECT latest.status FROM dataset_version latest
+                    WHERE latest.dataset_id = d.dataset_id
+                    ORDER BY latest.created_at DESC,
+                             latest.dataset_version_id DESC LIMIT 1) AS latest_status
+            FROM dataset d
+            WHERE 1=1
+            """);
+        if (cursor != null && !cursor.isBlank()) {
+            CursorValue decoded = decodeCursor(cursor);
+            sql.append("AND (d.created_at, d.dataset_id) < (?, ?::uuid) ");
+            args.add(decoded.createdAt());
+            args.add(decoded.datasetVersionId());
+        }
+        sql.append("ORDER BY d.created_at DESC, d.dataset_id DESC LIMIT ?");
+        args.add(pageSize + 1);
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            sql.toString(), args.toArray()
+        );
+        boolean hasMore = rows.size() > pageSize;
+        if (hasMore) rows = rows.subList(0, pageSize);
+        List<Map<String, Object>> items = rows.stream()
+            .map(JdbcDatasetRepository::datasetSummary)
+            .toList();
+        String nextCursor = null;
+        if (hasMore && !rows.isEmpty()) {
+            Map<String, Object> last = rows.get(rows.size() - 1);
+            nextCursor = encodeCursor(
+                ((java.sql.Timestamp) last.get("created_at")).toInstant(),
+                UUID.fromString(String.valueOf(last.get("dataset_id")))
+            );
+        }
+        Map<String, Object> page = new LinkedHashMap<>();
+        page.put("items", items);
+        page.put("next_cursor", nextCursor);
+        page.put("has_more", hasMore);
+        return page;
+    }
+
+    @Override
+    public Map<String, Object> listVersions(
+            String actorId,
+            UUID datasetId,
+            int pageSize,
+            String cursor) {
+        return listVersions(actorId, datasetId, null, pageSize, cursor);
+    }
+
+    @Override
+    public Map<String, Object> listVersions(
+            String actorId,
+            UUID datasetId,
+            String status,
+            int pageSize,
+            String cursor) {
         List<Object> args = new ArrayList<>();
         StringBuilder sql = new StringBuilder("""
             SELECT dv.dataset_version_id, dv.dataset_id, dv.version, dv.status,
                    dv.sample_count, dv.manifest_sha256, dv.created_at
             FROM dataset_version dv
-            WHERE dv.dataset_id = ?::uuid
+            WHERE 1=1
             """);
-        args.add(datasetId);
+        if (datasetId != null) {
+            sql.append("AND dv.dataset_id = ?::uuid ");
+            args.add(datasetId);
+        }
+        if (status != null && !status.isBlank()) {
+            sql.append("AND dv.status = ? ");
+            args.add(status);
+        }
         if (cursor != null && !cursor.isBlank()) {
             CursorValue decoded = decodeCursor(cursor);
             sql.append("AND (dv.created_at, dv.dataset_version_id) < (?, ?::uuid) ");
@@ -349,6 +443,33 @@ public class JdbcDatasetRepository implements DatasetRepository, DatasetQueryRep
             row.get("manifest_sha256") != null ? String.valueOf(row.get("manifest_sha256")) : null
         );
         result.put("created_at", ((java.sql.Timestamp) row.get("created_at")).toInstant().toString());
+        return result;
+    }
+
+    private static Map<String, Object> datasetSummary(
+            Map<String, Object> row) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("dataset_id", String.valueOf(row.get("dataset_id")));
+        result.put("dataset_name", String.valueOf(row.get("dataset_name")));
+        result.put("purpose", String.valueOf(row.get("purpose")));
+        result.put(
+            "version_count",
+            ((Number) row.get("version_count")).intValue()
+        );
+        result.put(
+            "latest_version",
+            row.get("latest_version") == null
+                ? null : String.valueOf(row.get("latest_version"))
+        );
+        result.put(
+            "latest_status",
+            row.get("latest_status") == null
+                ? null : String.valueOf(row.get("latest_status"))
+        );
+        result.put(
+            "created_at",
+            ((java.sql.Timestamp) row.get("created_at")).toInstant().toString()
+        );
         return result;
     }
 

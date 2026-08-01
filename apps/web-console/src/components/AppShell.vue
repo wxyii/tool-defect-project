@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { logout } from '@/auth/local-auth'
+import { hasRouteAccess } from '@/router/access'
 import { applicationRoutes } from '@/router/routes'
 import { useAuthStore } from '@/stores/auth'
 
@@ -13,8 +14,7 @@ const router = useRouter()
 const menuItems = computed(() =>
   applicationRoutes.filter((item) => {
     const label = item.meta?.menuLabel
-    const permissions = item.meta?.permissions ?? []
-    return label !== undefined && auth.hasEveryPermission(permissions)
+    return label !== undefined && hasRouteAccess(item.meta, auth.hasPermission)
   }),
 )
 

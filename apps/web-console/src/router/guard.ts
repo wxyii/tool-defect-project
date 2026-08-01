@@ -1,6 +1,7 @@
 import type { Pinia } from 'pinia'
 import type { RouteLocationNormalized } from 'vue-router'
 
+import { hasRouteAccess } from '@/router/access'
 import { useAuthStore } from '@/stores/auth'
 
 export function createAuthorizationGuard(pinia: Pinia) {
@@ -27,8 +28,7 @@ export function createAuthorizationGuard(pinia: Pinia) {
     ) {
       return { name: 'workstation' }
     }
-    const permissions = to.meta.permissions ?? []
-    if (!auth.hasEveryPermission(permissions)) {
+    if (!hasRouteAccess(to.meta, auth.hasPermission)) {
       return to.name === 'unauthorized' ? true : { name: 'unauthorized' }
     }
     return true

@@ -1,23 +1,92 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import type { DatasetVersionPage, DatasetVersionSummary } from './service'
+import { computed, onMounted, ref } from 'vue'
+import type {
+  DatasetCatalogSummary,
+  DatasetVersionPage,
+  DatasetVersionSummary,
+} from './service'
 import { DatasetService } from './service'
 import { useApplicationApiClient } from '@/api/runtime'
+import { useAuthStore } from '@/stores/auth'
 
 const service = new DatasetService(useApplicationApiClient())
+const auth = useAuthStore()
 const page = ref<DatasetVersionPage | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 const datasetId = ref('')
+const datasets = ref<readonly DatasetCatalogSummary[]>([])
+const catalogLoading = ref(false)
+const catalogError = ref<string | null>(null)
+const datasetName = ref('')
+const datasetPurpose = ref('')
+const creating = ref(false)
+const createError = ref<string | null>(null)
+const createNotice = ref<string | null>(null)
 const selectedForDiff = ref<Set<string>>(new Set())
 const diffResult = ref<Awaited<ReturnType<typeof service.diffVersions>> | null>(null)
 const diffing = ref(false)
 
-onMounted(() => void load())
+const selectedDataset = computed(() =>
+  datasets.value.find((item) => item.dataset_id === datasetId.value) ?? null,
+)
+
+onMounted(() => void loadCatalog())
+
+async function loadCatalog(preferredId?: string): Promise<void> {
+  catalogLoading.value = true
+  catalogError.value = null
+  try {
+    const catalog = await service.listDatasets({ pageSize: 200 })
+    datasets.value = catalog.items
+    const nextId = preferredId
+      ?? (datasets.value.some((item) => item.dataset_id === datasetId.value)
+        ? datasetId.value
+        : datasets.value[0]?.dataset_id)
+    datasetId.value = nextId ?? ''
+    if (datasetId.value !== '') await load()
+    else page.value = null
+  } catch {
+    catalogError.value = '数据集目录暂时无法读取'
+  } finally {
+    catalogLoading.value = false
+  }
+}
+
+async function createDataset(): Promise<void> {
+  createError.value = null
+  createNotice.value = null
+  if (datasetName.value.trim() === '' || datasetPurpose.value.trim() === '') {
+    createError.value = '数据集名称和用途均不能为空'
+    return
+  }
+  creating.value = true
+  try {
+    const created = await service.createDataset({
+      dataset_name: datasetName.value.trim(),
+      purpose: datasetPurpose.value.trim(),
+    })
+    datasetName.value = ''
+    datasetPurpose.value = ''
+    createNotice.value = `已创建数据集 ${created.dataset_name}`
+    await loadCatalog(created.dataset_id)
+  } catch {
+    createError.value = '数据集创建失败；请确认名称未被占用'
+  } finally {
+    creating.value = false
+  }
+}
+
+function selectDataset(): void {
+  selectedForDiff.value = new Set()
+  diffResult.value = null
+  void load()
+}
 
 async function load(cursor?: string): Promise<void> {
   if (datasetId.value.trim() === '') {
-    error.value = '请先输入数据集 ID'
+    page.value = null
+    error.value = null
     return
   }
   loading.value = true
@@ -92,18 +161,74 @@ function formatDate(iso: string): string {
       <div>
         <p class="eyebrow">版本控制 · 不可变快照</p>
         <h2>数据集版本管理</h2>
-        <p class="muted">已冻结的版本禁止编辑，作为训练与评测的稳定基线。</p>
+        <p class="muted">从目录选择数据集后查看不可变版本；无需再手工查找 UUID。</p>
       </div>
-      <span class="records-count">{{ page?.items.length ?? 0 }} 条当前页版本</span>
+      <span class="records-count">{{ datasets.length }} 个数据集 · {{ page?.items.length ?? 0 }} 个版本</span>
     </header>
 
-    <form class="filter-rail" aria-label="数据集版本查询" @submit.prevent="load()">
-      <label>
-        数据集 ID
-        <input v-model="datasetId" maxlength="128" placeholder="dataset-uuid" />
-      </label>
-      <button type="submit" class="primary-button compact">查询版本</button>
-    </form>
+    <section class="resource-directory" aria-labelledby="dataset-directory-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">资源目录</p>
+          <h3 id="dataset-directory-title">选择数据集</h3>
+        </div>
+        <button
+          type="button"
+          class="text-button"
+          :disabled="catalogLoading"
+          @click="loadCatalog()"
+        >
+          刷新目录
+        </button>
+      </div>
+
+      <p v-if="catalogError !== null" class="panel-error" role="alert">{{ catalogError }}</p>
+      <div v-else-if="catalogLoading" class="loading-ledger" role="status">正在读取数据集目录…</div>
+      <template v-else>
+        <div class="resource-directory__rail">
+          <label>
+            数据集
+            <select v-model="datasetId" :disabled="datasets.length === 0" @change="selectDataset">
+              <option value="" disabled>{{ datasets.length === 0 ? '暂无数据集' : '请选择数据集' }}</option>
+              <option v-for="item in datasets" :key="item.dataset_id" :value="item.dataset_id">
+                {{ item.dataset_name }} · {{ item.version_count }} 个版本
+              </option>
+            </select>
+          </label>
+          <div v-if="selectedDataset !== null" class="resource-identity">
+            <span>数据集 ID</span>
+            <strong class="hash-text">{{ selectedDataset.dataset_id }}</strong>
+            <small>{{ selectedDataset.purpose }} · 创建于 {{ formatDate(selectedDataset.created_at) }}</small>
+          </div>
+          <div v-else class="empty-catalog">
+            <strong>目录为空</strong>
+            <span>先创建数据集，系统会生成可用于版本构建的 UUID。</span>
+          </div>
+        </div>
+
+        <form
+          v-if="auth.hasPermission('dataset:create')"
+          class="catalog-create-form"
+          aria-label="新建数据集"
+          @submit.prevent="createDataset"
+        >
+          <div>
+            <span class="catalog-create-form__index">＋</span>
+            <div>
+              <strong>新建数据集</strong>
+              <small>只创建目录项；版本仍需绑定已批准候选清单。</small>
+            </div>
+          </div>
+          <label>名称<input v-model="datasetName" maxlength="128" required placeholder="例如：刀具缺陷生产候选集" /></label>
+          <label>用途<input v-model="datasetPurpose" maxlength="128" required placeholder="例如：受控增量训练" /></label>
+          <button type="submit" class="primary-button compact" :disabled="creating">
+            {{ creating ? '创建中…' : '创建数据集' }}
+          </button>
+        </form>
+        <p v-if="createError !== null" class="panel-error" role="alert">{{ createError }}</p>
+        <p v-if="createNotice !== null" class="panel-notice" role="status">{{ createNotice }}</p>
+      </template>
+    </section>
 
     <div
       v-if="selectedForDiff.size === 2"

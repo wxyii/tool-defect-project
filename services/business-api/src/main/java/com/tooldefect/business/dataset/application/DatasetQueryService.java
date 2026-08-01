@@ -19,8 +19,26 @@ public class DatasetQueryService {
     }
 
     @Transactional(readOnly = true)
+    public Map<String, Object> listDatasets(
+            String actorId, int pageSize, String cursor) {
+        return repository.listDatasets(actorId, pageSize, cursor);
+    }
+
+    @Transactional(readOnly = true)
     public Map<String, Object> listVersions(String actorId, UUID datasetId, int pageSize, String cursor) {
         return repository.listVersions(actorId, datasetId, pageSize, cursor);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> listVersions(
+            String actorId,
+            UUID datasetId,
+            String status,
+            int pageSize,
+            String cursor) {
+        return repository.listVersions(
+            actorId, datasetId, status, pageSize, cursor
+        );
     }
 
     @Transactional(readOnly = true)

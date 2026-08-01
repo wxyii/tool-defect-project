@@ -1,21 +1,35 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import type { ModelVersionPage, ModelVersionSummary } from './service'
+import type {
+  ModelCatalogSummary,
+  ModelVersionPage,
+  ModelVersionSummary,
+} from './service'
 import { ModelService } from './service'
 import { DeploymentService } from './deployment-service'
 import type {
   DeploymentApprovalRole,
   DeploymentEnvironment,
+  DeploymentPage,
+  DeploymentSummary,
   DeploymentStrategy,
   DeploymentView,
 } from './deployment-service'
 import type { ModelDeploymentCreateRequest, RollbackRequest } from '@/api/generated'
 import { useApplicationApiClient } from '@/api/runtime'
+import { useAuthStore } from '@/stores/auth'
 
 const api = useApplicationApiClient()
 const service = new ModelService(api)
 const deploymentService = new DeploymentService(api)
+const auth = useAuthStore()
 const modelId = ref('')
+const modelCatalog = ref<readonly ModelCatalogSummary[]>([])
+const catalogLoading = ref(false)
+const modelName = ref('')
+const modelTaskType = ref('classification-segmentation')
+const modelCreating = ref(false)
+const catalogNotice = ref<string | null>(null)
 const page = ref<ModelVersionPage | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
@@ -33,6 +47,9 @@ const confirmVisible = ref(false)
 
 const deploymentId = ref('')
 const deployment = ref<DeploymentView | null>(null)
+const deploymentPage = ref<DeploymentPage | null>(null)
+const deploymentStatusFilter = ref<'' | DeploymentSummary['status']>('')
+const approvedModelVersions = ref<readonly ModelVersionSummary[]>([])
 const deploymentEnvironment = ref<DeploymentEnvironment>('SHADOW')
 const deploymentStrategy = ref<DeploymentStrategy>('PERCENTAGE')
 const deploymentStationIds = ref('')
@@ -48,6 +65,10 @@ const approvalReason = ref('')
 const rollbackTargetModelVersionId = ref('')
 const deploymentConfirm = ref('')
 
+const selectedModel = computed(() =>
+  modelCatalog.value.find((item) => item.model_id === modelId.value) ?? null,
+)
+
 const visibleItems = computed(() => {
   const items = page.value?.items ?? []
   return approvalFilter.value === ''
@@ -57,13 +78,112 @@ const visibleItems = computed(() => {
 
 onMounted(() => {
   const queryModelId = new URLSearchParams(window.location.search).get('model_id')
-  if (queryModelId !== null) modelId.value = queryModelId
-  if (modelId.value !== '') void load()
+  void initialize(queryModelId ?? undefined)
 })
+
+async function initialize(preferredModelId?: string): Promise<void> {
+  await Promise.all([
+    loadCatalog(preferredModelId),
+    loadApprovedModelVersions(),
+    loadDeployments(),
+  ])
+}
+
+async function loadCatalog(preferredModelId?: string): Promise<void> {
+  catalogLoading.value = true
+  error.value = null
+  try {
+    const catalog = await service.listModels({ pageSize: 200 })
+    modelCatalog.value = catalog.items
+    const candidate = preferredModelId
+      ?? (modelCatalog.value.some((item) => item.model_id === modelId.value)
+        ? modelId.value
+        : modelCatalog.value[0]?.model_id)
+    modelId.value = candidate ?? ''
+    if (modelId.value !== '') await load()
+    else page.value = null
+  } catch {
+    error.value = '模型目录暂时无法读取'
+  } finally {
+    catalogLoading.value = false
+  }
+}
+
+async function createModel(): Promise<void> {
+  error.value = null
+  catalogNotice.value = null
+  if (modelName.value.trim() === '' || modelTaskType.value.trim() === '') {
+    error.value = '模型名称和任务类型均不能为空'
+    return
+  }
+  modelCreating.value = true
+  try {
+    const created = await service.createModel({
+      model_name: modelName.value.trim(),
+      task_type: modelTaskType.value.trim(),
+    })
+    modelName.value = ''
+    catalogNotice.value = `已创建模型 ${created.model_name}`
+    await loadCatalog(created.model_id)
+  } catch {
+    error.value = '模型创建失败；请确认名称未被占用'
+  } finally {
+    modelCreating.value = false
+  }
+}
+
+function selectModel(): void {
+  approvalFilter.value = ''
+  showDecisionForm.value = false
+  void load()
+}
+
+async function loadApprovedModelVersions(): Promise<void> {
+  try {
+    approvedModelVersions.value = (
+      await service.listModelVersions(undefined, {
+        approvalState: 'APPROVED',
+        pageSize: 100,
+      })
+    ).items
+    if (deploymentModelVersionId.value === '') {
+      deploymentModelVersionId.value = approvedModelVersions.value[0]?.model_version_id ?? ''
+    }
+    if (deploymentRollbackModelVersionId.value === '') {
+      deploymentRollbackModelVersionId.value = approvedModelVersions.value[1]?.model_version_id ?? ''
+    }
+  } catch {
+    approvedModelVersions.value = []
+  }
+}
+
+async function loadDeployments(cursor?: string): Promise<void> {
+  deploymentLoading.value = true
+  deploymentError.value = null
+  try {
+    deploymentPage.value = await deploymentService.list({
+      ...(deploymentStatusFilter.value === ''
+        ? {}
+        : { status: deploymentStatusFilter.value }),
+      ...(cursor === undefined ? {} : { cursor }),
+      pageSize: 50,
+    })
+  } catch {
+    deploymentError.value = '部署目录暂时无法读取'
+  } finally {
+    deploymentLoading.value = false
+  }
+}
+
+function selectDeployment(item: DeploymentSummary): void {
+  deploymentId.value = item.deployment_id
+  void refreshDeployment()
+}
 
 async function load(cursor?: string): Promise<void> {
   if (modelId.value.trim() === '') {
-    error.value = '请输入模型 ID；模型版本查询必须绑定模型范围'
+    page.value = null
+    error.value = null
     return
   }
   loading.value = true
@@ -121,6 +241,15 @@ function closeDecisionForm(): void {
   decisionTarget.value = null
 }
 
+function prepareDeployment(item: ModelVersionSummary): void {
+  deploymentModelVersionId.value = item.model_version_id
+  if (deploymentRollbackModelVersionId.value === item.model_version_id) {
+    deploymentRollbackModelVersionId.value = approvedModelVersions.value.find(
+      (candidate) => candidate.model_version_id !== item.model_version_id,
+    )?.model_version_id ?? ''
+  }
+}
+
 function trySubmitDecision(): void {
   if (decisionReason.value.trim() === '') {
     decisionError.value = '验证决定必须填写原因'
@@ -156,6 +285,7 @@ async function executeDecision(): Promise<void> {
     showDecisionForm.value = false
     decisionTarget.value = null
     await load()
+    await loadApprovedModelVersions()
   } catch {
     decisionError.value = '验证决定提交失败；后端未批准时不得继续部署'
   } finally {
@@ -196,6 +326,7 @@ async function createDeployment(): Promise<void> {
     deploymentJobId.value = accepted.job_id
     deploymentId.value = accepted.job_id
     deployment.value = await deploymentService.get(accepted.job_id)
+    await loadDeployments()
   } catch {
     deploymentError.value = '部署申请被拒绝；请确认两个模型都已批准且回滚目标不同'
   } finally {
@@ -244,6 +375,7 @@ async function submitDeploymentApproval(): Promise<void> {
     approvalReason.value = ''
     deploymentConfirm.value = ''
     await refreshDeployment()
+    await loadDeployments()
   } catch {
     deploymentError.value = '部署审批失败；可能是版本已变化或职责分离校验未通过'
   } finally {
@@ -278,6 +410,7 @@ async function rollbackDeployment(): Promise<void> {
     )
     deploymentConfirm.value = ''
     await refreshDeployment()
+    await loadDeployments()
   } catch {
     deploymentError.value = '回滚失败；后端只接受登记的已批准稳定目标'
   } finally {
@@ -296,16 +429,63 @@ function isUuid(value: string): boolean {
       <div>
         <p class="eyebrow">供应链证据 · 独立验证</p>
         <h2>模型版本管理</h2>
-        <p class="muted">每次验证都绑定评估报告哈希；批准状态不能替代签名包和部署门禁。</p>
+        <p class="muted">从模型目录进入版本、审批与部署记录，不再依赖外部保存 UUID。</p>
       </div>
-      <span class="records-count">{{ visibleItems.length }} 条当前页版本</span>
+      <span class="records-count">{{ modelCatalog.length }} 个模型 · {{ visibleItems.length }} 个版本</span>
     </header>
 
+    <section class="resource-directory" aria-labelledby="model-directory-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">资源目录</p>
+          <h3 id="model-directory-title">选择模型</h3>
+        </div>
+        <button type="button" class="text-button" :disabled="catalogLoading" @click="loadCatalog()">刷新目录</button>
+      </div>
+      <div v-if="catalogLoading" class="loading-ledger" role="status">正在读取模型目录…</div>
+      <template v-else>
+        <div class="resource-directory__rail">
+          <label>
+            模型
+            <select v-model="modelId" :disabled="modelCatalog.length === 0" @change="selectModel">
+              <option value="" disabled>{{ modelCatalog.length === 0 ? '暂无模型' : '请选择模型' }}</option>
+              <option v-for="item in modelCatalog" :key="item.model_id" :value="item.model_id">
+                {{ item.model_name }} · {{ item.version_count }} 个版本
+              </option>
+            </select>
+          </label>
+          <div v-if="selectedModel !== null" class="resource-identity">
+            <span>模型 ID</span>
+            <strong class="hash-text">{{ selectedModel.model_id }}</strong>
+            <small>{{ selectedModel.task_type }} · 创建于 {{ formatDate(selectedModel.created_at) }}</small>
+          </div>
+          <div v-else class="empty-catalog">
+            <strong>目录为空</strong>
+            <span>先创建模型目录项，再登记带完整供应链证据的版本。</span>
+          </div>
+        </div>
+
+        <form
+          v-if="auth.hasPermission('model:register')"
+          class="catalog-create-form"
+          aria-label="新建模型"
+          @submit.prevent="createModel"
+        >
+          <div>
+            <span class="catalog-create-form__index">＋</span>
+            <div><strong>新建模型</strong><small>创建稳定模型 ID，不登记或批准任何制品。</small></div>
+          </div>
+          <label>名称<input v-model="modelName" maxlength="128" required placeholder="例如：刀具缺陷多任务模型" /></label>
+          <label>任务类型<input v-model="modelTaskType" maxlength="64" required /></label>
+          <button type="submit" class="primary-button compact" :disabled="modelCreating">
+            {{ modelCreating ? '创建中…' : '创建模型' }}
+          </button>
+        </form>
+        <p v-if="catalogNotice !== null" class="panel-notice" role="status">{{ catalogNotice }}</p>
+      </template>
+    </section>
+
     <form class="filter-rail" aria-label="模型版本筛选" @submit.prevent="load()">
-      <label>
-        模型 ID
-        <input v-model="modelId" maxlength="64" required placeholder="UUID" />
-      </label>
       <label>
         审批状态
         <select v-model="approvalFilter">
@@ -317,7 +497,7 @@ function isUuid(value: string): boolean {
           <option value="RETIRED">已退役</option>
         </select>
       </label>
-      <button type="submit" class="primary-button compact">查询版本</button>
+      <button type="submit" class="secondary-button compact" :disabled="modelId === ''">刷新版本</button>
     </form>
 
     <p v-if="error !== null" class="panel-error" role="alert">{{ error }}</p>
@@ -343,12 +523,20 @@ function isUuid(value: string): boolean {
           </span>
           <span>
             <button
-              v-if="item.approval_state === 'CANDIDATE' || item.approval_state === 'VALIDATED'"
+              v-if="auth.hasPermission('model:validate') && (item.approval_state === 'CANDIDATE' || item.approval_state === 'VALIDATED')"
               type="button"
               class="secondary-button"
               @click.stop="openDecisionForm(item)"
             >
               提交验证决定
+            </button>
+            <button
+              v-else-if="auth.hasPermission('model:deploy:execute') && item.approval_state === 'APPROVED'"
+              type="button"
+              class="secondary-button"
+              @click.stop="prepareDeployment(item)"
+            >
+              用于部署
             </button>
             <span v-else aria-hidden="true">—</span>
           </span>
@@ -430,31 +618,103 @@ function isUuid(value: string): boolean {
       </div>
       <p class="muted">创建、审批和回滚均由后端再次验证模型批准状态；页面只提交意图，不直接改变最终处置规则。</p>
 
-      <form class="filter-rail" aria-label="创建模型部署" @submit.prevent="createDeployment">
-        <label>当前模型 UUID<input v-model="deploymentModelVersionId" required placeholder="已批准模型版本" /></label>
-        <label>回滚模型 UUID<input v-model="deploymentRollbackModelVersionId" required placeholder="不同的已批准版本" /></label>
+      <form
+        v-if="auth.hasPermission('model:deploy:execute')"
+        class="filter-rail"
+        aria-label="创建模型部署"
+        @submit.prevent="createDeployment"
+      >
+        <label>
+          当前模型版本
+          <select v-model="deploymentModelVersionId" required>
+            <option value="" disabled>请选择已批准版本</option>
+            <option v-for="item in approvedModelVersions" :key="item.model_version_id" :value="item.model_version_id">
+              {{ item.registry_name }} · {{ item.registry_version }}
+            </option>
+          </select>
+        </label>
+        <label>
+          回滚模型版本
+          <select v-model="deploymentRollbackModelVersionId" required>
+            <option value="" disabled>请选择不同的稳定版本</option>
+            <option
+              v-for="item in approvedModelVersions.filter((candidate) => candidate.model_version_id !== deploymentModelVersionId)"
+              :key="item.model_version_id"
+              :value="item.model_version_id"
+            >
+              {{ item.registry_name }} · {{ item.registry_version }}
+            </option>
+          </select>
+        </label>
         <label>环境<select v-model="deploymentEnvironment"><option value="SHADOW">影子</option><option value="CANARY">灰度</option><option value="PRODUCTION">生产</option></select></label>
         <label>策略<select v-model="deploymentStrategy"><option value="PERCENTAGE">按比例</option><option value="STATION">按工位</option></select></label>
         <label>流量比例<input v-model.number="deploymentTrafficRatio" type="number" min="0" max="1" step="0.01" required /></label>
         <label>工位 UUID（空格分隔）<input v-model="deploymentStationIds" placeholder="STATION 策略必填" /></label>
-        <button class="primary-button compact" type="submit" :disabled="deploymentLoading">{{ deploymentLoading ? '提交中…' : '创建部署申请' }}</button>
+        <button class="primary-button compact" type="submit" :disabled="deploymentLoading || approvedModelVersions.length < 2">{{ deploymentLoading ? '提交中…' : '创建部署申请' }}</button>
       </form>
 
-      <form class="filter-rail" aria-label="读取模型部署" @submit.prevent="refreshDeployment">
-        <label>部署 UUID<input v-model="deploymentId" required placeholder="创建后自动填入" /></label>
-        <button class="secondary-button compact" type="submit" :disabled="deploymentLoading">刷新状态</button>
-        <span v-if="deploymentJobId !== null" class="decision-caveat">排队任务：{{ deploymentJobId }}</span>
-      </form>
+      <div class="deployment-directory" aria-label="部署记录目录">
+        <div class="section-heading">
+          <h4>部署记录</h4>
+          <button type="button" class="text-button" :disabled="deploymentLoading" @click="loadDeployments()">刷新目录</button>
+        </div>
+        <div class="filter-rail">
+          <label>
+            状态
+            <select v-model="deploymentStatusFilter" @change="loadDeployments()">
+              <option value="">全部状态</option>
+              <option value="REQUESTED">待审批</option>
+              <option value="APPROVED">已批准</option>
+              <option value="ACTIVE">生效中</option>
+              <option value="ROLLED_BACK">已回滚</option>
+              <option value="REJECTED">已拒绝</option>
+            </select>
+          </label>
+          <span v-if="deploymentJobId !== null" class="decision-caveat">排队任务：{{ deploymentJobId }}</span>
+        </div>
+        <div v-if="deploymentLoading && deploymentPage === null" class="loading-ledger" role="status">正在读取部署记录…</div>
+        <div v-else-if="deploymentPage?.items.length === 0" class="empty-catalog">
+          <strong>暂无部署记录</strong>
+          <span>部署申请创建后会自动进入此目录。</span>
+        </div>
+        <ol v-else class="detection-ledger">
+          <li v-for="item in deploymentPage?.items ?? []" :key="item.deployment_id">
+            <button type="button" class="detection-row" @click="selectDeployment(item)">
+              <span class="detection-row__index" aria-hidden="true">DP</span>
+              <span><strong>{{ item.environment }} · {{ item.strategy }}</strong><small>{{ formatDate(item.created_at) }}</small></span>
+              <span class="hash-text">{{ item.model_version_id.slice(0, 12) }}</span>
+              <span class="state-stamp">{{ item.status }}</span>
+              <span aria-hidden="true">→</span>
+            </button>
+          </li>
+        </ol>
+        <footer v-if="deploymentPage?.has_more" class="pager">
+          <button
+            type="button"
+            class="secondary-button"
+            :disabled="deploymentLoading || deploymentPage.next_cursor === null"
+            @click="deploymentPage.next_cursor && loadDeployments(deploymentPage.next_cursor)"
+          >
+            下一页
+          </button>
+        </footer>
+      </div>
 
       <div v-if="deployment !== null" class="deployment-ledger">
         <dl class="version-grid">
+          <dt>部署 ID</dt><dd class="hash-text">{{ deployment.deployment_id }}</dd>
           <dt>当前模型</dt><dd class="hash-text">{{ deployment.model_version_id }}</dd>
           <dt>状态</dt><dd>{{ deployment.status }}</dd>
           <dt>记录版本</dt><dd>{{ deployment.record_version }}（审批/回滚使用 If-Match）</dd>
           <dt>创建时间</dt><dd>{{ formatDate(deployment.created_at) }}</dd>
         </dl>
+        <button type="button" class="secondary-button compact" :disabled="deploymentLoading" @click="refreshDeployment">刷新当前记录</button>
 
-        <div v-if="deployment.status === 'REQUESTED'" class="review-decision-panel" style="position: static; margin-top: 16px">
+        <div
+          v-if="deployment.status === 'REQUESTED' && (auth.hasPermission('dataset:approve') || auth.hasPermission('model:deploy:approve'))"
+          class="review-decision-panel"
+          style="position: static; margin-top: 16px"
+        >
           <h4>追加独立部署审批</h4>
           <div class="filter-rail">
             <label>角色<select v-model="approvalRole"><option value="QUALITY_APPROVER">质量审批人</option><option value="MODEL_RELEASE_APPROVER">模型发布审批人</option></select></label>
@@ -465,11 +725,23 @@ function isUuid(value: string): boolean {
           </div>
         </div>
 
-        <div v-if="deployment.status === 'ACTIVE'" class="review-decision-panel" style="position: static; margin-top: 16px">
+        <div v-if="deployment.status === 'ACTIVE' && auth.hasPermission('model:rollback')" class="review-decision-panel" style="position: static; margin-top: 16px">
           <h4>生产回滚</h4>
           <p class="decision-caveat">回滚只影响新任务；历史任务版本和原始证据不可覆盖。</p>
           <div class="filter-rail">
-            <label>目标模型 UUID<input v-model="rollbackTargetModelVersionId" required placeholder="登记的稳定版本" /></label>
+            <label>
+              目标模型版本
+              <select v-model="rollbackTargetModelVersionId" required>
+                <option value="" disabled>请选择回滚版本</option>
+                <option
+                  v-for="item in approvedModelVersions.filter((candidate) => candidate.model_version_id !== deployment?.model_version_id)"
+                  :key="item.model_version_id"
+                  :value="item.model_version_id"
+                >
+                  {{ item.registry_name }} · {{ item.registry_version }}
+                </option>
+              </select>
+            </label>
             <label>回滚原因<input v-model="approvalReason" maxlength="2000" required placeholder="指标门槛或故障依据" /></label>
             <label>输入部署 ID 二次确认<input v-model="deploymentConfirm" :placeholder="deployment.deployment_id" required /></label>
             <button type="button" class="primary-button compact" :disabled="deploymentLoading" @click="rollbackDeployment">创建回滚任务</button>

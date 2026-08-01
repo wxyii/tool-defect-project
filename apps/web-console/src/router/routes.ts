@@ -141,7 +141,7 @@ function featureRoutes(): RouteRecordRaw[] {
       component: DatasetVersionsView,
       meta: {
         requiresAuth: true,
-        permissions: ['dataset:read'],
+        anyPermissions: ['dataset:create', 'dataset:approve', 'audit:read'],
         menuLabel: '数据集',
         menuIcon: '▤',
       },
@@ -152,7 +152,7 @@ function featureRoutes(): RouteRecordRaw[] {
       component: TrainingRunsView,
       meta: {
         requiresAuth: true,
-        permissions: ['training:read'],
+        anyPermissions: ['training:read', 'training:create', 'audit:read'],
         menuLabel: '训练运行',
         menuIcon: '⚙',
       },
@@ -163,7 +163,12 @@ function featureRoutes(): RouteRecordRaw[] {
       component: ModelsView,
       meta: {
         requiresAuth: true,
-        permissions: ['model:read'],
+        anyPermissions: [
+          'model:register',
+          'model:validate',
+          'model:deploy:approve',
+          'audit:read',
+        ],
         menuLabel: '模型与部署',
         menuIcon: '⬡',
       },
@@ -174,7 +179,7 @@ function featureRoutes(): RouteRecordRaw[] {
       component: QualityDashboard,
       meta: {
         requiresAuth: true,
-        permissions: ['quality:read'],
+        anyPermissions: ['quality:read', 'audit:read'],
         menuLabel: '质量分析',
         menuIcon: '◈',
       },

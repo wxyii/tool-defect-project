@@ -2,6 +2,8 @@ import type { ApiClient } from '@/api/client'
 import type {
   Acknowledgement,
   ModelDeploymentCreateRequest,
+  ModelDeploymentPage as ContractModelDeploymentPage,
+  ModelDeploymentSummary as ContractModelDeploymentSummary,
   RollbackRequest,
 } from '@/api/generated'
 import type { JsonObject } from '@/api/generated'
@@ -32,8 +34,32 @@ export interface DeploymentApprovalRequest {
   readonly reason: string
 }
 
+export type DeploymentSummary = ContractModelDeploymentSummary
+export type DeploymentPage = ContractModelDeploymentPage
+
+export interface DeploymentFilter {
+  readonly modelVersionId?: string
+  readonly status?: DeploymentSummary['status']
+  readonly cursor?: string
+  readonly pageSize?: number
+}
+
 export class DeploymentService {
   constructor(private readonly api: ApiClient) {}
+
+  async list(filter: DeploymentFilter = {}): Promise<DeploymentPage> {
+    const query: Record<string, string | number> = {
+      page_size: filter.pageSize ?? 50,
+    }
+    if (filter.modelVersionId !== undefined) {
+      query.model_version_id = filter.modelVersionId
+    }
+    if (filter.status !== undefined) query.status = filter.status
+    if (filter.cursor !== undefined) query.cursor = filter.cursor
+    return deploymentPage(
+      await this.api.listModelDeployments({ query }),
+    )
+  }
 
   async create(request: ModelDeploymentCreateRequest): Promise<AsyncAccepted> {
     return asyncAccepted(
@@ -78,6 +104,46 @@ export class DeploymentService {
       }),
     )
   }
+}
+
+function deploymentPage(value: JsonObject): DeploymentPage {
+  exact(value, ['items', 'next_cursor', 'has_more'])
+  if (
+    !Array.isArray(value.items)
+    || !(value.next_cursor === null || typeof value.next_cursor === 'string')
+    || typeof value.has_more !== 'boolean'
+  ) {
+    throw incompatible()
+  }
+  return Object.freeze({
+    items: Object.freeze(value.items.map(deploymentSummary)),
+    next_cursor: value.next_cursor,
+    has_more: value.has_more,
+  }) as DeploymentPage
+}
+
+function deploymentSummary(value: unknown): DeploymentSummary {
+  if (!isObject(value)) throw incompatible()
+  exact(value, [
+    'deployment_id',
+    'model_version_id',
+    'environment',
+    'strategy',
+    'status',
+    'created_at',
+  ])
+  if (
+    typeof value.deployment_id !== 'string'
+    || typeof value.model_version_id !== 'string'
+    || !isEnvironment(value.environment)
+    || !isStrategy(value.strategy)
+    || !['REQUESTED', 'APPROVED', 'ACTIVE', 'ROLLED_BACK', 'REJECTED']
+      .includes(String(value.status))
+    || typeof value.created_at !== 'string'
+  ) {
+    throw incompatible()
+  }
+  return Object.freeze(value) as DeploymentSummary
 }
 
 function deploymentView(value: JsonObject): DeploymentView {
@@ -159,6 +225,10 @@ function exact(value: JsonObject, keys: readonly string[]): void {
   ) {
     throw incompatible()
   }
+}
+
+function isObject(value: unknown): value is JsonObject {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function incompatible(): Error {

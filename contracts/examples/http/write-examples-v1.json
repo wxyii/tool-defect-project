@@ -423,6 +423,29 @@
       }
     },
     {
+      "operation_id": "createDataset",
+      "success_request": {
+        "dataset_name": "刀具缺陷生产候选集",
+        "purpose": "受控增量训练"
+      },
+      "success_response": {
+        "dataset_id": "019f0000-0000-7000-8000-000000000119",
+        "dataset_name": "刀具缺陷生产候选集",
+        "purpose": "受控增量训练",
+        "version_count": 0,
+        "latest_version": null,
+        "latest_status": null,
+        "created_at": "2026-07-31T09:00:00.000Z"
+      },
+      "cases": {
+        "success": {"status": 201, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 201, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
       "operation_id": "createDatasetVersion",
       "success_request": {
         "dataset_id": "019f0000-0000-7000-8000-000000000120",
@@ -478,6 +501,29 @@
       "cases": {
         "success": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
         "duplicate": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "createModel",
+      "success_request": {
+        "model_name": "刀具缺陷多任务模型",
+        "task_type": "classification-segmentation"
+      },
+      "success_response": {
+        "model_id": "019f0000-0000-7000-8000-000000000133",
+        "model_name": "刀具缺陷多任务模型",
+        "task_type": "classification-segmentation",
+        "version_count": 0,
+        "latest_version": null,
+        "latest_approval_state": null,
+        "created_at": "2026-07-31T10:00:00.000Z"
+      },
+      "cases": {
+        "success": {"status": 201, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 201, "request_ref": "success_request", "response_ref": "success_response"},
         "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
         "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
         "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}

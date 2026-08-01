@@ -40,12 +40,39 @@ public final class DeploymentController {
         "target_model_version_id", "reason"
     );
 
+    private static final Set<String> DEPLOYMENT_STATES = Set.of(
+        "REQUESTED", "APPROVED", "ACTIVE", "ROLLED_BACK", "REJECTED"
+    );
+
     private final DeploymentWorkflowService deployments;
     private final DeploymentQueryRepository queries;
 
     public DeploymentController(DeploymentWorkflowService deployments, DeploymentQueryRepository queries) {
         this.deployments = Objects.requireNonNull(deployments);
         this.queries = Objects.requireNonNull(queries);
+    }
+
+    @GetMapping("/model-deployments")
+    ResponseEntity<Map<String, Object>> listModelDeployments(
+            @RequestParam(name = "model_version_id", required = false)
+            UUID modelVersionId,
+            @RequestParam(name = "status", required = false) String status,
+            @RequestParam(name = "page_size", defaultValue = "50") int pageSize,
+            @RequestParam(name = "cursor", required = false) String cursor,
+            Authentication authentication) {
+        if (pageSize < 1 || pageSize > 200) {
+            throw new ContractValues.ContractInputViolation(
+                "page_size 必须位于 1 到 200"
+            );
+        }
+        if (status != null && !DEPLOYMENT_STATES.contains(status)) {
+            throw new ContractValues.ContractInputViolation(
+                "status 不是合法的部署状态"
+            );
+        }
+        return ResponseEntity.ok(queries.listDeployments(
+            actor(authentication), modelVersionId, status, pageSize, cursor
+        ));
     }
 
     @PostMapping("/model-deployments")

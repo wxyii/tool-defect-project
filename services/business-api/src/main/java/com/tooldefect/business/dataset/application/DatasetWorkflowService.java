@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -34,6 +35,37 @@ public class DatasetWorkflowService {
         this.idempotency = Objects.requireNonNull(idempotency);
         this.identifiers = Objects.requireNonNull(identifiers);
         this.clock = Objects.requireNonNull(clock);
+    }
+
+    @Transactional
+    public IdempotencyService.Response createDataset(
+            String actorId,
+            String idempotencyKey,
+            Map<String, Object> request) {
+        return idempotency.execute(
+            "createDataset",
+            actorId,
+            idempotencyKey,
+            request,
+            () -> {
+                UUID datasetId = identifiers.next();
+                String datasetName = String.valueOf(request.get("dataset_name"));
+                String purpose = String.valueOf(request.get("purpose"));
+                Instant createdAt = Instant.now(clock);
+                datasets.insertDataset(
+                    datasetId, datasetName, purpose, createdAt
+                );
+                Map<String, Object> body = new LinkedHashMap<>();
+                body.put("dataset_id", datasetId.toString());
+                body.put("dataset_name", datasetName);
+                body.put("purpose", purpose);
+                body.put("version_count", 0);
+                body.put("latest_version", null);
+                body.put("latest_status", null);
+                body.put("created_at", createdAt.toString());
+                return new IdempotencyService.Response(201, body);
+            }
+        );
     }
 
     @Transactional

@@ -164,6 +164,7 @@ public class SecurityConfiguration {
                 ).hasAuthority("review:annotate")
                 .requestMatchers(
                     HttpMethod.POST,
+                    "/api/v1/datasets",
                     "/api/v1/dataset-versions"
                 ).hasAuthority("dataset:create")
                 .requestMatchers(
@@ -172,6 +173,7 @@ public class SecurityConfiguration {
                 ).hasAuthority("training:create")
                 .requestMatchers(
                     HttpMethod.GET,
+                    "/api/v1/training-runs",
                     "/api/v1/training-runs/*"
                 ).hasAnyAuthority("training:read", "training:create", "audit:read")
                 .requestMatchers(
@@ -180,6 +182,8 @@ public class SecurityConfiguration {
                 ).hasAnyAuthority("quality:read", "audit:read")
                 .requestMatchers(
                     HttpMethod.GET,
+                    "/api/v1/datasets",
+                    "/api/v1/dataset-versions",
                     "/api/v1/datasets/*/versions",
                     "/api/v1/dataset-versions/*",
                     "/api/v1/dataset-versions/diff",
@@ -191,10 +195,12 @@ public class SecurityConfiguration {
                 ).hasAuthority("dataset:approve")
                 .requestMatchers(
                     HttpMethod.POST,
+                    "/api/v1/models",
                     "/api/v1/model-versions"
                 ).hasAuthority("model:register")
                 .requestMatchers(
                     HttpMethod.GET,
+                    "/api/v1/models",
                     "/api/v1/model-versions",
                     "/api/v1/model-versions/*"
                 ).hasAnyAuthority(
@@ -209,6 +215,7 @@ public class SecurityConfiguration {
                 ).hasAuthority("model:deploy:execute")
                 .requestMatchers(
                     HttpMethod.GET,
+                    "/api/v1/model-deployments",
                     "/api/v1/model-deployments/*"
                 ).hasAnyAuthority("model:deploy:execute", "model:deploy:approve", "audit:read")
                 .requestMatchers(

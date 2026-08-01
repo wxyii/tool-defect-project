@@ -15,16 +15,23 @@ type WebConsoleOperation =
   | 'completeReviewAnnotation'
   | 'createImageAccessTicket'
   | 'streamAuthorizedEvents'
+  | 'listDatasets'
+  | 'createDataset'
+  | 'listDatasetVersionCatalog'
   | 'listDatasetVersions'
   | 'getDatasetVersion'
   | 'diffDatasetVersions'
   | 'createTrainingRun'
+  | 'listTrainingRuns'
   | 'getTrainingRun'
+  | 'listModels'
+  | 'createModel'
   | 'listModelVersions'
   | 'getModelVersion'
   | 'registerModelVersion'
   | 'submitModelValidationDecision'
   | 'createModelDeployment'
+  | 'listModelDeployments'
   | 'getModelDeployment'
   | 'approveModelDeployment'
   | 'rollbackModelDeployment'
@@ -123,6 +130,21 @@ const OPERATIONS = {
     path: '/api/v1/events/stream',
     response: 'event-stream',
   },
+  listDatasets: {
+    method: 'GET',
+    path: '/api/v1/datasets',
+    response: 'json',
+  },
+  createDataset: {
+    method: 'POST',
+    path: '/api/v1/datasets',
+    response: 'json',
+  },
+  listDatasetVersionCatalog: {
+    method: 'GET',
+    path: '/api/v1/dataset-versions',
+    response: 'json',
+  },
   listDatasetVersions: {
     method: 'GET',
     path: '/api/v1/datasets/{dataset_id}/versions',
@@ -143,9 +165,24 @@ const OPERATIONS = {
     path: '/api/v1/training-runs',
     response: 'json',
   },
+  listTrainingRuns: {
+    method: 'GET',
+    path: '/api/v1/training-runs',
+    response: 'json',
+  },
   getTrainingRun: {
     method: 'GET',
     path: '/api/v1/training-runs/{training_run_id}',
+    response: 'json',
+  },
+  listModels: {
+    method: 'GET',
+    path: '/api/v1/models',
+    response: 'json',
+  },
+  createModel: {
+    method: 'POST',
+    path: '/api/v1/models',
     response: 'json',
   },
   listModelVersions: {
@@ -170,6 +207,11 @@ const OPERATIONS = {
   },
   createModelDeployment: {
     method: 'POST',
+    path: '/api/v1/model-deployments',
+    response: 'json',
+  },
+  listModelDeployments: {
+    method: 'GET',
     path: '/api/v1/model-deployments',
     response: 'json',
   },
@@ -250,6 +292,18 @@ export class ApiClient {
     return this.invokeJson('createImageAccessTicket', request)
   }
 
+  listDatasets(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('listDatasets', request)
+  }
+
+  createDataset(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('createDataset', request)
+  }
+
+  listDatasetVersionCatalog(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('listDatasetVersionCatalog', request)
+  }
+
   listDatasetVersions(request?: JsonObject): Promise<JsonObject> {
     return this.invokeJson('listDatasetVersions', request)
   }
@@ -266,8 +320,20 @@ export class ApiClient {
     return this.invokeJson('createTrainingRun', request)
   }
 
+  listTrainingRuns(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('listTrainingRuns', request)
+  }
+
   getTrainingRun(request?: JsonObject): Promise<JsonObject> {
     return this.invokeJson('getTrainingRun', request)
+  }
+
+  listModels(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('listModels', request)
+  }
+
+  createModel(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('createModel', request)
   }
 
   listModelVersions(request?: JsonObject): Promise<JsonObject> {
@@ -288,6 +354,10 @@ export class ApiClient {
 
   createModelDeployment(request?: JsonObject): Promise<JsonObject> {
     return this.invokeJson('createModelDeployment', request)
+  }
+
+  listModelDeployments(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('listModelDeployments', request)
   }
 
   getModelDeployment(request?: JsonObject): Promise<JsonObject> {

@@ -1,5 +1,8 @@
 import type { ApiClient } from '@/api/client'
 import type {
+  DatasetCreateRequest,
+  DatasetPage,
+  DatasetSummary,
   DatasetVersionDiff as ContractDatasetVersionDiff,
   DatasetVersionDiffItem as ContractDatasetVersionDiffItem,
   DatasetVersionPage as ContractDatasetVersionPage,
@@ -13,6 +16,15 @@ export interface DatasetVersionFilter {
   readonly pageSize?: number
 }
 
+export interface DatasetCatalogFilter extends DatasetVersionFilter {
+  readonly datasetId?: string
+  readonly status?: DatasetVersionSummary['status']
+}
+
+export type DatasetCreate = DatasetCreateRequest
+export type DatasetCatalogPage = DatasetPage
+export type DatasetCatalogSummary = DatasetSummary
+
 export type DatasetVersionSummary = ContractDatasetVersionSummary
 export type DatasetVersionPage = ContractDatasetVersionPage
 export type VersionDiff = ContractDatasetVersionDiff
@@ -20,6 +32,36 @@ export type VersionDiffItem = ContractDatasetVersionDiffItem
 
 export class DatasetService {
   constructor(private readonly api: ApiClient) {}
+
+  async listDatasets(
+    filter: DatasetVersionFilter = {},
+  ): Promise<DatasetCatalogPage> {
+    const query: Record<string, string | number> = {
+      page_size: filter.pageSize ?? 50,
+    }
+    if (filter.cursor !== undefined) query.cursor = filter.cursor
+    return datasetPage(await this.api.listDatasets({ query }))
+  }
+
+  async createDataset(request: DatasetCreate): Promise<DatasetCatalogSummary> {
+    return datasetSummary(await this.api.createDataset({
+      body: request as unknown as JsonObject,
+    }))
+  }
+
+  async listVersionCatalog(
+    filter: DatasetCatalogFilter = {},
+  ): Promise<DatasetVersionPage> {
+    const query: Record<string, string | number> = {
+      page_size: filter.pageSize ?? 50,
+    }
+    if (filter.datasetId !== undefined) query.dataset_id = filter.datasetId
+    if (filter.status !== undefined) query.status = filter.status
+    if (filter.cursor !== undefined) query.cursor = filter.cursor
+    return datasetVersionPage(
+      await this.api.listDatasetVersionCatalog({ query }),
+    )
+  }
 
   async listVersions(
     datasetId: string,
@@ -55,6 +97,60 @@ export class DatasetService {
       }),
     )
   }
+}
+
+function datasetPage(value: JsonObject): DatasetCatalogPage {
+  exact(value, ['items', 'next_cursor', 'has_more'])
+  if (
+    !Array.isArray(value.items)
+    || !(value.next_cursor === null || typeof value.next_cursor === 'string')
+    || typeof value.has_more !== 'boolean'
+  ) {
+    throw incompatible()
+  }
+  return Object.freeze({
+    items: Object.freeze(value.items.map(datasetSummary)),
+    next_cursor: value.next_cursor,
+    has_more: value.has_more,
+  }) as DatasetCatalogPage
+}
+
+function datasetSummary(value: unknown): DatasetCatalogSummary {
+  if (!isObject(value)) throw incompatible()
+  exact(value, [
+    'dataset_id',
+    'dataset_name',
+    'purpose',
+    'version_count',
+    'latest_version',
+    'latest_status',
+    'created_at',
+  ])
+  if (
+    typeof value.dataset_id !== 'string'
+    || typeof value.dataset_name !== 'string'
+    || typeof value.purpose !== 'string'
+    || typeof value.version_count !== 'number'
+    || !Number.isInteger(value.version_count)
+    || !(value.latest_version === null || typeof value.latest_version === 'string')
+    || !(
+      value.latest_status === null
+      || ['BUILDING', 'VALIDATING', 'FROZEN', 'REJECTED']
+        .includes(String(value.latest_status))
+    )
+    || typeof value.created_at !== 'string'
+  ) {
+    throw incompatible()
+  }
+  return Object.freeze({
+    dataset_id: value.dataset_id,
+    dataset_name: value.dataset_name,
+    purpose: value.purpose,
+    version_count: value.version_count,
+    latest_version: value.latest_version,
+    latest_status: value.latest_status,
+    created_at: value.created_at,
+  }) as DatasetCatalogSummary
 }
 
 function datasetVersionPage(value: JsonObject): DatasetVersionPage {

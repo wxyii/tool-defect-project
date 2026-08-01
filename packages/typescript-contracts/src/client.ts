@@ -1,5 +1,5 @@
 // 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。
-// 契约主版本: 1；源哈希: 698d11ac5202bb62df31a09ed1c46be7280d905bc497c612fa9ab557e35b26cc
+// 契约主版本: 1；源哈希: 2f444d447ff4c6c90eef3880736497a01d3b1ffae2b368b6964e4fac6b9f4672
 import type {
   Acknowledgement,
   ActionRequest,
@@ -19,6 +19,9 @@ import type {
   CaptureSyncQueryResponse,
   ClientImage,
   CsrfTokenResponse,
+  DatasetCreateRequest,
+  DatasetPage,
+  DatasetSummary,
   DatasetVersionCreateRequest,
   DatasetVersionDiff,
   DatasetVersionDiffItem,
@@ -47,9 +50,14 @@ import type {
   LocalUserSession,
   LocalUserStatusRequest,
   LocalUserSummary,
+  ModelCreateRequest,
   ModelDeploymentCreateRequest,
+  ModelDeploymentPage,
   ModelDeploymentResponse,
+  ModelDeploymentSummary,
+  ModelPage,
   ModelStatus,
+  ModelSummary,
   ModelVersionPage,
   ModelVersionRegisterRequest,
   ModelVersionRegistrationResponse,
@@ -82,7 +90,9 @@ import type {
   SubmitCaptureResponse,
   Traceparent,
   TrainingRunCreateRequest,
+  TrainingRunPage,
   TrainingRunStatusUpdateRequest,
+  TrainingRunSummary,
   Trigger,
   UploadTicketRenewRequest,
   UploadTicketResponse,
@@ -147,6 +157,12 @@ export const API_OPERATION_METADATA = {
     responseMediaCategory: "json",
     responseMediaTypes: ["application/json"],
   },
+  createDataset: {
+    method: "POST",
+    path: "/api/v1/datasets",
+    responseMediaCategory: "json",
+    responseMediaTypes: ["application/json"],
+  },
   createDatasetVersion: {
     method: "POST",
     path: "/api/v1/dataset-versions",
@@ -164,6 +180,12 @@ export const API_OPERATION_METADATA = {
     path: "/api/v1/users",
     responseMediaCategory: "empty",
     responseMediaTypes: [],
+  },
+  createModel: {
+    method: "POST",
+    path: "/api/v1/models",
+    responseMediaCategory: "json",
+    responseMediaTypes: ["application/json"],
   },
   createModelDeployment: {
     method: "POST",
@@ -249,9 +271,21 @@ export const API_OPERATION_METADATA = {
     responseMediaCategory: "json",
     responseMediaTypes: ["application/json"],
   },
+  listDatasetVersionCatalog: {
+    method: "GET",
+    path: "/api/v1/dataset-versions",
+    responseMediaCategory: "json",
+    responseMediaTypes: ["application/json"],
+  },
   listDatasetVersions: {
     method: "GET",
     path: "/api/v1/datasets/{dataset_id}/versions",
+    responseMediaCategory: "json",
+    responseMediaTypes: ["application/json"],
+  },
+  listDatasets: {
+    method: "GET",
+    path: "/api/v1/datasets",
     responseMediaCategory: "json",
     responseMediaTypes: ["application/json"],
   },
@@ -267,9 +301,21 @@ export const API_OPERATION_METADATA = {
     responseMediaCategory: "json",
     responseMediaTypes: ["application/json"],
   },
+  listModelDeployments: {
+    method: "GET",
+    path: "/api/v1/model-deployments",
+    responseMediaCategory: "json",
+    responseMediaTypes: ["application/json"],
+  },
   listModelVersions: {
     method: "GET",
     path: "/api/v1/model-versions",
+    responseMediaCategory: "json",
+    responseMediaTypes: ["application/json"],
+  },
+  listModels: {
+    method: "GET",
+    path: "/api/v1/models",
     responseMediaCategory: "json",
     responseMediaTypes: ["application/json"],
   },
@@ -282,6 +328,12 @@ export const API_OPERATION_METADATA = {
   listRuntimeModels: {
     method: "GET",
     path: "/internal/v1/runtime/models",
+    responseMediaCategory: "json",
+    responseMediaTypes: ["application/json"],
+  },
+  listTrainingRuns: {
+    method: "GET",
+    path: "/api/v1/training-runs",
     responseMediaCategory: "json",
     responseMediaTypes: ["application/json"],
   },
@@ -463,6 +515,13 @@ export type CreateCaptureRequestEnvelope = Readonly<{
   readonly body: (CaptureCreateRequest);
 }>;
 
+export type CreateDatasetRequestEnvelope = Readonly<{
+  readonly path?: never;
+  readonly query?: never;
+  readonly headers: Readonly<{ readonly "Idempotency-Key": string; }>;
+  readonly body: (DatasetCreateRequest);
+}>;
+
 export type CreateDatasetVersionRequestEnvelope = Readonly<{
   readonly path?: never;
   readonly query?: never;
@@ -482,6 +541,13 @@ export type CreateLocalUserRequestEnvelope = Readonly<{
   readonly query?: never;
   readonly headers: Readonly<{ readonly "Idempotency-Key": string; }>;
   readonly body: (LocalUserCreateRequest);
+}>;
+
+export type CreateModelRequestEnvelope = Readonly<{
+  readonly path?: never;
+  readonly query?: never;
+  readonly headers: Readonly<{ readonly "Idempotency-Key": string; }>;
+  readonly body: (ModelCreateRequest);
 }>;
 
 export type CreateModelDeploymentRequestEnvelope = Readonly<{
@@ -582,8 +648,22 @@ export type GetTrainingRunRequestEnvelope = Readonly<{
   readonly body?: never;
 }>;
 
+export type ListDatasetVersionCatalogRequestEnvelope = Readonly<{
+  readonly path?: never;
+  readonly query?: Readonly<{ readonly "cursor"?: string; readonly "dataset_id"?: Uuid; readonly "page_size"?: number; readonly "status"?: "BUILDING" | "VALIDATING" | "FROZEN" | "REJECTED"; }>;
+  readonly headers?: never;
+  readonly body?: never;
+}>;
+
 export type ListDatasetVersionsRequestEnvelope = Readonly<{
   readonly path: Readonly<{ readonly "dataset_id": Uuid; }>;
+  readonly query?: Readonly<{ readonly "cursor"?: string; readonly "page_size"?: number; }>;
+  readonly headers?: never;
+  readonly body?: never;
+}>;
+
+export type ListDatasetsRequestEnvelope = Readonly<{
+  readonly path?: never;
   readonly query?: Readonly<{ readonly "cursor"?: string; readonly "page_size"?: number; }>;
   readonly headers?: never;
   readonly body?: never;
@@ -603,9 +683,23 @@ export type ListLocalUsersRequestEnvelope = Readonly<{
   readonly body?: never;
 }>;
 
+export type ListModelDeploymentsRequestEnvelope = Readonly<{
+  readonly path?: never;
+  readonly query?: Readonly<{ readonly "cursor"?: string; readonly "model_version_id"?: Uuid; readonly "page_size"?: number; readonly "status"?: "REQUESTED" | "APPROVED" | "ACTIVE" | "ROLLED_BACK" | "REJECTED"; }>;
+  readonly headers?: never;
+  readonly body?: never;
+}>;
+
 export type ListModelVersionsRequestEnvelope = Readonly<{
   readonly path?: never;
-  readonly query: Readonly<{ readonly "cursor"?: string | null; readonly "model_id": Uuid; readonly "page_size"?: number; }>;
+  readonly query?: Readonly<{ readonly "approval_state"?: "CANDIDATE" | "VALIDATED" | "APPROVED" | "REJECTED" | "RETIRED"; readonly "cursor"?: string | null; readonly "model_id"?: Uuid; readonly "page_size"?: number; }>;
+  readonly headers?: never;
+  readonly body?: never;
+}>;
+
+export type ListModelsRequestEnvelope = Readonly<{
+  readonly path?: never;
+  readonly query?: Readonly<{ readonly "cursor"?: string; readonly "page_size"?: number; }>;
   readonly headers?: never;
   readonly body?: never;
 }>;
@@ -620,6 +714,13 @@ export type ListReviewTasksRequestEnvelope = Readonly<{
 export type ListRuntimeModelsRequestEnvelope = Readonly<{
   readonly path?: never;
   readonly query?: never;
+  readonly headers?: never;
+  readonly body?: never;
+}>;
+
+export type ListTrainingRunsRequestEnvelope = Readonly<{
+  readonly path?: never;
+  readonly query?: Readonly<{ readonly "cursor"?: string; readonly "page_size"?: number; readonly "status"?: "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELLED"; }>;
   readonly headers?: never;
   readonly body?: never;
 }>;
@@ -772,9 +873,11 @@ export type ApiOperationRequestMap = Readonly<{
   readonly completeReviewAnnotation: CompleteReviewAnnotationRequestEnvelope;
   readonly createAnnotationUploadTicket: CreateAnnotationUploadTicketRequestEnvelope;
   readonly createCapture: CreateCaptureRequestEnvelope;
+  readonly createDataset: CreateDatasetRequestEnvelope;
   readonly createDatasetVersion: CreateDatasetVersionRequestEnvelope;
   readonly createImageAccessTicket: CreateImageAccessTicketRequestEnvelope;
   readonly createLocalUser: CreateLocalUserRequestEnvelope;
+  readonly createModel: CreateModelRequestEnvelope;
   readonly createModelDeployment: CreateModelDeploymentRequestEnvelope;
   readonly createTrainingRun: CreateTrainingRunRequestEnvelope;
   readonly diffDatasetVersions: DiffDatasetVersionsRequestEnvelope;
@@ -789,12 +892,17 @@ export type ApiOperationRequestMap = Readonly<{
   readonly getQualityMetrics: GetQualityMetricsRequestEnvelope;
   readonly getReviewWorkspace: GetReviewWorkspaceRequestEnvelope;
   readonly getTrainingRun: GetTrainingRunRequestEnvelope;
+  readonly listDatasetVersionCatalog: ListDatasetVersionCatalogRequestEnvelope;
   readonly listDatasetVersions: ListDatasetVersionsRequestEnvelope;
+  readonly listDatasets: ListDatasetsRequestEnvelope;
   readonly listDetections: ListDetectionsRequestEnvelope;
   readonly listLocalUsers: ListLocalUsersRequestEnvelope;
+  readonly listModelDeployments: ListModelDeploymentsRequestEnvelope;
   readonly listModelVersions: ListModelVersionsRequestEnvelope;
+  readonly listModels: ListModelsRequestEnvelope;
   readonly listReviewTasks: ListReviewTasksRequestEnvelope;
   readonly listRuntimeModels: ListRuntimeModelsRequestEnvelope;
+  readonly listTrainingRuns: ListTrainingRunsRequestEnvelope;
   readonly loginLocalUser: LoginLocalUserRequestEnvelope;
   readonly logoutLocalUser: LogoutLocalUserRequestEnvelope;
   readonly queryCaptureSync: QueryCaptureSyncRequestEnvelope;
@@ -825,9 +933,11 @@ export interface ApiClient {
   completeReviewAnnotation(request: CompleteReviewAnnotationRequestEnvelope): Promise<JsonObject>;
   createAnnotationUploadTicket(request: CreateAnnotationUploadTicketRequestEnvelope): Promise<JsonObject>;
   createCapture(request: CreateCaptureRequestEnvelope): Promise<JsonObject>;
+  createDataset(request: CreateDatasetRequestEnvelope): Promise<JsonObject>;
   createDatasetVersion(request: CreateDatasetVersionRequestEnvelope): Promise<JsonObject>;
   createImageAccessTicket(request: CreateImageAccessTicketRequestEnvelope): Promise<JsonObject>;
   createLocalUser(request: CreateLocalUserRequestEnvelope): Promise<JsonObject>;
+  createModel(request: CreateModelRequestEnvelope): Promise<JsonObject>;
   createModelDeployment(request: CreateModelDeploymentRequestEnvelope): Promise<JsonObject>;
   createTrainingRun(request: CreateTrainingRunRequestEnvelope): Promise<JsonObject>;
   diffDatasetVersions(request: DiffDatasetVersionsRequestEnvelope): Promise<JsonObject>;
@@ -842,12 +952,17 @@ export interface ApiClient {
   getQualityMetrics(request?: GetQualityMetricsRequestEnvelope): Promise<JsonObject>;
   getReviewWorkspace(request: GetReviewWorkspaceRequestEnvelope): Promise<JsonObject>;
   getTrainingRun(request: GetTrainingRunRequestEnvelope): Promise<JsonObject>;
+  listDatasetVersionCatalog(request?: ListDatasetVersionCatalogRequestEnvelope): Promise<JsonObject>;
   listDatasetVersions(request: ListDatasetVersionsRequestEnvelope): Promise<JsonObject>;
+  listDatasets(request?: ListDatasetsRequestEnvelope): Promise<JsonObject>;
   listDetections(request?: ListDetectionsRequestEnvelope): Promise<JsonObject>;
   listLocalUsers(request?: ListLocalUsersRequestEnvelope): Promise<JsonObject>;
-  listModelVersions(request: ListModelVersionsRequestEnvelope): Promise<JsonObject>;
+  listModelDeployments(request?: ListModelDeploymentsRequestEnvelope): Promise<JsonObject>;
+  listModelVersions(request?: ListModelVersionsRequestEnvelope): Promise<JsonObject>;
+  listModels(request?: ListModelsRequestEnvelope): Promise<JsonObject>;
   listReviewTasks(request?: ListReviewTasksRequestEnvelope): Promise<JsonObject>;
   listRuntimeModels(request?: ListRuntimeModelsRequestEnvelope): Promise<JsonObject>;
+  listTrainingRuns(request?: ListTrainingRunsRequestEnvelope): Promise<JsonObject>;
   loginLocalUser(request: LoginLocalUserRequestEnvelope): Promise<JsonObject>;
   logoutLocalUser(request: LogoutLocalUserRequestEnvelope): Promise<JsonObject>;
   queryCaptureSync(request: QueryCaptureSyncRequestEnvelope): Promise<JsonObject>;

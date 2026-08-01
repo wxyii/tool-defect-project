@@ -5,7 +5,19 @@ import java.util.UUID;
 
 public interface ModelQueryRepository {
 
+    Map<String, Object> listModels(
+        String actorId, int pageSize, String cursor
+    );
+
     Map<String, Object> listVersions(String actorId, UUID modelId, int pageSize, String cursor);
+
+    Map<String, Object> listVersions(
+        String actorId,
+        UUID modelId,
+        String approvalState,
+        int pageSize,
+        String cursor
+    );
 
     Map<String, Object> detailVersion(String actorId, UUID modelVersionId);
 

@@ -1,6 +1,6 @@
 // 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。
-// 契约主版本: 1；源哈希: 698d11ac5202bb62df31a09ed1c46be7280d905bc497c612fa9ab557e35b26cc
-export const CONTRACT_SOURCE_SHA256 = "698d11ac5202bb62df31a09ed1c46be7280d905bc497c612fa9ab557e35b26cc" as const;
+// 契约主版本: 1；源哈希: 2f444d447ff4c6c90eef3880736497a01d3b1ffae2b368b6964e4fac6b9f4672
+export const CONTRACT_SOURCE_SHA256 = "2f444d447ff4c6c90eef3880736497a01d3b1ffae2b368b6964e4fac6b9f4672" as const;
 export const CONTRACT_MAJOR_VERSION = 1 as const;
 
 export type JsonObject = Readonly<Record<string, unknown>>;
@@ -37,6 +37,9 @@ export type CaptureSyncQueryRequest = Readonly<{ readonly "capture_ids": Readonl
 export type CaptureSyncQueryResponse = Readonly<{ readonly "items": ReadonlyArray<CaptureStatusResponse>; }>;
 export type ClientImage = Readonly<{ readonly "client_image_id": string; readonly "file_name": string; readonly "height": number; readonly "image_role": string; readonly "media_type": "image/png" | "image/jpeg"; readonly "sha256": Sha256; readonly "size_bytes": number; readonly "width": number; }>;
 export type CsrfTokenResponse = Readonly<{ readonly "header_name": "X-TD-CSRF"; readonly "token": string; }>;
+export type DatasetCreateRequest = Readonly<{ readonly "dataset_name": string; readonly "purpose": string; }>;
+export type DatasetPage = Readonly<{ readonly "has_more": boolean; readonly "items": ReadonlyArray<DatasetSummary>; readonly "next_cursor": string | null; }>;
+export type DatasetSummary = Readonly<{ readonly "created_at": UtcTimestamp; readonly "dataset_id": Uuid; readonly "dataset_name": string; readonly "latest_status": ("BUILDING" | "VALIDATING" | "FROZEN" | "REJECTED") | (null); readonly "latest_version": (Version) | (null); readonly "purpose": string; readonly "version_count": number; }>;
 export type DatasetVersionCreateRequest = Readonly<{ readonly "candidate_manifest_id": Uuid; readonly "dataset_id": Uuid; readonly "purpose": string; }>;
 export type DatasetVersionDiff = Readonly<{ readonly "added_samples": number; readonly "from_version": DatasetVersionSummary; readonly "modified_samples": number; readonly "removed_samples": number; readonly "sample_diff_details": ReadonlyArray<DatasetVersionDiffItem>; readonly "to_version": DatasetVersionSummary; readonly "unchanged_samples": number; }>;
 export type DatasetVersionDiffItem = Readonly<{ readonly "change": "ADDED" | "REMOVED" | "MODIFIED" | "UNCHANGED"; readonly "diff_summary": string; readonly "sample_id": string; }>;
@@ -57,8 +60,13 @@ export type LocalUserRolesRequest = Readonly<{ readonly "roles": ReadonlyArray<s
 export type LocalUserSession = Readonly<{ readonly "display_name": string; readonly "password_change_required": boolean; readonly "permissions": ReadonlyArray<string>; readonly "roles": ReadonlyArray<string>; readonly "user_id": Uuid; readonly "username": string; }>;
 export type LocalUserStatusRequest = Readonly<{ readonly "status": "ACTIVE" | "DISABLED"; }>;
 export type LocalUserSummary = Readonly<{ readonly "created_at": string; readonly "display_name": string; readonly "password_change_required": boolean; readonly "roles": ReadonlyArray<string>; readonly "status": "ACTIVE" | "DISABLED"; readonly "updated_at": string; readonly "user_id": Uuid; readonly "username"?: string | null; }>;
+export type ModelCreateRequest = Readonly<{ readonly "model_name": string; readonly "task_type": string; }>;
 export type ModelDeploymentCreateRequest = Readonly<{ readonly "environment": "SHADOW" | "CANARY" | "PRODUCTION"; readonly "model_version_id": Uuid; readonly "rollback_model_version_id": Uuid; readonly "station_ids": ReadonlyArray<Uuid>; readonly "strategy": "STATION" | "PERCENTAGE"; readonly "traffic_ratio": number; }>;
+export type ModelDeploymentPage = Readonly<{ readonly "has_more": boolean; readonly "items": ReadonlyArray<ModelDeploymentSummary>; readonly "next_cursor": string | null; }>;
 export type ModelDeploymentResponse = Readonly<{ readonly "created_at": UtcTimestamp; readonly "deployment_id": Uuid; readonly "environment": "SHADOW" | "CANARY" | "PRODUCTION"; readonly "model_version_id": Uuid; readonly "record_version": number; readonly "status": string; readonly "strategy": "STATION" | "PERCENTAGE"; }>;
+export type ModelDeploymentSummary = Readonly<{ readonly "created_at": UtcTimestamp; readonly "deployment_id": Uuid; readonly "environment": "SHADOW" | "CANARY" | "PRODUCTION"; readonly "model_version_id": Uuid; readonly "status": "REQUESTED" | "APPROVED" | "ACTIVE" | "ROLLED_BACK" | "REJECTED"; readonly "strategy": "STATION" | "PERCENTAGE"; }>;
+export type ModelPage = Readonly<{ readonly "has_more": boolean; readonly "items": ReadonlyArray<ModelSummary>; readonly "next_cursor": string | null; }>;
+export type ModelSummary = Readonly<{ readonly "created_at": UtcTimestamp; readonly "latest_approval_state": ("CANDIDATE" | "VALIDATED" | "APPROVED" | "REJECTED" | "RETIRED") | (null); readonly "latest_version": number | null; readonly "model_id": Uuid; readonly "model_name": string; readonly "task_type": string; readonly "version_count": number; }>;
 export type ModelVersionPage = Readonly<{ readonly "has_more": boolean; readonly "items": ReadonlyArray<ModelVersionSummary>; readonly "next_cursor": string | null; }>;
 export type ModelVersionRegisterRequest = Readonly<{ readonly "artifact_bucket": string; readonly "artifact_object_key": string; readonly "artifact_sha256": Sha256; readonly "dataset_version_id": Uuid; readonly "evaluation_summary": Readonly<Record<string, unknown>>; readonly "input_spec": Readonly<Record<string, unknown>>; readonly "model_id": Uuid; readonly "output_spec": Readonly<Record<string, unknown>>; readonly "registry_name": string; readonly "registry_version": Version; readonly "sbom_sha256": Sha256; readonly "signature_key_id": string; readonly "training_run_id": Uuid; }>;
 export type ModelVersionRegistrationResponse = Readonly<{ readonly "approval_state": "CANDIDATE" | "VALIDATED" | "APPROVED" | "REJECTED" | "RETIRED"; readonly "created_at": UtcTimestamp; readonly "model_version_id": Uuid; readonly "version": number; }>;
@@ -84,7 +92,9 @@ export type RuntimeModelsResponse = Readonly<{ readonly "models": ReadonlyArray<
 export type SubmitCaptureRequest = Readonly<{ readonly "requested_at": UtcTimestamp; }>;
 export type SubmitCaptureResponse = Readonly<{ readonly "capture_id": Uuid; readonly "detection_task_id": Uuid; readonly "pipeline_version": Version; readonly "poll_after_ms": number; readonly "status": "SUBMITTED"; }>;
 export type TrainingRunCreateRequest = Readonly<{ readonly "dataset_version_id": Uuid; readonly "initial_model_version_id": (Uuid) | (null); readonly "training_config_version": Version; }>;
+export type TrainingRunPage = Readonly<{ readonly "has_more": boolean; readonly "items": ReadonlyArray<TrainingRunSummary>; readonly "next_cursor": string | null; }>;
 export type TrainingRunStatusUpdateRequest = Readonly<{ readonly "error_code": (string) | (null); readonly "finished_at": (UtcTimestamp) | (null); readonly "registry_run_uri": (string) | (null); readonly "started_at": (UtcTimestamp) | (null); readonly "status": "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELLED"; }>;
+export type TrainingRunSummary = Readonly<{ readonly "created_at": UtcTimestamp; readonly "dataset_version_id": Uuid; readonly "failure_code": string | null; readonly "finished_at": (UtcTimestamp) | (null); readonly "initial_model_version_id": (Uuid) | (null); readonly "started_at": (UtcTimestamp) | (null); readonly "status": "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELLED"; readonly "training_config_version": Version; readonly "training_run_id": Uuid; }>;
 export type Trigger = Readonly<{ readonly "client_sequence": number; readonly "occurred_at": UtcTimestamp; readonly "source": "PLC" | "SENSOR" | "MANUAL" | "HISTORICAL_IMPORT"; readonly "trigger_id": string; }>;
 export type UploadTicketRenewRequest = Readonly<{ readonly "sha256": Sha256; readonly "size_bytes": number; }>;
 export type UploadTicketResponse = Readonly<{ readonly "image_id": Uuid; readonly "upload": Readonly<{ readonly "expires_at": UtcTimestamp; readonly "headers": JsonObject; readonly "method": "PUT"; readonly "url": string; }>; }>;

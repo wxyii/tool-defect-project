@@ -11,6 +11,13 @@ import java.util.UUID;
 
 public interface DatasetRepository {
 
+    void insertDataset(
+        UUID datasetId,
+        String datasetName,
+        String purpose,
+        java.time.Instant createdAt
+    );
+
     Optional<DatasetVersion> findVersion(UUID datasetVersionId);
 
     Optional<CandidateManifest> findCandidateManifest(UUID candidateManifestId);

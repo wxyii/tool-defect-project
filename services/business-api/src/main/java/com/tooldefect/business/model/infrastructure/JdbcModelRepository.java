@@ -5,7 +5,9 @@ import com.tooldefect.business.model.application.ModelRepository;
 import com.tooldefect.business.model.domain.ModelApprovalState;
 import com.tooldefect.business.model.domain.ModelNotFound;
 import com.tooldefect.business.model.domain.ModelVersion;
+import com.tooldefect.business.shared.domain.DomainViolation;
 
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -27,6 +29,27 @@ public class JdbcModelRepository implements ModelRepository, ModelQueryRepositor
 
     public JdbcModelRepository(JdbcTemplate jdbc) {
         this.jdbc = Objects.requireNonNull(jdbc);
+    }
+
+    @Override
+    public void insertModel(
+            UUID modelId,
+            String modelName,
+            String taskType,
+            Instant createdAt) {
+        try {
+            jdbc.update(
+                """
+                INSERT INTO model
+                (model_id, model_name, task_type, created_at)
+                VALUES (?::uuid, ?, ?, ?)
+                """,
+                modelId, modelName, taskType,
+                java.sql.Timestamp.from(createdAt)
+            );
+        } catch (DuplicateKeyException duplicate) {
+            throw new DomainViolation("模型名称已存在", duplicate);
+        }
     }
 
     @Override
@@ -132,14 +155,78 @@ public class JdbcModelRepository implements ModelRepository, ModelQueryRepositor
     }
 
     @Override
-    public Map<String, Object> listVersions(String actorId, UUID modelId, int pageSize, String cursor) {
+    public Map<String, Object> listModels(
+            String actorId, int pageSize, String cursor) {
+        List<Object> args = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("""
+            SELECT m.model_id, m.model_name, m.task_type, m.created_at,
+                   (SELECT COUNT(*) FROM model_version counted
+                    WHERE counted.model_id = m.model_id) AS version_count,
+                   (SELECT latest.version::int FROM model_version latest
+                    WHERE latest.model_id = m.model_id
+                    ORDER BY latest.version::int DESC LIMIT 1) AS latest_version,
+                   (SELECT latest.approval_state FROM model_version latest
+                    WHERE latest.model_id = m.model_id
+                    ORDER BY latest.version::int DESC LIMIT 1) AS latest_approval_state
+            FROM model m
+            WHERE 1=1
+            """);
+        if (cursor != null && !cursor.isBlank()) {
+            sql.append("AND m.created_at < ?::timestamptz ");
+            args.add(Instant.parse(cursor));
+        }
+        sql.append("ORDER BY m.created_at DESC LIMIT ?");
+        args.add(pageSize + 1);
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            sql.toString(), args.toArray()
+        );
+        boolean hasMore = rows.size() > pageSize;
+        if (hasMore) rows = rows.subList(0, pageSize);
+        List<Map<String, Object>> items = rows.stream()
+            .map(JdbcModelRepository::modelSummary)
+            .toList();
+        String nextCursor = null;
+        if (hasMore && !rows.isEmpty()) {
+            nextCursor = ((java.sql.Timestamp) rows.get(rows.size() - 1)
+                .get("created_at")).toInstant().toString();
+        }
+        Map<String, Object> page = new LinkedHashMap<>();
+        page.put("items", items);
+        page.put("next_cursor", nextCursor);
+        page.put("has_more", hasMore);
+        return page;
+    }
+
+    @Override
+    public Map<String, Object> listVersions(
+            String actorId,
+            UUID modelId,
+            int pageSize,
+            String cursor) {
+        return listVersions(actorId, modelId, null, pageSize, cursor);
+    }
+
+    @Override
+    public Map<String, Object> listVersions(
+            String actorId,
+            UUID modelId,
+            String approvalState,
+            int pageSize,
+            String cursor) {
         List<Object> args = new ArrayList<>();
         StringBuilder sql = new StringBuilder(
             "SELECT mv.model_version_id, mv.model_id, mv.version::int AS version, mv.registry_name, " +
             "mv.registry_version, mv.approval_state, mv.created_at " +
-            "FROM model_version mv WHERE mv.model_id = ?::uuid "
+            "FROM model_version mv WHERE 1=1 "
         );
-        args.add(modelId);
+        if (modelId != null) {
+            sql.append("AND mv.model_id = ?::uuid ");
+            args.add(modelId);
+        }
+        if (approvalState != null && !approvalState.isBlank()) {
+            sql.append("AND mv.approval_state = ? ");
+            args.add(approvalState);
+        }
         if (cursor != null) {
             sql.append("AND mv.created_at < ?::timestamptz ");
             args.add(Instant.parse(cursor));
@@ -172,33 +259,36 @@ public class JdbcModelRepository implements ModelRepository, ModelQueryRepositor
 
     @Override
     public Map<String, Object> listByState(String actorId, String approvalState, int pageSize, String cursor) {
-        List<Object> args = new ArrayList<>();
-        StringBuilder sql = new StringBuilder(
-            "SELECT mv.model_version_id, mv.model_id, mv.version::int AS version, mv.registry_name, " +
-            "mv.registry_version, mv.approval_state, mv.created_at " +
-            "FROM model_version mv WHERE mv.approval_state = ? "
+        return listVersions(
+            actorId, null, approvalState, pageSize, cursor
         );
-        args.add(approvalState);
-        if (cursor != null) {
-            sql.append("AND mv.created_at < ?::timestamptz ");
-            args.add(Instant.parse(cursor));
-        }
-        sql.append("ORDER BY mv.created_at DESC LIMIT ?");
-        args.add(pageSize + 1);
-        List<Map<String, Object>> rows = jdbc.queryForList(sql.toString(), args.toArray());
-        boolean hasMore = rows.size() > pageSize;
-        if (hasMore) {
-            rows = rows.subList(0, pageSize);
-        }
-        String nextCursor = null;
-        if (hasMore && !rows.isEmpty()) {
-            nextCursor = String.valueOf(rows.get(rows.size() - 1).get("created_at"));
-        }
-        Map<String, Object> page = new LinkedHashMap<>();
-        page.put("items", rows);
-        page.put("next_cursor", nextCursor);
-        page.put("has_more", hasMore);
-        return page;
+    }
+
+    private static Map<String, Object> modelSummary(
+            Map<String, Object> row) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("model_id", String.valueOf(row.get("model_id")));
+        result.put("model_name", String.valueOf(row.get("model_name")));
+        result.put("task_type", String.valueOf(row.get("task_type")));
+        result.put(
+            "version_count",
+            ((Number) row.get("version_count")).intValue()
+        );
+        result.put(
+            "latest_version",
+            row.get("latest_version") == null
+                ? null : ((Number) row.get("latest_version")).intValue()
+        );
+        result.put(
+            "latest_approval_state",
+            row.get("latest_approval_state") == null
+                ? null : String.valueOf(row.get("latest_approval_state"))
+        );
+        result.put(
+            "created_at",
+            ((java.sql.Timestamp) row.get("created_at")).toInstant().toString()
+        );
+        return result;
     }
 
     private static String previousStateForUpdate(ModelApprovalState newState) {

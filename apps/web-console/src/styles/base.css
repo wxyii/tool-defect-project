@@ -1820,6 +1820,157 @@ input[type="range"] {
 }
 
 /* --------------------------------------------------------------------------
+   受控资源目录
+   -------------------------------------------------------------------------- */
+
+.resource-directory {
+  position: relative;
+  margin-bottom: 14px;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background:
+    linear-gradient(135deg, rgb(15 104 166 / 4%), transparent 42%),
+    var(--panel);
+  box-shadow: var(--shadow-card);
+}
+
+.resource-directory::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(var(--accent), var(--accent-deep));
+  content: "";
+}
+
+.resource-directory .section-heading {
+  margin-bottom: 14px;
+}
+
+.resource-directory .section-heading h3 {
+  margin: 3px 0 0;
+  font-size: 15px;
+}
+
+.resource-directory__rail {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.8fr) minmax(320px, 2fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.resource-directory__rail--wide {
+  grid-template-columns: repeat(3, minmax(190px, 1fr)) auto;
+  align-items: end;
+}
+
+.resource-directory label,
+.catalog-create-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.resource-directory input,
+.resource-directory select,
+.catalog-create-form input,
+.catalog-create-form select {
+  min-height: 40px;
+  padding: 7px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  color: var(--ink);
+  background: #fff;
+  font-size: 13px;
+}
+
+.resource-identity,
+.empty-catalog {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  min-height: 66px;
+  padding: 11px 14px;
+  border: 1px dashed #b7d5e8;
+  border-radius: 3px;
+  background: rgb(240 248 254 / 72%);
+}
+
+.resource-identity > span,
+.resource-identity > small,
+.empty-catalog > span {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.resource-identity > strong {
+  overflow-wrap: anywhere;
+  color: var(--accent-ink);
+  font-size: 12px;
+}
+
+.empty-catalog > strong {
+  color: var(--accent-ink);
+  font-size: 13px;
+}
+
+.catalog-create-form {
+  display: grid;
+  grid-template-columns: minmax(210px, 1.2fr) repeat(2, minmax(180px, 1fr)) auto;
+  gap: 12px;
+  align-items: end;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.catalog-create-form > div:first-child {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 40px;
+}
+
+.catalog-create-form > div:first-child strong,
+.catalog-create-form > div:first-child small {
+  display: block;
+}
+
+.catalog-create-form > div:first-child small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.catalog-create-form__index {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #b7d5e8;
+  border-radius: 50%;
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  font-family: var(--font-mono);
+  font-size: 18px;
+}
+
+.deployment-directory {
+  margin: 16px 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.deployment-directory .detection-ledger {
+  margin-bottom: 12px;
+  box-shadow: none;
+}
+
+/* --------------------------------------------------------------------------
    账号管理页
    -------------------------------------------------------------------------- */
 
@@ -1988,7 +2139,10 @@ input[type="range"] {
   }
 
   .filter-rail,
-  .panel form {
+  .panel form,
+  .resource-directory__rail,
+  .resource-directory__rail--wide,
+  .catalog-create-form {
     grid-template-columns: 1fr;
   }
 

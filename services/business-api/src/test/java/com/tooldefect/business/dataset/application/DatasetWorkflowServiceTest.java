@@ -91,6 +91,33 @@ class DatasetWorkflowServiceTest {
     }
 
     @Test
+    void createsDiscoverableDatasetRootWithServerGeneratedIdentifier() {
+        var response = service.createDataset(
+            REQUESTER_ID.toString(),
+            "dataset-catalog-key",
+            Map.of(
+                "dataset_name", "生产候选集",
+                "purpose", "增量训练"
+            )
+        );
+
+        assertThat(response.status()).isEqualTo(201);
+        assertThat(response.body())
+            .containsEntry("dataset_name", "生产候选集")
+            .containsEntry("purpose", "增量训练")
+            .containsEntry("version_count", 0)
+            .containsEntry("created_at", NOW.toString());
+        assertThat(response.body().get("dataset_id").toString())
+            .matches("[0-9a-f-]{36}");
+        verify(repository).insertDataset(
+            any(UUID.class),
+            eq("生产候选集"),
+            eq("增量训练"),
+            eq(NOW)
+        );
+    }
+
+    @Test
     void rejectsUnapprovedCandidateWithoutCreatingVersion() {
         when(repository.findCandidateManifest(CANDIDATE_ID))
             .thenReturn(Optional.of(candidate(CandidateManifest.ApprovalState.REGISTERED)));
