@@ -68,6 +68,7 @@ verify-p6-01:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) jobs/artifact-migrator/verify_p6_01.py
 
 verify-p6-02:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s jobs/dataset-builder/tests -p 'test_*.py'
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) jobs/dataset-builder/verify_p6_02.py
 
 verify-p6-03:

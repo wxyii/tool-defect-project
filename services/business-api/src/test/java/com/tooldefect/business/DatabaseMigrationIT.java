@@ -55,7 +55,7 @@ class DatabaseMigrationIT {
 
         var result = flyway.migrate();
 
-        assertThat(result.migrationsExecuted).isEqualTo(14);
+        assertThat(result.migrationsExecuted).isEqualTo(15);
         flyway.validate();
         JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
         assertThat(jdbc.queryForObject(
@@ -65,7 +65,7 @@ class DatabaseMigrationIT {
             WHERE success AND version IS NOT NULL
             """,
             Integer.class
-        )).isEqualTo(14);
+        )).isEqualTo(15);
         assertThat(jdbc.queryForObject(
             """
             SELECT COUNT(*)
@@ -150,6 +150,53 @@ class DatabaseMigrationIT {
         assertThat(new JdbcDeploymentRepository(jdbc).listDeployments(
             "auditor", null, null, 50, null
         )).containsEntry("items", List.of());
+    }
+
+    @Test
+    void datasetBuildClaimsArePairedAndClearedBeforeValidation() {
+        String schema = uniqueName("dataset_build_claim");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+        UUID datasetVersionId = seedDatasetVersion(jdbc);
+
+        assertThatThrownBy(() -> jdbc.update(
+            """
+            UPDATE dataset_version
+            SET build_worker_id = 'builder-one',
+                record_version = record_version + 1
+            WHERE dataset_version_id = ?
+            """,
+            datasetVersionId
+        )).isInstanceOf(DataAccessException.class);
+
+        assertThat(jdbc.update(
+            """
+            UPDATE dataset_version
+            SET build_worker_id = 'builder-one', build_claimed_at = now(),
+                record_version = record_version + 1
+            WHERE dataset_version_id = ?
+            """,
+            datasetVersionId
+        )).isEqualTo(1);
+
+        assertThatThrownBy(() -> jdbc.update(
+            """
+            UPDATE dataset_version
+            SET status = 'VALIDATING', record_version = record_version + 1
+            WHERE dataset_version_id = ?
+            """,
+            datasetVersionId
+        )).isInstanceOf(DataAccessException.class);
+
+        assertThat(jdbc.update(
+            """
+            UPDATE dataset_version
+            SET status = 'VALIDATING', build_worker_id = NULL,
+                build_claimed_at = NULL, record_version = record_version + 1
+            WHERE dataset_version_id = ?
+            """,
+            datasetVersionId
+        )).isEqualTo(1);
     }
 
     @Test
@@ -243,7 +290,7 @@ class DatabaseMigrationIT {
         );
 
         Flyway latest = flyway(POSTGRES.getJdbcUrl(), schema, null);
-        assertThat(latest.migrate().migrationsExecuted).isEqualTo(12);
+        assertThat(latest.migrate().migrationsExecuted).isEqualTo(13);
 
         assertThat(jdbc.queryForObject(
             "SELECT organization_id FROM production_line WHERE line_id = ?",
@@ -936,7 +983,7 @@ class DatabaseMigrationIT {
         assertThat(restored.queryForObject(
             "SELECT COUNT(*) FROM flyway_schema_history WHERE success",
             Integer.class
-        )).isEqualTo(14);
+        )).isEqualTo(15);
         flyway(databaseUrl(restoredDatabase), "public", null).validate();
     }
 
