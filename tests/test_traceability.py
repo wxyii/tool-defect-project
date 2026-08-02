@@ -15,7 +15,7 @@ from tools.traceability.build_matrix import (
 
 
 class TraceabilityTests(unittest.TestCase):
-    """验证 P0-03 的 14 文档覆盖、稳定编号和测试反向链接。"""
+    """验证 01—14 与 DOC-16 的稳定编号、任务、验收和测试反向链接。"""
 
     @classmethod
     def setUpClass(cls):
@@ -29,11 +29,49 @@ class TraceabilityTests(unittest.TestCase):
 
     def test_matrix_generation_is_deterministic(self):
         self.assertEqual(self.first, self.second)
-        self.assertEqual(355, self.first["requirement_count"])
         self.assertEqual(
-            "dd73a39ef9c6ea413678bc8f8f5c3d451756c840e7fc5577670b42228506c803",
+            self.lock["requirement_count"],
+            self.first["requirement_count"],
+        )
+        self.assertEqual(
+            self.lock["stable_requirements_sha256"],
             self.first["stable_requirements_sha256"],
         )
+
+    def test_doc16_product_requirements_have_stable_tasks_and_p0_acceptance(self):
+        self.assertEqual(
+            self.lock["product_requirement_count"],
+            self.first["product_requirement_count"],
+        )
+        self.assertEqual(
+            self.lock["p0_product_requirement_count"],
+            self.first["p0_product_requirement_count"],
+        )
+        product_ids = set()
+        tracking_ids = set()
+        acceptance_ids = {
+            item["id"] for item in self.first["acceptance_scenarios"]
+        }
+        for requirement in self.first["product_requirements"]:
+            self.assertRegex(
+                requirement["product_id"],
+                r"^(?:FR-[A-Z]+|NFR-[A-Z]+|MIG)-\d{3}$",
+            )
+            self.assertRegex(
+                requirement["tracking_id"],
+                r"^REQ-DOC-16-[0-9A-F]{12}$",
+            )
+            self.assertNotIn(requirement["product_id"], product_ids)
+            self.assertNotIn(requirement["tracking_id"], tracking_ids)
+            product_ids.add(requirement["product_id"])
+            tracking_ids.add(requirement["tracking_id"])
+            self.assertTrue(requirement["tasks"])
+            self.assertTrue(all(task.startswith("R") for task in requirement["tasks"]))
+            if requirement["priority"] == "P0":
+                self.assertTrue(requirement["acceptance_refs"])
+                self.assertTrue(
+                    set(requirement["acceptance_refs"]).issubset(acceptance_ids)
+                )
 
     def test_all_fourteen_design_documents_are_covered(self):
         self.assertEqual(
@@ -100,6 +138,51 @@ class TraceabilityTests(unittest.TestCase):
                 site_links.update(requirement["verification_refs"])
         self.assertTrue(site_links)
         self.assertTrue(site_links.issubset(decision_ids))
+
+    def test_r0_baselines_close_from_confirmed_non_use(self):
+        runtime = json.loads(
+            (PROJECT_ROOT / "Docs/baseline/R0-v1-runtime-inventory.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual("PASS", runtime["overall_status"])
+        self.assertEqual("CONFIRMED", runtime["non_use_declaration"]["status"])
+        self.assertTrue(
+            (PROJECT_ROOT / runtime["non_use_declaration"]["evidence_ref"]).is_file()
+        )
+        self.assertTrue(runtime["source_scan"]["consistent"])
+        self.assertEqual(
+            runtime["source_scan"]["scan_1_sha256"],
+            runtime["source_scan"]["scan_2_sha256"],
+        )
+        for consumer in runtime["consumers"]:
+            self.assertTrue(consumer["consumer_id"])
+            self.assertTrue(consumer["owner"])
+            self.assertTrue(consumer["version"])
+            self.assertIn("migration_status", consumer)
+            self.assertIn("last_call_evidence", consumer)
+            self.assertIn("telemetry_source", consumer)
+            self.assertEqual("NEVER_CALLED", consumer["last_call_evidence"]["status"])
+            self.assertEqual(
+                "NOT_APPLICABLE_NEVER_DEPLOYED",
+                consumer["telemetry_source"]["status"],
+            )
+            self.assertEqual("PASS", consumer["gate_status"])
+
+        cancellation = json.loads(
+            (PROJECT_ROOT / "Docs/baseline/R0-cancellation-inventory.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual("ACCEPTED_BY_ADR", cancellation["approval_status"])
+        for item in cancellation["items"]:
+            self.assertTrue(item["current_consumers"])
+            self.assertTrue(item["historical_retention"])
+            self.assertTrue(item["retirement_tasks"])
+        self.assertEqual(
+            "PASS",
+            cancellation["verification"]["runtime_zero_call_status"],
+        )
 
     def test_production_rules_have_document_sources_and_no_hardcoded_orphans(self):
         registry = json.loads(

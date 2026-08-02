@@ -21,7 +21,7 @@ def run(command: list[str], env: dict[str, str] | None = None) -> None:
 
 def compile_python(temp: Path) -> None:
     sources = sorted(
-        (ROOT / "packages/python-contracts/src/tool_defect_contracts").glob("*.py")
+        (ROOT / "packages/python-contracts/src/tool_defect_contracts").rglob("*.py")
     )
     env = os.environ.copy()
     env["PYTHONPYCACHEPREFIX"] = str(temp / "pycache")

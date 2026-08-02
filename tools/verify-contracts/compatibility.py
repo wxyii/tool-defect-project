@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""生成并检查 v1 契约兼容表面。"""
+"""按主版本生成并检查契约兼容表面。"""
 
 from __future__ import annotations
 
@@ -12,7 +12,6 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 CONTRACTS = ROOT / "contracts"
-BASELINE = CONTRACTS / "compatibility" / "v1-baseline.json"
 METHODS = {"get", "post", "put", "patch", "delete"}
 
 
@@ -41,12 +40,21 @@ def schema_surface(schema: Any, prefix: str = "") -> dict[str, Any]:
     return result
 
 
-def snapshot() -> dict[str, Any]:
+def version_paths(major: int) -> tuple[Path, Path, Path]:
+    return (
+        CONTRACTS / "openapi" / f"tool-defect-api-v{major}.json",
+        CONTRACTS / "asyncapi" / f"inference-events-v{major}.json",
+        CONTRACTS / "consumers" / f"v{major}-consumers.json",
+    )
+
+
+def snapshot(major: int = 1) -> dict[str, Any]:
     schemas: dict[str, Any] = {}
-    for path in sorted((CONTRACTS / "json-schema").glob("*.json")):
+    for path in sorted((CONTRACTS / "json-schema").glob(f"*-v{major}.schema.json")):
         schemas[path.name] = schema_surface(load(path))
 
-    api = load(CONTRACTS / "openapi" / "tool-defect-api-v1.json")
+    openapi_path, asyncapi_path, consumers_path = version_paths(major)
+    api = load(openapi_path)
     openapi_schemas = {
         name: schema_surface(schema)
         for name, schema in sorted(api["components"]["schemas"].items())
@@ -61,11 +69,11 @@ def snapshot() -> dict[str, Any]:
                 "responses": sorted(operation["responses"]),
                 "has_request_body": "requestBody" in operation,
             }
-    asyncapi = load(CONTRACTS / "asyncapi" / "inference-events-v1.json")
-    consumers = load(CONTRACTS / "consumers" / "v1-consumers.json")
+    asyncapi = load(asyncapi_path)
+    consumers = load(consumers_path)
     return {
         "baseline_format": 1,
-        "contract_major": 1,
+        "contract_major": major,
         "json_schema_surfaces": schemas,
         "openapi_operations": operations,
         "openapi_schema_surfaces": openapi_schemas,
@@ -139,20 +147,22 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--write-baseline", action="store_true")
     parser.add_argument("--self-test", action="store_true")
+    parser.add_argument("--major", type=int, choices=(1, 2), default=1)
     args = parser.parse_args()
-    current = snapshot()
+    baseline_path = CONTRACTS / "compatibility" / f"v{args.major}-baseline.json"
+    current = snapshot(args.major)
     if args.write_baseline:
-        BASELINE.parent.mkdir(parents=True, exist_ok=True)
-        BASELINE.write_text(
+        baseline_path.parent.mkdir(parents=True, exist_ok=True)
+        baseline_path.write_text(
             json.dumps(current, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
-        print(f"已写入兼容基线：{BASELINE.relative_to(ROOT)}")
+        print(f"已写入兼容基线：{baseline_path.relative_to(ROOT)}")
         return 0
-    if not BASELINE.exists():
+    if not baseline_path.exists():
         print("兼容检查失败：基线不存在", file=sys.stderr)
         return 1
-    baseline = load(BASELINE)
+    baseline = load(baseline_path)
     errors = compare(baseline, current)
     if args.self_test:
         damaged = copy.deepcopy(current)
@@ -174,7 +184,7 @@ def main() -> int:
         for error in errors:
             print(f"- {error}", file=sys.stderr)
         return 1
-    print("v1 兼容检查通过")
+    print(f"v{args.major} 兼容检查通过")
     return 0
 
 

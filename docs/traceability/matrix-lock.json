@@ -1,7 +1,7 @@
 {
-  "schema_version": "1.0.0",
-  "generator_version": "1.0.0",
-  "requirement_count": 463,
+  "schema_version": "2.0.0",
+  "generator_version": "2.0.0",
+  "requirement_count": 476,
   "documents": {
     "10": {
       "path": "Docs/10-异常处理.md",
@@ -41,9 +41,9 @@
     },
     "02": {
       "path": "Docs/02-完整检测业务流程.md",
-      "requirement_count": 25,
-      "requirement_ids_sha256": "d433d3b2ce8c8d3d09d8236938afe1920874e013922a859314861d6e67fbbb28",
-      "source_sha256": "f5aef9537e0b565580bd5f65ac309f8f6bbae55995d1349207bec9c88c9d73cd"
+      "requirement_count": 35,
+      "requirement_ids_sha256": "649a158a8dd509994f64f3a47a2d7a3cd531e4eb3bcccaf2a54c5bc0beab815d",
+      "source_sha256": "f8198ea215755d5e24d7de88ca7c339a93dab502615902f74bf20132975fe3dd"
     },
     "03": {
       "path": "Docs/03-算法与预处理通用接口设计.md",
@@ -53,9 +53,9 @@
     },
     "04": {
       "path": "Docs/04-人工复核系统.md",
-      "requirement_count": 26,
-      "requirement_ids_sha256": "eb30cdc38466b029bc152c31bf2a6171bf6f7dbfa158fa205c057980c0047de3",
-      "source_sha256": "c9af9aa42792a5f7b451195771a2cb76f778546f8fbc69421ca1af8ad3e66075"
+      "requirement_count": 29,
+      "requirement_ids_sha256": "06c9b326df158c9930f612cf993b1712b3cc53d6848e90e4b29fa167e4cccb61",
+      "source_sha256": "b5ef75b9c5e439dcaf23823f744131410f7eb7f95b2d3525a0701f05db8827d8"
     },
     "05": {
       "path": "Docs/05-数据库设计.md",
@@ -88,5 +88,13 @@
       "source_sha256": "60c4c05b71b41b415a302fa9aa732b840d3644988e61771e899073aba5b1d985"
     }
   },
-  "stable_requirements_sha256": "7781da35abbe10f32a362723eb73ec6e29a8672bb76a1a5360db8d229c415613"
+  "stable_requirements_sha256": "8cf6bc010eb72c9329b83060c2bddd27ca8e0d48509a37961d1888da3ffd34a2",
+  "product_requirement_count": 104,
+  "p0_product_requirement_count": 88,
+  "stable_product_requirements_sha256": "6e5b298e581ea56d1627b66fc33e046f4c6ff5d8db36d406428ba83878720fe9",
+  "acceptance_scenarios_sha256": "313e7457850bb1a150d732bbafa2b1c0135cf78ebb3d40e0c12893c7e462f8d7",
+  "product_document": {
+    "path": "Docs/16-手工批量检测与管理简化需求规格.md",
+    "source_sha256": "9fb6d728e26733843575558b5093f3cd0bbe07ad63c2136dd253e81e755a6c93"
+  }
 }

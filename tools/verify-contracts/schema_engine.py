@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 
-ANNOTATIONS = {"$schema", "$id", "title", "description", "default", "examples"}
+ANNOTATIONS = {"$schema", "$id", "title", "description", "default", "examples", "readOnly", "writeOnly"}
 SUPPORTED = {
     "$ref",
     "$defs",

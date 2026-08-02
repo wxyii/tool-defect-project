@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tool-defect.local/contracts/event-payloads-v2.schema.json",
+  "title": "第二版异步事件载荷",
+  "$defs": {
+    "EventMetadata": {
+      "type": "object", "additionalProperties": false,
+      "required": ["message_id", "occurred_at", "idempotency_key", "traceparent"],
+      "properties": {
+        "message_id": {"type": "string", "format": "uuid"}, "occurred_at": {"type": "string", "format": "date-time"},
+        "idempotency_key": {"type": "string", "minLength": 8, "maxLength": 128},
+        "traceparent": {"type": "string", "pattern": "^00-[a-f0-9]{32}-[a-f0-9]{16}-[a-f0-9]{2}$"}
+      }
+    },
+    "InferenceItemRequested": {
+      "type": "object", "additionalProperties": false,
+      "required": ["message_id", "occurred_at", "idempotency_key", "traceparent", "batch_item_id", "detection_task_id", "image", "pipeline_version"],
+      "properties": {
+        "message_id": {"type": "string", "format": "uuid"}, "occurred_at": {"type": "string", "format": "date-time"}, "idempotency_key": {"type": "string", "minLength": 8, "maxLength": 128}, "traceparent": {"type": "string", "pattern": "^00-[a-f0-9]{32}-[a-f0-9]{16}-[a-f0-9]{2}$"},
+        "batch_item_id": {"type": "string", "format": "uuid"}, "detection_task_id": {"type": "string", "format": "uuid"},
+        "image": {"$ref": "common-v2.schema.json#/$defs/ObjectReference"}, "pipeline_version": {"type": "string", "minLength": 1, "maxLength": 100}
+      }
+    },
+    "InferenceItemCompleted": {
+      "type": "object", "additionalProperties": false,
+      "required": ["message_id", "occurred_at", "idempotency_key", "traceparent", "batch_item_id", "detection_task_id", "attempt_id", "quality", "algorithm_outcome", "result_reference"],
+      "properties": {
+        "message_id": {"type": "string", "format": "uuid"}, "occurred_at": {"type": "string", "format": "date-time"}, "idempotency_key": {"type": "string", "minLength": 8, "maxLength": 128}, "traceparent": {"type": "string", "pattern": "^00-[a-f0-9]{32}-[a-f0-9]{16}-[a-f0-9]{2}$"},
+        "batch_item_id": {"type": "string", "format": "uuid"}, "detection_task_id": {"type": "string", "format": "uuid"}, "attempt_id": {"type": "string", "format": "uuid"},
+        "quality": {"$ref": "common-v2.schema.json#/$defs/ImageQualityResult"}, "algorithm_outcome": {"$ref": "common-v2.schema.json#/$defs/AlgorithmOutcome"},
+        "result_reference": {"$ref": "common-v2.schema.json#/$defs/ObjectReference"}
+      }
+    },
+    "InferenceItemFailed": {
+      "type": "object", "additionalProperties": false,
+      "required": ["message_id", "occurred_at", "idempotency_key", "traceparent", "batch_item_id", "detection_task_id", "attempt_id", "error_code", "retryable"],
+      "properties": {
+        "message_id": {"type": "string", "format": "uuid"}, "occurred_at": {"type": "string", "format": "date-time"}, "idempotency_key": {"type": "string", "minLength": 8, "maxLength": 128}, "traceparent": {"type": "string", "pattern": "^00-[a-f0-9]{32}-[a-f0-9]{16}-[a-f0-9]{2}$"},
+        "batch_item_id": {"type": "string", "format": "uuid"}, "detection_task_id": {"type": "string", "format": "uuid"}, "attempt_id": {"type": "string", "format": "uuid"},
+        "error_code": {"type": "string", "pattern": "^TD-[A-Z0-9-]+$"}, "retryable": {"type": "boolean"}, "safe_detail": {"type": "string", "maxLength": 1000}
+      }
+    },
+    "SampleExportRequested": {
+      "type": "object", "additionalProperties": false,
+      "required": ["message_id", "occurred_at", "idempotency_key", "traceparent", "sample_export_job_id", "candidate_ids", "target_object"],
+      "properties": {
+        "message_id": {"type": "string", "format": "uuid"}, "occurred_at": {"type": "string", "format": "date-time"}, "idempotency_key": {"type": "string", "minLength": 8, "maxLength": 128}, "traceparent": {"type": "string", "pattern": "^00-[a-f0-9]{32}-[a-f0-9]{16}-[a-f0-9]{2}$"},
+        "sample_export_job_id": {"type": "string", "format": "uuid"}, "candidate_ids": {"type": "array", "minItems": 1, "maxItems": 10000, "uniqueItems": true, "items": {"type": "string", "format": "uuid"}},
+        "target_object": {"$ref": "common-v2.schema.json#/$defs/ObjectReference"}
+      }
+    },
+    "SampleExportCompleted": {
+      "type": "object", "additionalProperties": false,
+      "required": ["message_id", "occurred_at", "idempotency_key", "traceparent", "sample_export_job_id", "manifest", "exported_count", "failed_candidate_ids"],
+      "properties": {
+        "message_id": {"type": "string", "format": "uuid"}, "occurred_at": {"type": "string", "format": "date-time"}, "idempotency_key": {"type": "string", "minLength": 8, "maxLength": 128}, "traceparent": {"type": "string", "pattern": "^00-[a-f0-9]{32}-[a-f0-9]{16}-[a-f0-9]{2}$"},
+        "sample_export_job_id": {"type": "string", "format": "uuid"}, "manifest": {"$ref": "common-v2.schema.json#/$defs/ObjectReference"},
+        "exported_count": {"type": "integer", "minimum": 0}, "failed_candidate_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "format": "uuid"}}
+      }
+    },
+    "ModelValidationRequested": {
+      "type": "object", "additionalProperties": false,
+      "required": ["message_id", "occurred_at", "idempotency_key", "traceparent", "model_upload_id", "quarantine_object", "validation_profile"],
+      "properties": {
+        "message_id": {"type": "string", "format": "uuid"}, "occurred_at": {"type": "string", "format": "date-time"}, "idempotency_key": {"type": "string", "minLength": 8, "maxLength": 128}, "traceparent": {"type": "string", "pattern": "^00-[a-f0-9]{32}-[a-f0-9]{16}-[a-f0-9]{2}$"},
+        "model_upload_id": {"type": "string", "format": "uuid"}, "quarantine_object": {"$ref": "common-v2.schema.json#/$defs/ObjectReference"},
+        "validation_profile": {"type": "string", "minLength": 1, "maxLength": 100}
+      }
+    },
+    "ModelValidationCompleted": {
+      "type": "object", "additionalProperties": false,
+      "required": ["message_id", "occurred_at", "idempotency_key", "traceparent", "model_upload_id", "validation_result"],
+      "properties": {
+        "message_id": {"type": "string", "format": "uuid"}, "occurred_at": {"type": "string", "format": "date-time"}, "idempotency_key": {"type": "string", "minLength": 8, "maxLength": 128}, "traceparent": {"type": "string", "pattern": "^00-[a-f0-9]{32}-[a-f0-9]{16}-[a-f0-9]{2}$"},
+        "model_upload_id": {"type": "string", "format": "uuid"}, "validation_result": {"$ref": "common-v2.schema.json#/$defs/ModelValidationResult"}
+      }
+    }
+  }
+}

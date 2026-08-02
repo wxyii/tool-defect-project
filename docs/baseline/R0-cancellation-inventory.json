@@ -1,0 +1,74 @@
+{
+  "schema_version": "1.0.0",
+  "baseline_id": "R0-CANCELLATION-2026-08-03",
+  "captured_at": "2026-08-03",
+  "decision_ref": "Docs/decisions/ADR-0003-取消内置数据集与训练管理.md",
+  "approval_status": "ACCEPTED_BY_ADR",
+  "items": [
+    {
+      "id": "CANCEL-V1-CONTRACT-WRITES",
+      "kind": "第一版接口与生成客户端",
+      "current_objects": ["contracts/openapi/tool-defect-api-v1.json#createDatasetVersion", "contracts/openapi/tool-defect-api-v1.json#createTrainingRun", "contracts/consumers/v1-consumers.json#business-api", "apps/web-console/src/api/client.ts"],
+      "current_consumers": ["business-api", "web-console"],
+      "historical_retention": "冻结第一版契约、示例、兼容基线和审计读取",
+      "retirement_tasks": ["R1-06", "R2-08", "R9-01", "R9-09"]
+    },
+    {
+      "id": "CANCEL-DATASET-TRAINING-UI",
+      "kind": "页面、菜单和路由",
+      "current_objects": ["apps/web-console/src/features/datasets/", "apps/web-console/src/features/training/", "apps/web-console/src/router/routes.ts", "apps/web-console/src/features/models/ModelsView.vue"],
+      "current_consumers": ["web-console"],
+      "historical_retention": "旧书签仅允许明确退役响应，不重定向为新能力",
+      "retirement_tasks": ["R6-05", "R8-06", "R9-04"]
+    },
+    {
+      "id": "CANCEL-DATASET-BUSINESS-MODULE",
+      "kind": "在线数据集业务模块",
+      "current_objects": ["services/business-api/src/main/java/com/tooldefect/business/dataset/"],
+      "current_consumers": ["business-api", "web-console"],
+      "historical_retention": "历史表与只读来源在归档窗口内保留",
+      "retirement_tasks": ["R2-08", "R9-01", "R9-08"]
+    },
+    {
+      "id": "CANCEL-PEOPLE-PERMISSIONS",
+      "kind": "数据集与训练人员权限",
+      "current_objects": ["services/business-api/src/main/java/com/tooldefect/business/identity/domain/RolePermissionMatrix.java", "services/business-api/src/main/java/com/tooldefect/business/identity/infrastructure/SecurityConfiguration.java", "apps/web-console/src/router/routes.ts"],
+      "current_consumers": ["business-api", "web-console"],
+      "historical_retention": "旧审计记录保留，不允许新分配",
+      "retirement_tasks": ["R2-07", "R6-05", "R6-07", "R9-04", "R9-07"]
+    },
+    {
+      "id": "CANCEL-ONLINE-DATASET-BUILDER",
+      "kind": "在线数据集构建执行端",
+      "current_objects": ["jobs/dataset-builder/worker.py", "tools/dev/start-all.sh", "services/business-api/src/main/resources/db/migration/V15__dataset_build_worker_lease.sql"],
+      "current_consumers": ["development-startup", "business-api"],
+      "historical_retention": "已执行迁移只读保留；有价值纯校验逻辑可迁入导出或研究工具",
+      "retirement_tasks": ["R7-03", "R9-07"]
+    },
+    {
+      "id": "CANCEL-ONLINE-TRAINING-PIPELINE",
+      "kind": "内部训练执行、配置与监控",
+      "current_objects": ["jobs/training-pipeline/", "services/business-api/src/main/resources/application.yaml#training", "deploy/monitoring/grafana/dashboards/training-release.json"],
+      "current_consumers": ["business-api", "operations"],
+      "historical_retention": "研究代码需另有离线所有者，不构建、不部署且无业务凭据",
+      "retirement_tasks": ["R8-10", "R9-07"]
+    },
+    {
+      "id": "CANCEL-MODEL-TRAINING-HARD-DEPENDENCY",
+      "kind": "模型登记对数据集与训练的必填依赖",
+      "current_objects": ["services/business-api/src/main/java/com/tooldefect/business/model/", "services/business-api/src/main/java/com/tooldefect/business/deployment/", "apps/web-console/src/features/models/ModelsView.vue"],
+      "current_consumers": ["business-api", "web-console"],
+      "historical_retention": "第一版历史模型关联保留并迁为可验只读来源快照",
+      "retirement_tasks": ["R2-07", "R8-04", "R8-06", "R8-08", "R9-08"]
+    }
+  ],
+  "verification": {
+    "source_scan_sha256": "67bdd75079c20b71cb462b0f8e84b163458f9260fd908d27a782f6e26237e64a",
+    "all_items_have_consumers": true,
+    "all_items_have_historical_retention": true,
+    "all_items_have_retirement_tasks": true,
+    "runtime_zero_call_status": "PASS",
+    "runtime_zero_call_reason": "项目所有者确认第一版从未实际部署或使用，因此运行消费者和调用均不存在；源码消费者仍按退役任务清理",
+    "runtime_zero_call_evidence": "Docs/decisions/R0-第一版未实际使用声明.md"
+  }
+}

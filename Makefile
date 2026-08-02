@@ -4,7 +4,7 @@ PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 	test-backend test-web test-integration test-e2e test-faults test-security \
 	test-performance verify-data verify-models verify-all \
 	check-environment check-environment-source generate-contracts \
-	verify-contracts-source test-contract-packages-offline verify-compose \
+	verify-contracts-source verify-v2-scope test-contract-packages-offline verify-compose \
 	verify-sbom sbom verify-p1-offline verify-p1-strict verify-p6-01 verify-p6-02 verify-p6-03 verify-p6-04 verify-p6-05 verify-p6-06 verify-p6-07 verify-p6-08 verify-g6 \
 	verify-p7-01 verify-p7-02 verify-p7-03 verify-p7-04 verify-p7-05 verify-p7-06 verify-p7-07 verify-g7
 
@@ -17,8 +17,12 @@ verify-contracts: verify-contracts-source
 verify-contracts-source:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/verify-contracts/verify_contracts.py
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/verify-contracts/compatibility.py --self-test
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/verify-contracts/compatibility.py --major 2 --self-test
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/generate-contracts/generate.py --check-deterministic
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/generate-contracts/verify_packages.py --languages offline
+
+verify-v2-scope:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/verify-contracts/verify_v2_scope.py
 
 generate-contracts:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/generate-contracts/generate.py

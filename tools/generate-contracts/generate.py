@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""从 v1 契约确定性生成 Python、Java 与 TypeScript 类型及客户端表面。"""
+"""从 v1/v2 契约确定性生成 Python、Java 与 TypeScript 类型及客户端表面。"""
 
 from __future__ import annotations
 
@@ -15,6 +15,8 @@ ROOT = Path(__file__).resolve().parents[2]
 CONTRACTS = ROOT / "contracts"
 OPENAPI = CONTRACTS / "openapi" / "tool-defect-api-v1.json"
 COMMON_SCHEMA = CONTRACTS / "json-schema" / "common-v1.schema.json"
+OPENAPI_V2 = CONTRACTS / "openapi" / "tool-defect-api-v2.json"
+COMMON_SCHEMA_V2 = CONTRACTS / "json-schema" / "common-v2.schema.json"
 HTTP_METHODS = ("get", "post", "put", "patch", "delete")
 
 
@@ -22,11 +24,12 @@ def load(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def source_hash() -> str:
+def source_hash(major: int = 1) -> str:
     digest = hashlib.sha256()
     paths = []
     for directory in ("json-schema", "openapi", "asyncapi"):
-        paths.extend((CONTRACTS / directory).glob("*.json"))
+        paths.extend((CONTRACTS / directory).glob(f"*-v{major}.json"))
+        paths.extend((CONTRACTS / directory).glob(f"*-v{major}.schema.json"))
     for path in sorted(paths):
         canonical = json.dumps(
             load(path), ensure_ascii=False, sort_keys=True, separators=(",", ":")
@@ -660,7 +663,7 @@ def generated_files() -> dict[Path, str]:
     ]
     ts_client = typescript_client_source(ts_header, api, ts_schema_names)
 
-    return {
+    files = {
         ROOT
         / "packages/python-contracts/src/tool_defect_contracts/models.py": "".join(
             py_models
@@ -683,6 +686,318 @@ def generated_files() -> dict[Path, str]:
         / "packages/java-contracts/src/main/java/local/tooldefect/contracts/ObjectReference.java": java_object,
         ROOT / "packages/typescript-contracts/src/index.ts": "".join(ts_models),
         ROOT / "packages/typescript-contracts/src/client.ts": ts_client,
+    }
+    if OPENAPI_V2.exists() and COMMON_SCHEMA_V2.exists():
+        files.update(generated_v2_files())
+    return files
+
+
+def version_metadata(
+    major: int, openapi_path: Path, common_schema_path: Path
+) -> tuple[dict[str, list[str]], list[str], str]:
+    common = load(common_schema_path)
+    enums = {
+        name: definition["enum"]
+        for name, definition in common["$defs"].items()
+        if "enum" in definition
+    }
+    api = load(openapi_path)
+    operations = sorted(
+        operation["operationId"]
+        for item in api["paths"].values()
+        for method, operation in item.items()
+        if method in HTTP_METHODS
+    )
+    return enums, operations, source_hash(major)
+
+
+def generated_v2_files() -> dict[Path, str]:
+    """第二版使用独立命名空间，避免消费者链接时混入第一版类型。"""
+
+    enums, operations, digest = version_metadata(2, OPENAPI_V2, COMMON_SCHEMA_V2)
+    py_header = (
+        "# 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。\n"
+        f"# 契约主版本: 2；源哈希: {digest}\n"
+    )
+    py_models = [
+        py_header,
+        "from dataclasses import dataclass\n",
+        "from enum import Enum\n",
+        "from typing import Mapping\n\n",
+        f'CONTRACT_SOURCE_SHA256 = "{digest}"\n',
+        "CONTRACT_MAJOR_VERSION = 2\n\n",
+    ]
+    for name, values in sorted(enums.items()):
+        py_models.append(f"class {name}(str, Enum):\n")
+        py_models.extend(f'    {snake_upper(value)} = "{value}"\n' for value in values)
+        py_models.append("\n")
+    py_models.append(
+        """@dataclass(frozen=True, slots=True)
+class ObjectReference:
+    bucket: str
+    object_key: str
+    sha256: str
+    size_bytes: int
+    media_type: str
+    object_version: str | None = None
+
+@dataclass(frozen=True, slots=True)
+class BatchAggregateCounts:
+    total: int
+    completed: int
+    defect_suspected: int
+    normal: int
+    inconclusive: int
+    quality_rejected: int
+    technical_failed: int
+
+@dataclass(frozen=True, slots=True)
+class ImageQualityCheck:
+    check_type: ImageQualityCheckType
+    status: ImageQualityCheckStatus
+    rule_id: str
+    reason_code: str
+    user_hint: str
+    measurement: float | None = None
+    threshold: float | None = None
+
+@dataclass(frozen=True, slots=True)
+class ImageQualityResult:
+    overall: ImageQualityOverall
+    checker_version: str
+    checks: tuple[ImageQualityCheck, ...]
+
+@dataclass(frozen=True, slots=True)
+class DetectionBatch:
+    batch_id: str
+    batch_no: str
+    source: BatchSource
+    created_by: str
+    usage_stage: UsageStage
+    status: BatchStatus
+    counts: BatchAggregateCounts
+    created_at: str
+    updated_at: str
+    version: int
+    usage_stage_note: str | None = None
+
+@dataclass(frozen=True, slots=True)
+class DetectionBatchItem:
+    batch_item_id: str
+    batch_id: str
+    image: ObjectReference
+    status: BatchItemStatus
+    created_at: str
+    updated_at: str
+    capture_id: str | None = None
+    quality: ImageQualityResult | None = None
+    algorithm_outcome: AlgorithmOutcome | None = None
+    quick_review_decision: QuickReviewDecision | None = None
+
+@dataclass(frozen=True, slots=True)
+class QuickReviewRecord:
+    review_record_id: str
+    batch_item_id: str
+    decision: QuickReviewDecision
+    submitted_by: str
+    submitted_at: str
+    idempotency_key: str
+    supersedes_record_id: str | None = None
+    disposition_reference: str | None = None
+
+@dataclass(frozen=True, slots=True)
+class AdminFeedbackRecord:
+    feedback_id: str
+    batch_item_id: str
+    label: AdminFeedbackLabel
+    submitted_by: str
+    submitted_at: str
+    note: str | None = None
+    annotation_reference: ObjectReference | None = None
+    source_review_record_id: str | None = None
+
+@dataclass(frozen=True, slots=True)
+class SampleCandidate:
+    sample_candidate_id: str
+    batch_item_id: str
+    feedback_id: str
+    status: SampleCandidateStatus
+    created_at: str
+    decision_note: str | None = None
+    export_job_id: str | None = None
+
+@dataclass(frozen=True, slots=True)
+class SampleExportJob:
+    sample_export_job_id: str
+    filter_snapshot: Mapping[str, str]
+    candidate_count: int
+    status: ExportJobStatus
+    created_at: str
+    package: ObjectReference | None = None
+    failed_candidate_ids: tuple[str, ...] = ()
+    expires_at: str | None = None
+
+@dataclass(frozen=True, slots=True)
+class ModelUploadSession:
+    model_upload_id: str
+    quarantine_object: ObjectReference
+    declared_sha256: str
+    status: ModelUploadStatus
+    created_at: str
+    expires_at: str
+    model_version: str | None = None
+    description: str | None = None
+
+@dataclass(frozen=True, slots=True)
+class ModelValidationResult:
+    model_upload_id: str
+    status: ModelValidationStatus
+    package_check: str
+    security_scan: str
+    load_test: str
+    warmup_test: str
+    fixed_sample_test: str
+    evidence: ObjectReference
+    external_source_note: str | None = None
+    safe_error: str | None = None
+
+@dataclass(frozen=True, slots=True)
+class LegacyProvenanceSnapshot:
+    source_type: str
+    legacy_id: str
+    immutable_summary: str
+    archive_reference: str
+    sha256: str
+    retained_until: str
+
+@dataclass(frozen=True, slots=True)
+class StandardError:
+    error_code: str
+    message: str
+    request_id: str
+    retryable: bool
+    details: Mapping[str, str] | None = None
+
+"""
+    )
+    py_client = [
+        py_header,
+        "from typing import Mapping, Protocol\n\n",
+        "JsonObject = Mapping[str, object]\n\n",
+        "class ApiClientV2(Protocol):\n",
+    ]
+    py_client.extend(
+        f"    def {operation}(self, request: JsonObject | None = None) -> JsonObject: ...\n"
+        for operation in operations
+    )
+    py_init = (
+        py_header
+        + "from .client import ApiClientV2\n"
+        + "from .models import CONTRACT_MAJOR_VERSION, CONTRACT_SOURCE_SHA256\n\n"
+        + '__all__ = ["ApiClientV2", "CONTRACT_MAJOR_VERSION", "CONTRACT_SOURCE_SHA256"]\n'
+    )
+
+    java_header = (
+        "// 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。\n"
+        f"// 契约主版本: 2；源哈希: {digest}\n"
+    )
+    java_enums = [
+        java_header,
+        "package local.tooldefect.contracts.v2;\n\n",
+        "public final class ContractEnumsV2 {\n",
+        f'    public static final String SOURCE_SHA256 = "{digest}";\n',
+        "    public static final int MAJOR_VERSION = 2;\n",
+        "    private ContractEnumsV2() {}\n\n",
+    ]
+    for name, values in sorted(enums.items()):
+        java_enums.append(f"    public enum {name} {{\n")
+        java_enums.append(",\n".join(f"        {snake_upper(value)}" for value in values))
+        java_enums.append("\n    }\n\n")
+    java_enums.append("}\n")
+    java_client = [
+        java_header,
+        "package local.tooldefect.contracts.v2;\n\n",
+        "import java.util.Map;\n\n",
+        "public interface ApiClientV2 {\n",
+    ]
+    java_client.extend(
+        f"    Map<String, Object> {operation}(Map<String, Object> request);\n"
+        for operation in operations
+    )
+    java_client.append("}\n")
+    java_models = java_header + """package local.tooldefect.contracts.v2;
+
+import java.util.List;
+import java.util.Map;
+
+public final class ContractModelsV2 {
+    private ContractModelsV2() {}
+
+    public record ObjectReference(String bucket, String objectKey, String sha256, long sizeBytes, String mediaType, String objectVersion) {}
+    public record BatchAggregateCounts(long total, long completed, long defectSuspected, long normal, long inconclusive, long qualityRejected, long technicalFailed) {}
+    public record ImageQualityCheck(ContractEnumsV2.ImageQualityCheckType checkType, ContractEnumsV2.ImageQualityCheckStatus status, String ruleId, String reasonCode, String userHint, Double measurement, Double threshold) {}
+    public record ImageQualityResult(ContractEnumsV2.ImageQualityOverall overall, String checkerVersion, List<ImageQualityCheck> checks) {}
+    public record DetectionBatch(String batchId, String batchNo, ContractEnumsV2.BatchSource source, String createdBy, ContractEnumsV2.UsageStage usageStage, String usageStageNote, ContractEnumsV2.BatchStatus status, BatchAggregateCounts counts, String createdAt, String updatedAt, long version) {}
+    public record DetectionBatchItem(String batchItemId, String batchId, String captureId, ObjectReference image, ContractEnumsV2.BatchItemStatus status, ImageQualityResult quality, ContractEnumsV2.AlgorithmOutcome algorithmOutcome, ContractEnumsV2.QuickReviewDecision quickReviewDecision, String createdAt, String updatedAt) {}
+    public record QuickReviewRecord(String reviewRecordId, String batchItemId, ContractEnumsV2.QuickReviewDecision decision, String submittedBy, String submittedAt, String idempotencyKey, String supersedesRecordId, String dispositionReference) {}
+    public record AdminFeedbackRecord(String feedbackId, String batchItemId, ContractEnumsV2.AdminFeedbackLabel label, String note, ObjectReference annotationReference, String sourceReviewRecordId, String submittedBy, String submittedAt) {}
+    public record SampleCandidate(String sampleCandidateId, String batchItemId, String feedbackId, ContractEnumsV2.SampleCandidateStatus status, String decisionNote, String exportJobId, String createdAt) {}
+    public record SampleExportJob(String sampleExportJobId, Map<String, String> filterSnapshot, long candidateCount, ContractEnumsV2.ExportJobStatus status, ObjectReference packageReference, List<String> failedCandidateIds, String createdAt, String expiresAt) {}
+    public record ModelUploadSession(String modelUploadId, ObjectReference quarantineObject, String declaredSha256, String modelVersion, String description, ContractEnumsV2.ModelUploadStatus status, String createdAt, String expiresAt) {}
+    public record ModelValidationResult(String modelUploadId, ContractEnumsV2.ModelValidationStatus status, String packageCheck, String securityScan, String loadTest, String warmupTest, String fixedSampleTest, ObjectReference evidence, String externalSourceNote, String safeError) {}
+    public record LegacyProvenanceSnapshot(String sourceType, String legacyId, String immutableSummary, String archiveReference, String sha256, String retainedUntil) {}
+    public record StandardError(String errorCode, String message, String requestId, boolean retryable, Map<String, String> details) {}
+}
+"""
+
+    ts_header = (
+        "// 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。\n"
+        f"// 契约主版本: 2；源哈希: {digest}\n"
+    )
+    ts_index = [
+        ts_header,
+        f'export const CONTRACT_SOURCE_SHA256 = "{digest}" as const;\n',
+        "export const CONTRACT_MAJOR_VERSION = 2 as const;\n\n",
+    ]
+    for name, values in sorted(enums.items()):
+        rendered = " | ".join(json_literal(value) for value in values)
+        ts_index.append(f"export type {name} = {rendered};\n")
+    ts_index.append("""
+export type ObjectReference = Readonly<{ bucket: string; object_key: string; sha256: string; size_bytes: number; media_type: string; object_version?: string }>;
+export type BatchAggregateCounts = Readonly<{ total: number; completed: number; defect_suspected: number; normal: number; inconclusive: number; quality_rejected: number; technical_failed: number }>;
+export type ImageQualityCheck = Readonly<{ check_type: ImageQualityCheckType; status: ImageQualityCheckStatus; rule_id: string; reason_code: string; user_hint: string; measurement?: number; threshold?: number }>;
+export type ImageQualityResult = Readonly<{ overall: ImageQualityOverall; checker_version: string; checks: ReadonlyArray<ImageQualityCheck> }>;
+export type DetectionBatch = Readonly<{ batch_id: string; batch_no: string; source: BatchSource; created_by: string; usage_stage: UsageStage; usage_stage_note?: string; status: BatchStatus; counts: BatchAggregateCounts; created_at: string; updated_at: string; version: number }>;
+export type DetectionBatchItem = Readonly<{ batch_item_id: string; batch_id: string; capture_id?: string; image: ObjectReference; status: BatchItemStatus; quality?: ImageQualityResult; algorithm_outcome?: AlgorithmOutcome; quick_review_decision?: QuickReviewDecision; created_at: string; updated_at: string }>;
+export type QuickReviewRecord = Readonly<{ review_record_id: string; batch_item_id: string; decision: QuickReviewDecision; submitted_by: string; submitted_at: string; idempotency_key: string; supersedes_record_id?: string; disposition_reference?: string }>;
+export type AdminFeedbackRecord = Readonly<{ feedback_id: string; batch_item_id: string; label: AdminFeedbackLabel; note?: string; annotation_reference?: ObjectReference; source_review_record_id?: string; submitted_by: string; submitted_at: string }>;
+export type SampleCandidate = Readonly<{ sample_candidate_id: string; batch_item_id: string; feedback_id: string; status: SampleCandidateStatus; decision_note?: string; export_job_id?: string; created_at: string }>;
+export type SampleExportJob = Readonly<{ sample_export_job_id: string; filter_snapshot: Readonly<Record<string, string>>; candidate_count: number; status: ExportJobStatus; package?: ObjectReference; failed_candidate_ids?: ReadonlyArray<string>; created_at: string; expires_at?: string }>;
+export type ModelUploadSession = Readonly<{ model_upload_id: string; quarantine_object: ObjectReference; declared_sha256: string; model_version?: string; description?: string; status: ModelUploadStatus; created_at: string; expires_at: string }>;
+export type ModelValidationResult = Readonly<{ model_upload_id: string; status: ModelValidationStatus; package_check: string; security_scan: string; load_test: string; warmup_test: string; fixed_sample_test: string; evidence: ObjectReference; external_source_note?: string; safe_error?: string }>;
+export type LegacyProvenanceSnapshot = Readonly<{ source_type: "LEGACY_DATASET" | "LEGACY_TRAINING"; legacy_id: string; immutable_summary: string; archive_reference: string; sha256: string; retained_until: string }>;
+export type StandardError = Readonly<{ error_code: string; message: string; request_id: string; retryable: boolean; details?: Readonly<Record<string, string>> }>;
+""")
+    ts_client = [
+        ts_header,
+        "export type JsonObject = Readonly<Record<string, unknown>>;\n\n",
+        "export interface ApiClientV2 {\n",
+    ]
+    ts_client.extend(
+        f"  {operation}(request?: JsonObject): Promise<JsonObject>;\n"
+        for operation in operations
+    )
+    ts_client.append("}\n")
+
+    return {
+        ROOT / "packages/python-contracts/src/tool_defect_contracts/v2/models.py": "".join(py_models),
+        ROOT / "packages/python-contracts/src/tool_defect_contracts/v2/client.py": "".join(py_client),
+        ROOT / "packages/python-contracts/src/tool_defect_contracts/v2/__init__.py": py_init,
+        ROOT / "packages/java-contracts/src/main/java/local/tooldefect/contracts/v2/ContractEnumsV2.java": "".join(java_enums),
+        ROOT / "packages/java-contracts/src/main/java/local/tooldefect/contracts/v2/ApiClientV2.java": "".join(java_client),
+        ROOT / "packages/java-contracts/src/main/java/local/tooldefect/contracts/v2/ContractModelsV2.java": java_models,
+        ROOT / "packages/typescript-contracts/src/v2/index.ts": "".join(ts_index),
+        ROOT / "packages/typescript-contracts/src/v2/client.ts": "".join(ts_client),
     }
 
 

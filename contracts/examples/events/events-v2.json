@@ -1,0 +1,33 @@
+{
+  "contract_version": "2.0.0",
+  "events": [
+    {
+      "message": "InferenceItemRequested", "invalid_field": "images",
+      "payload": {"message_id": "10000000-0000-4000-8000-000000000001", "occurred_at": "2026-08-03T00:00:00Z", "idempotency_key": "idem-inference-requested-1", "traceparent": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01", "batch_item_id": "20000000-0000-4000-8000-000000000001", "detection_task_id": "30000000-0000-4000-8000-000000000001", "image": {"bucket": "production-originals", "object_key": "production-originals/2026/08/item.jpg", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "size_bytes": 1024, "media_type": "image/jpeg"}, "pipeline_version": "2.0.0"}
+    },
+    {
+      "message": "InferenceItemCompleted", "invalid_field": "display_counts",
+      "payload": {"message_id": "10000000-0000-4000-8000-000000000002", "occurred_at": "2026-08-03T00:01:00Z", "idempotency_key": "idem-inference-completed-1", "traceparent": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01", "batch_item_id": "20000000-0000-4000-8000-000000000001", "detection_task_id": "30000000-0000-4000-8000-000000000001", "attempt_id": "40000000-0000-4000-8000-000000000001", "quality": {"overall": "ACCEPTED", "checker_version": "quality-2", "checks": [{"check_type": "DECODABLE", "status": "PASS", "rule_id": "decode-v2", "reason_code": "OK", "user_hint": "图片可读取"}]}, "algorithm_outcome": "QUALIFIED", "result_reference": {"bucket": "model-evidence", "object_key": "model-evidence/results/item.json", "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "size_bytes": 512, "media_type": "application/json"}}
+    },
+    {
+      "message": "InferenceItemFailed", "invalid_field": "algorithm_outcome",
+      "payload": {"message_id": "10000000-0000-4000-8000-000000000003", "occurred_at": "2026-08-03T00:02:00Z", "idempotency_key": "idem-inference-failed-1", "traceparent": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01", "batch_item_id": "20000000-0000-4000-8000-000000000001", "detection_task_id": "30000000-0000-4000-8000-000000000001", "attempt_id": "40000000-0000-4000-8000-000000000002", "error_code": "TD-QUALITY-CHECKER-FAILED", "retryable": true, "safe_detail": "质量检查器暂不可用"}
+    },
+    {
+      "message": "SampleExportRequested", "invalid_field": "archive_bytes",
+      "payload": {"message_id": "10000000-0000-4000-8000-000000000004", "occurred_at": "2026-08-03T00:03:00Z", "idempotency_key": "idem-sample-requested-1", "traceparent": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01", "sample_export_job_id": "50000000-0000-4000-8000-000000000001", "candidate_ids": ["60000000-0000-4000-8000-000000000001"], "target_object": {"bucket": "sample-exports", "object_key": "sample-exports/2026/08/export.zip", "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "size_bytes": 2048, "media_type": "application/zip"}}
+    },
+    {
+      "message": "SampleExportCompleted", "invalid_field": "training_start",
+      "payload": {"message_id": "10000000-0000-4000-8000-000000000005", "occurred_at": "2026-08-03T00:04:00Z", "idempotency_key": "idem-sample-completed-1", "traceparent": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01", "sample_export_job_id": "50000000-0000-4000-8000-000000000001", "manifest": {"bucket": "sample-exports", "object_key": "sample-exports/2026/08/manifest.json", "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "size_bytes": 256, "media_type": "application/json"}, "exported_count": 1, "failed_candidate_ids": []}
+    },
+    {
+      "message": "ModelValidationRequested", "invalid_field": "model_bytes",
+      "payload": {"message_id": "10000000-0000-4000-8000-000000000006", "occurred_at": "2026-08-03T00:05:00Z", "idempotency_key": "idem-model-requested-1", "traceparent": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01", "model_upload_id": "70000000-0000-4000-8000-000000000001", "quarantine_object": {"bucket": "model-quarantine", "object_key": "model-quarantine/2026/08/model.zip", "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "size_bytes": 4096, "media_type": "application/zip"}, "validation_profile": "secure-default-v2"}
+    },
+    {
+      "message": "ModelValidationCompleted", "invalid_field": "training_run_id",
+      "payload": {"message_id": "10000000-0000-4000-8000-000000000007", "occurred_at": "2026-08-03T00:06:00Z", "idempotency_key": "idem-model-completed-1", "traceparent": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01", "model_upload_id": "70000000-0000-4000-8000-000000000001", "validation_result": {"model_upload_id": "70000000-0000-4000-8000-000000000001", "status": "PASSED", "package_check": "PASSED", "security_scan": "PASSED", "load_test": "PASSED", "warmup_test": "PASSED", "fixed_sample_test": "PASSED", "evidence": {"bucket": "model-evidence", "object_key": "model-evidence/2026/08/report.json", "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "size_bytes": 1024, "media_type": "application/json"}, "external_source_note": "由外部训练环境提供"}}
+    }
+  ]
+}

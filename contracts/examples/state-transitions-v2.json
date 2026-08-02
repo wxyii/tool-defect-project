@@ -1,0 +1,16 @@
+{
+  "contract_version": "2.0.0",
+  "cases": [
+    {"case_id": "batch-draft-ready", "domain": "batch", "from": "DRAFT", "to": "READY", "legal": true},
+    {"case_id": "batch-ready-processing", "domain": "batch", "from": "READY", "to": "PROCESSING", "legal": true},
+    {"case_id": "batch-processing-partial", "domain": "batch", "from": "PROCESSING", "to": "PARTIALLY_COMPLETED", "legal": true},
+    {"case_id": "batch-failed-completed", "domain": "batch", "from": "FAILED", "to": "COMPLETED", "legal": false},
+    {"case_id": "item-ready-queued", "domain": "item", "from": "READY", "to": "QUEUED", "legal": true},
+    {"case_id": "item-processing-quality-rejected", "domain": "item", "from": "PROCESSING", "to": "QUALITY_REJECTED", "legal": true},
+    {"case_id": "item-failed-completed", "domain": "item", "from": "FAILED", "to": "COMPLETED", "legal": false},
+    {"case_id": "export-running-succeeded", "domain": "export", "from": "RUNNING", "to": "SUCCEEDED", "legal": true},
+    {"case_id": "export-failed-succeeded", "domain": "export", "from": "FAILED", "to": "SUCCEEDED", "legal": false},
+    {"case_id": "model-uploaded-validating", "domain": "model_upload", "from": "UPLOADED", "to": "VALIDATING", "legal": true},
+    {"case_id": "model-rejected-validated", "domain": "model_upload", "from": "REJECTED", "to": "VALIDATED", "legal": false}
+  ]
+}

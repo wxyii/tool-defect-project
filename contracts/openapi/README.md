@@ -1,4 +1,4 @@
-# HTTP 契约 v1
+# HTTP 契约 v1 / v2
 
 `tool-defect-api-v1.json` 是 OpenAPI 3.1 唯一源，覆盖：
 
@@ -10,3 +10,5 @@
 - 服务器发送事件。
 
 所有写接口都要求幂等键或乐观锁，并由 `contracts/examples/http/write-examples-v1.json` 提供五类示例。
+
+`tool-defect-api-v2.json` 是独立的 `2.0.0` 源，统一使用 `/api/v2`，覆盖手工/产线统一批次、逐图反馈、样本导出和模型隔离直传。第二版写接口提供成功、重复、冲突、未授权、校验失败、非法状态和退役语义；不提供数据集或训练资源。

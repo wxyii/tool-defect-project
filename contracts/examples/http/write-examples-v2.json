@@ -1,0 +1,39 @@
+{
+  "contract_version": "2.0.0",
+  "case_semantics": {
+    "success": "首次写入成功并形成事实",
+    "duplicate": "相同幂等键和相同载荷返回原事实",
+    "conflict": "相同幂等键不同载荷或乐观锁冲突",
+    "unauthorized": "缺失或无效身份",
+    "validation_error": "未知字段、非法枚举或对象引用不合规",
+    "invalid_state": "当前状态不允许该写入",
+    "retired": "第一版取消能力已退役且不得创建任务"
+  },
+  "operations": [
+    {"operation_id": "createDetectionBatchV2", "success_status": 201},
+    {"operation_id": "addDetectionBatchItemV2", "success_status": 201},
+    {"operation_id": "deleteDetectionBatchItemV2", "success_status": 204},
+    {"operation_id": "completeDetectionBatchItemUploadV2", "success_status": 200},
+    {"operation_id": "submitDetectionBatchV2", "success_status": 202},
+    {"operation_id": "putQuickReviewV2", "success_status": 200},
+    {"operation_id": "createProductionDetectionItemV2", "success_status": 202},
+    {"operation_id": "createAdminFeedbackV2", "success_status": 201},
+    {"operation_id": "createSampleCandidateV2", "success_status": 201},
+    {"operation_id": "decideSampleCandidateV2", "success_status": 200},
+    {"operation_id": "createSampleExportV2", "success_status": 202},
+    {"operation_id": "createSampleExportDownloadTicketV2", "success_status": 200},
+    {"operation_id": "createModelUploadSessionV2", "success_status": 201},
+    {"operation_id": "completeModelUploadSessionV2", "success_status": 202},
+    {"operation_id": "createModelActivationRequestV2", "success_status": 202},
+    {"operation_id": "approveModelActivationRequestV2", "success_status": 200},
+    {"operation_id": "createModelRollbackRequestV2", "success_status": 202}
+  ],
+  "shared_cases": {
+    "duplicate": {"status_semantics": "same-as-success", "creates_new_fact": false},
+    "conflict": {"status": 409, "error_code": "TD-BATCH-CONFLICT", "retryable": false},
+    "unauthorized": {"status": 401, "error_code": "TD-AUTH-UNAUTHORIZED", "retryable": false},
+    "validation_error": {"status": 422, "error_code": "TD-ITEM-VALIDATION", "retryable": false},
+    "invalid_state": {"status": 409, "error_code": "TD-BATCH-INVALID-STATE", "retryable": false},
+    "retired": {"status": 410, "error_code": "TD-LEGACY-FEATURE-RETIRED", "retryable": false, "creates_task": false}
+  }
+}
