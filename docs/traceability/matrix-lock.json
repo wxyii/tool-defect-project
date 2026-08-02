@@ -92,9 +92,9 @@
   "product_requirement_count": 104,
   "p0_product_requirement_count": 88,
   "stable_product_requirements_sha256": "6e5b298e581ea56d1627b66fc33e046f4c6ff5d8db36d406428ba83878720fe9",
-  "acceptance_scenarios_sha256": "313e7457850bb1a150d732bbafa2b1c0135cf78ebb3d40e0c12893c7e462f8d7",
+  "acceptance_scenarios_sha256": "d91a285f957fe047bba7de055354ed7ad8e2b134c301f46d9ff9e71e688ff791",
   "product_document": {
     "path": "Docs/16-手工批量检测与管理简化需求规格.md",
-    "source_sha256": "9fb6d728e26733843575558b5093f3cd0bbe07ad63c2136dd253e81e755a6c93"
+    "source_sha256": "c48f85f9c7250d1a74b8bce1ad9752bfd21d078afe63698f3a2abe5204350eaa"
   }
 }
