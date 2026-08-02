@@ -45,6 +45,9 @@ management:
       enabled: ${td.messaging.enabled:false}
 
 td:
+  legacy:
+    dataset-training-write-enabled: ${TD_LEGACY_DATASET_TRAINING_WRITE_ENABLED:false}
+    production-v1-write-enabled: ${TD_PRODUCTION_V1_WRITE_ENABLED:true}
   auth:
     secure-cookie: ${TD_AUTH_SECURE_COOKIE:true}
     bootstrap:

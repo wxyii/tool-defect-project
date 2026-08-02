@@ -53,7 +53,6 @@ public final class RolePermissionMatrix {
                 "review:escalate",
                 "quality:override",
                 "quality:read",
-                "dataset:approve",
                 "audit:read"
             )
         );
@@ -62,9 +61,6 @@ public final class RolePermissionMatrix {
             Set.of(
                 "detection:read",
                 "image:view",
-                "dataset:create",
-                "training:create",
-                "training:read",
                 "model:register"
             )
         );
@@ -73,9 +69,10 @@ public final class RolePermissionMatrix {
             Set.of(
                 "detection:read",
                 "model:validate",
+                "model:approve",
                 "model:deploy:approve",
                 "model:rollback",
-                "training:read"
+                "audit:read"
             )
         );
         values.put(
@@ -92,12 +89,9 @@ public final class RolePermissionMatrix {
                 "review:escalate",
                 "quality:override",
                 "quality:read",
-                "dataset:approve",
-                "dataset:create",
-                "training:create",
-                "training:read",
                 "model:register",
                 "model:validate",
+                "model:approve",
                 "model:deploy:approve",
                 "model:rollback",
                 "device:configure",
@@ -123,8 +117,7 @@ public final class RolePermissionMatrix {
                 "detection:read",
                 "image:view",
                 "audit:read",
-                "quality:read",
-                "training:read"
+                "quality:read"
             )
         );
         return Map.copyOf(values);

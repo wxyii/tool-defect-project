@@ -45,12 +45,9 @@ class RolePermissionMatrixTest {
             "review:escalate",
             "quality:override",
             "quality:read",
-            "dataset:approve",
-            "dataset:create",
-            "training:create",
-            "training:read",
             "model:register",
             "model:validate",
+            "model:approve",
             "model:deploy:approve",
             "model:rollback",
             "device:configure",
@@ -82,7 +79,7 @@ class RolePermissionMatrixTest {
     }
 
     @Test
-    void onlyQualityManagerCombinesReviewAndQualityApproval() {
+    void cancelledDatasetAndTrainingPermissionsAreNeverAssigned() {
         assertThat(RolePermissionMatrix.allows(
             SystemRole.QUALITY_MANAGER,
             "review:submit"
@@ -90,10 +87,14 @@ class RolePermissionMatrixTest {
         assertThat(RolePermissionMatrix.allows(
             SystemRole.QUALITY_MANAGER,
             "dataset:approve"
-        )).isTrue();
+        )).isFalse();
         assertThat(RolePermissionMatrix.allows(
-            SystemRole.REVIEWER,
-            "dataset:approve"
+            SystemRole.SYSTEM_OPERATOR,
+            "dataset:create"
+        )).isFalse();
+        assertThat(RolePermissionMatrix.allows(
+            SystemRole.ALGORITHM_ENGINEER,
+            "training:create"
         )).isFalse();
     }
 
@@ -106,10 +107,22 @@ class RolePermissionMatrixTest {
         assertThat(RolePermissionMatrix.allows(
             SystemRole.ALGORITHM_ENGINEER,
             "training:read"
-        )).isTrue();
+        )).isFalse();
         assertThat(RolePermissionMatrix.allows(
             SystemRole.OPERATOR,
             "quality:read"
+        )).isFalse();
+    }
+
+    @Test
+    void modelApprovalUsesDedicatedPermission() {
+        assertThat(RolePermissionMatrix.allows(
+            SystemRole.MODEL_APPROVER,
+            "model:approve"
+        )).isTrue();
+        assertThat(RolePermissionMatrix.allows(
+            SystemRole.MODEL_APPROVER,
+            "dataset:approve"
         )).isFalse();
     }
 }

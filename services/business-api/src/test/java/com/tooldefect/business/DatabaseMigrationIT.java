@@ -55,7 +55,7 @@ class DatabaseMigrationIT {
 
         var result = flyway.migrate();
 
-        assertThat(result.migrationsExecuted).isEqualTo(15);
+        assertThat(result.migrationsExecuted).isEqualTo(16);
         flyway.validate();
         JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
         assertThat(jdbc.queryForObject(
@@ -65,7 +65,7 @@ class DatabaseMigrationIT {
             WHERE success AND version IS NOT NULL
             """,
             Integer.class
-        )).isEqualTo(15);
+        )).isEqualTo(16);
         assertThat(jdbc.queryForObject(
             """
             SELECT COUNT(*)
@@ -83,23 +83,34 @@ class DatabaseMigrationIT {
         )).isTrue();
         assertThat(jdbc.queryForList(
             """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = ? AND table_name = 'sample_candidate_v2'
+              AND column_name IN ('dataset_version_id', 'training_run_id')
+            """,
+            String.class,
+            schema
+        )).isEmpty();
+        assertThat(jdbc.queryForList(
+            """
             SELECT role.role_code || ':' || permission.permission_code
             FROM sys_role role
             JOIN sys_role_permission mapping ON mapping.role_id = role.role_id
             JOIN sys_permission permission
               ON permission.permission_id = mapping.permission_id
-            WHERE permission.permission_code IN ('quality:read', 'training:read')
+            WHERE permission.permission_code IN (
+                'quality:read', 'training:read', 'dataset:create',
+                'dataset:approve', 'training:create', 'model:approve'
+            )
             ORDER BY role.role_code, permission.permission_code
             """,
             String.class
         )).containsExactly(
-            "ALGORITHM_ENGINEER:training:read",
             "AUDITOR:quality:read",
-            "AUDITOR:training:read",
-            "MODEL_APPROVER:training:read",
+            "MODEL_APPROVER:model:approve",
             "QUALITY_MANAGER:quality:read",
-            "SYSTEM_OPERATOR:quality:read",
-            "SYSTEM_OPERATOR:training:read"
+            "SYSTEM_OPERATOR:model:approve",
+            "SYSTEM_OPERATOR:quality:read"
         );
     }
 
@@ -290,7 +301,7 @@ class DatabaseMigrationIT {
         );
 
         Flyway latest = flyway(POSTGRES.getJdbcUrl(), schema, null);
-        assertThat(latest.migrate().migrationsExecuted).isEqualTo(13);
+        assertThat(latest.migrate().migrationsExecuted).isEqualTo(14);
 
         assertThat(jdbc.queryForObject(
             "SELECT organization_id FROM production_line WHERE line_id = ?",
@@ -938,6 +949,235 @@ class DatabaseMigrationIT {
     }
 
     @Test
+    void r2BackfillIsIdempotentAndMultiViewStaysOnHold() {
+        String schema = uniqueName("r2_backfill");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+
+        Fixture single = seedCapture(jdbc);
+        jdbc.update(
+            """
+            UPDATE capture_event
+            SET status = 'FAILED', record_version = record_version + 1
+            WHERE capture_id = ?
+            """,
+            single.captureId()
+        );
+        UUID singleImage = insertImage(
+            jdbc, single.captureId(), "r2/single-" + single.captureId() + ".png"
+        );
+
+        Fixture multi = seedCapture(jdbc);
+        insertImage(jdbc, multi.captureId(), "r2/front-" + multi.captureId() + ".png");
+        insertImage(jdbc, multi.captureId(), "r2/back-" + multi.captureId() + ".png");
+
+        Map<String, Object> first = jdbc.queryForMap(
+            "SELECT * FROM td_backfill_legacy_captures_v2()"
+        );
+        Map<String, Object> second = jdbc.queryForMap(
+            "SELECT * FROM td_backfill_legacy_captures_v2()"
+        );
+
+        assertThat(first)
+            .containsEntry("inserted_batches", 2)
+            .containsEntry("inserted_items", 1)
+            .containsEntry("held_captures", 1);
+        assertThat(second)
+            .containsEntry("inserted_batches", 0)
+            .containsEntry("inserted_items", 0)
+            .containsEntry("held_captures", 1);
+        assertThat(jdbc.queryForObject(
+            "SELECT image_id FROM detection_batch_item_v2 WHERE capture_id = ?",
+            UUID.class,
+            single.captureId()
+        )).isEqualTo(singleImage);
+        assertThat(jdbc.queryForObject(
+            "SELECT count(*) FROM detection_batch_item_v2 WHERE capture_id = ?",
+            Integer.class,
+            multi.captureId()
+        )).isZero();
+        assertThat(jdbc.queryForObject(
+            "SELECT error_code FROM r2_migration_failure WHERE source_id = ?",
+            String.class,
+            multi.captureId()
+        )).isEqualTo("TD-R2-MULTI-VIEW-READ-ONLY");
+        assertThatThrownBy(() -> jdbc.update(
+            "UPDATE r2_migration_failure SET status = 'RESOLVED' WHERE source_id = ?",
+            multi.captureId()
+        )).isInstanceOf(DataAccessException.class);
+        assertThat(jdbc.queryForObject(
+            "SELECT td_capture_shadow_differences_v2()", Integer.class
+        )).isZero();
+    }
+
+    @Test
+    void r2ModelSourceRequiresExactlyOneCompleteProvenance() {
+        String schema = uniqueName("r2_model_source");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+        UUID modelId = UUID.randomUUID();
+        UUID uploadId = UUID.randomUUID();
+        UUID datasetVersionId = seedDatasetVersion(jdbc);
+        jdbc.update(
+            "INSERT INTO model(model_id, model_name, task_type) VALUES (?, ?, 'MULTITASK')",
+            modelId,
+            "external-model-" + modelId
+        );
+        jdbc.update(
+            """
+            INSERT INTO model_upload_session_v2(
+                model_upload_id, model_version_label,
+                quarantine_bucket, quarantine_object_key,
+                declared_sha256, size_bytes, media_type, status, expires_at
+            ) VALUES (?, 'external-1', 'td-model-quarantine', ?, ?, 1024,
+                'application/zip', 'VALIDATED', now() + interval '1 hour')
+            """,
+            uploadId,
+            "model-quarantine/" + uploadId + "/model.zip",
+            "a".repeat(64)
+        );
+
+        assertThat(jdbc.update(
+            """
+            INSERT INTO model_version(
+                model_version_id, model_id, version, source_kind,
+                model_upload_id, external_source_snapshot,
+                artifact_bucket, artifact_object_key, artifact_sha256,
+                input_spec, output_spec, approval_state
+            ) VALUES (?, ?, '1', 'EXTERNAL_UPLOAD', ?, CAST(? AS jsonb),
+                'td-models', ?, ?, '{}'::jsonb, '{}'::jsonb, 'CANDIDATE')
+            """,
+            UUID.randomUUID(),
+            modelId,
+            uploadId,
+            """
+            {"source_system":"offline-lab","source_version":"run-1",
+             "exported_at":"2026-08-03T00:00:00Z",
+             "sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
+            """,
+            "models/" + modelId + "/external.zip",
+            "b".repeat(64)
+        )).isEqualTo(1);
+
+        assertThatThrownBy(() -> jdbc.update(
+            """
+            INSERT INTO model_version(
+                model_version_id, model_id, version, source_kind,
+                artifact_bucket, artifact_object_key, artifact_sha256,
+                input_spec, output_spec, approval_state
+            ) VALUES (?, ?, '2', 'EXTERNAL_UPLOAD', 'td-models', ?, ?,
+                '{}'::jsonb, '{}'::jsonb, 'CANDIDATE')
+            """,
+            UUID.randomUUID(), modelId, "models/" + modelId + "/missing.zip",
+            "c".repeat(64)
+        )).isInstanceOf(DataAccessException.class);
+
+        assertThatThrownBy(() -> jdbc.update(
+            """
+            INSERT INTO model_version(
+                model_version_id, model_id, version, dataset_version_id,
+                source_kind, model_upload_id, external_source_snapshot,
+                artifact_bucket, artifact_object_key, artifact_sha256,
+                input_spec, output_spec, approval_state
+            ) VALUES (?, ?, '3', ?, 'EXTERNAL_UPLOAD', ?, CAST(? AS jsonb),
+                'td-models', ?, ?, '{}'::jsonb, '{}'::jsonb, 'CANDIDATE')
+            """,
+            UUID.randomUUID(), modelId, datasetVersionId, uploadId,
+            """
+            {"source_system":"offline-lab","source_version":"run-3",
+             "exported_at":"2026-08-03T00:00:00Z",
+             "sha256":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}
+            """,
+            "models/" + modelId + "/double.zip", "d".repeat(64)
+        )).isInstanceOf(DataAccessException.class);
+    }
+
+    @Test
+    void r2LegacyCompatibleWritesFlowIntoSingleImageCore() {
+        String schema = uniqueName("r2_legacy_write");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+        Fixture fixture = seedCapture(jdbc);
+        UUID imageId = insertImage(
+            jdbc,
+            fixture.captureId(),
+            "r2/compatible-" + fixture.captureId() + ".png"
+        );
+
+        assertThat(jdbc.update(
+            """
+            UPDATE capture_event
+            SET status = 'READY', record_version = record_version + 1
+            WHERE capture_id = ? AND status = 'CREATED'
+            """,
+            fixture.captureId()
+        )).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+            "SELECT image_id FROM detection_batch_item_v2 WHERE capture_id = ?",
+            UUID.class,
+            fixture.captureId()
+        )).isEqualTo(imageId);
+
+        assertThat(jdbc.update(
+            """
+            INSERT INTO detection_result(
+                detection_result_id, detection_task_id, accepted_attempt_id,
+                schema_version, algorithm_outcome, preprocess_quality,
+                standard_result, result_sha256
+            ) VALUES (?, ?, ?, '1.0.0', 'UNQUALIFIED', 'OK',
+                '{}'::jsonb, ?)
+            """,
+            UUID.randomUUID(),
+            fixture.detectionTaskId(),
+            fixture.attemptId(),
+            "e".repeat(64)
+        )).isEqualTo(1);
+        assertThat(jdbc.queryForMap(
+            """
+            SELECT status, algorithm_outcome
+            FROM detection_batch_item_v2 WHERE capture_id = ?
+            """,
+            fixture.captureId()
+        )).containsEntry("status", "COMPLETED")
+            .containsEntry("algorithm_outcome", "UNQUALIFIED");
+        assertThat(jdbc.queryForMap(
+            """
+            SELECT status, completed_count, defect_suspected_count
+            FROM detection_batch_v2 WHERE legacy_capture_id = ?
+            """,
+            fixture.captureId()
+        )).containsEntry("status", "COMPLETED")
+            .containsEntry("completed_count", 1)
+            .containsEntry("defect_suspected_count", 1);
+
+        UUID feedbackId = UUID.randomUUID();
+        UUID candidateId = UUID.randomUUID();
+        assertThat(jdbc.update(
+            """
+            INSERT INTO admin_feedback_v2(
+                feedback_id, batch_item_id, label,
+                idempotency_key, submitted_at
+            ) SELECT ?, batch_item_id, 'UNCONFIRMED', ?, now()
+              FROM detection_batch_item_v2 WHERE capture_id = ?
+            """,
+            feedbackId,
+            "r2-candidate:" + feedbackId,
+            fixture.captureId()
+        )).isEqualTo(1);
+        assertThat(jdbc.update(
+            """
+            INSERT INTO sample_candidate_v2(
+                sample_candidate_id, batch_item_id, feedback_id, status
+            ) SELECT ?, batch_item_id, ?, 'PENDING'
+              FROM detection_batch_item_v2 WHERE capture_id = ?
+            """,
+            candidateId,
+            feedbackId,
+            fixture.captureId()
+        )).isEqualTo(1);
+    }
+
+    @Test
     void pgDumpRestoresSchemaHistoryAndBusinessRows() throws Exception {
         String sourceDatabase = uniqueName("backup_source");
         String restoredDatabase = uniqueName("backup_restored");
@@ -983,7 +1223,7 @@ class DatabaseMigrationIT {
         assertThat(restored.queryForObject(
             "SELECT COUNT(*) FROM flyway_schema_history WHERE success",
             Integer.class
-        )).isEqualTo(15);
+        )).isEqualTo(16);
         flyway(databaseUrl(restoredDatabase), "public", null).validate();
     }
 

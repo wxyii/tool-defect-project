@@ -55,7 +55,7 @@ class P4AuthorizationTest(unittest.TestCase):
             self.assertGreater(fallback, source.index(authority))
         self.assertIn('"/api/v1/review-tasks/*"', source)
 
-    def test_system_operator_has_all_personnel_permissions(self) -> None:
+    def test_cancelled_permissions_are_revoked_and_model_approval_is_dedicated(self) -> None:
         matrix = (
             ROOT
             / "services/business-api/src/main/java/com/tooldefect/business/identity/"
@@ -72,11 +72,40 @@ class P4AuthorizationTest(unittest.TestCase):
             return set(re.findall(r'"([^"]+)"', match.group(1)))
 
         system_operator = permissions("SYSTEM_OPERATOR")
+        cancelled_permissions = {
+            "dataset:approve",
+            "dataset:create",
+            "training:create",
+            "training:read",
+        }
+        for role in (
+            "OPERATOR",
+            "REVIEWER",
+            "QUALITY_MANAGER",
+            "ALGORITHM_ENGINEER",
+            "MODEL_APPROVER",
+            "SYSTEM_OPERATOR",
+            "SECURITY_ADMIN",
+            "AUDITOR",
+        ):
+            self.assertTrue(
+                permissions(role).isdisjoint(cancelled_permissions),
+                role,
+            )
+
         self.assertNotIn("review:submit", permissions("OPERATOR"))
         self.assertNotIn("quality:override", permissions("ALGORITHM_ENGINEER"))
         self.assertNotIn("review:claim", permissions("AUDITOR"))
         self.assertNotIn("image:original:download", permissions("AUDITOR"))
-        self.assertIn("dataset:approve", permissions("QUALITY_MANAGER"))
+        self.assertIn("model:approve", permissions("MODEL_APPROVER"))
+        self.assertIn("model:approve", system_operator)
+        for role in (
+            "OPERATOR",
+            "QUALITY_MANAGER",
+            "ALGORITHM_ENGINEER",
+            "AUDITOR",
+        ):
+            self.assertNotIn("model:approve", permissions(role), role)
         self.assertTrue({
             "capture:read",
             "detection:read",
@@ -89,10 +118,7 @@ class P4AuthorizationTest(unittest.TestCase):
             "review:escalate",
             "quality:override",
             "quality:read",
-            "dataset:approve",
-            "dataset:create",
-            "training:create",
-            "training:read",
+            "model:approve",
             "model:register",
             "model:validate",
             "model:deploy:approve",
