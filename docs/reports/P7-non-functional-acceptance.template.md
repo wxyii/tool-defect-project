@@ -36,7 +36,8 @@
 | 磁盘使用率 | PENDING_SITE_SIGNOFF | | | |
 | 内存使用率 | PENDING_SITE_SIGNOFF | | | |
 | GPU 利用率 | PENDING_SITE_SIGNOFF | | | |
-| 数据集构建上限 (样本) | PENDING_SITE_SIGNOFF | | | |
+| 样本导出上限 (样本/作业) | PENDING_SITE_SIGNOFF | | | |
+| 模型包隔离验证上限 (字节/文件数) | PENDING_SITE_SIGNOFF | | | |
 
 ### 1.4 模型加载与预热
 

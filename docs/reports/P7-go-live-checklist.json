@@ -1,18 +1,18 @@
 {
   "schema_version": "tool-defect-go-live-checklist/v1",
   "release_version": "R8",
-  "release_scope": "圆弧夹持刀具合格与不合格二分类",
-  "generated_at": "2026-07-31",
+  "release_scope": "刀具缺陷检测、样本导出与外部模型包直接上传",
+  "generated_at": "2026-08-02",
   "status": "PENDING_SITE_SIGNOFF",
   "summary": {
-    "total_items": 52,
-    "pass": 3,
+    "total_items": 68,
+    "pass": 1,
     "fail": 0,
-    "pending_site_signoff": 47,
-    "not_applicable": 2,
+    "pending_site_signoff": 66,
+    "not_applicable": 1,
     "risk_high_count": 1,
-    "risk_medium_count": 3,
-    "risk_low_count": 48
+    "risk_medium_count": 5,
+    "risk_low_count": 62
   },
   "sections": [
     {
@@ -35,16 +35,16 @@
           "title": "自动缺陷检测判定",
           "status": "PENDING_SITE_SIGNOFF",
           "evidence_ref": "DEC-DISPOSITION-THRESHOLD-001",
-          "notes": "处置阈值需质量负责人签字确认",
+          "notes": "需授权管理员完成系统操作，并由质量责任人线下签字确认",
           "risk": "low"
         },
         {
           "id": "GL-003",
-          "requirement_ref": "REQ-REVIEW-001",
-          "title": "人工复核工作流",
-          "status": "PASS",
-          "evidence_ref": "test_workflows.py, test_security.py",
-          "notes": "复核认领、二审、升级流程已通过自动化测试",
+          "requirement_ref": "FR-REV-001..007",
+          "title": "逐图三按钮反馈与管理员复核",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "Docs/16-手工批量检测与管理简化需求规格.md",
+          "notes": "旧复核测试不能证明第二版三按钮、不可变修订、HOLD 和管理员六类反馈；需完成第二版端到端验证",
           "risk": "low"
         },
         {
@@ -67,11 +67,29 @@
         },
         {
           "id": "GL-006",
-          "requirement_ref": "REQ-TRAINING-001",
-          "title": "增量训练闭环",
-          "status": "PASS",
-          "evidence_ref": "test_retrain_manifest.py, test_retrain_multitask.py, test_training_sequence.py",
-          "notes": "训练流程验证通过",
+          "requirement_ref": "FR-SMP-005..009",
+          "title": "待整理样本纳入、排除与导出闭环",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "Docs/08-增量训练闭环.md, Docs/16-手工批量检测与管理简化需求规格.md",
+          "notes": "需验证候选快照、导出清单、对象哈希、失败清单、短时下载和不可变审计；导出后不得创建数据集或训练任务",
+          "risk": "low"
+        },
+        {
+          "id": "GL-007",
+          "requirement_ref": "FR-MDL-001..012",
+          "title": "外部模型包直接上传与隔离验证",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "Docs/08-增量训练闭环.md, Docs/runbooks/algorithm-manual.md",
+          "notes": "需验证浏览器直传隔离区、大小与 SHA-256 核对、安全扫描、加载、固定样例、不同管理员确认和失败时保持当前生产模型",
+          "risk": "medium"
+        },
+        {
+          "id": "GL-008",
+          "requirement_ref": "FR-GOV-007..008, FR-MDL-012",
+          "title": "外部训练与在线业务无可用性依赖",
+          "status": "PENDING_SITE_SIGNOFF",
+          "evidence_ref": "Docs/decisions/ADR-0003-取消内置数据集与训练管理.md, Docs/08-增量训练闭环.md",
+          "notes": "需在无内部训练服务、训练凭据、数据集版本和训练运行记录的环境中验证检测、复核、样本导出、模型上传、验证、启用与回滚",
           "risk": "low"
         }
       ]
@@ -150,7 +168,7 @@
           "title": "处置阈值签字确认",
           "status": "PENDING_SITE_SIGNOFF",
           "evidence_ref": "production-decision-closure.json",
-          "notes": "需质量负责人签字",
+          "notes": "需授权管理员完成系统操作，并由质量责任人线下签字",
           "risk": "medium"
         },
         {
@@ -159,7 +177,7 @@
           "title": "抽检比例签字确认",
           "status": "PENDING_SITE_SIGNOFF",
           "evidence_ref": "production-decision-closure.json",
-          "notes": "需质量负责人签字",
+          "notes": "需授权管理员完成系统操作，并由质量责任人线下签字",
           "risk": "low"
         },
         {
@@ -168,7 +186,7 @@
           "title": "复核时限签字确认",
           "status": "PENDING_SITE_SIGNOFF",
           "evidence_ref": "production-decision-closure.json",
-          "notes": "需质量负责人签字",
+          "notes": "需授权管理员完成系统操作，并由质量责任人线下签字",
           "risk": "low"
         },
         {
@@ -177,7 +195,7 @@
           "title": "数据保留期签字确认",
           "status": "PENDING_SITE_SIGNOFF",
           "evidence_ref": "production-decision-closure.json",
-          "notes": "需质量、法务与存储负责人联合签字",
+          "notes": "需授权管理员完成系统操作，并由质量、法务与存储责任人线下签字",
           "risk": "low"
         },
         {
@@ -326,7 +344,7 @@
           "title": "试运行样本数量达标",
           "status": "PENDING_SITE_SIGNOFF",
           "evidence_ref": "需现场执行质量试运行",
-          "notes": "样本数量由质量负责人与工艺负责人协商确定",
+          "notes": "样本数量由授权管理员会同质量与工艺责任人确定",
           "risk": "low"
         },
         {
@@ -335,7 +353,7 @@
           "title": "自动与人工判定一致率达标",
           "status": "PENDING_SITE_SIGNOFF",
           "evidence_ref": "需现场试运行统计",
-          "notes": "最低一致率阈值由质量负责人确定",
+          "notes": "最低一致率阈值由授权管理员会同质量责任人确定",
           "risk": "low"
         },
         {
@@ -353,7 +371,7 @@
           "title": "复核积压未超过 SLA",
           "status": "PENDING_SITE_SIGNOFF",
           "evidence_ref": "需试运行期间复核统计",
-          "notes": "SLA 值由质量负责人确认",
+          "notes": "服务时限由授权管理员会同质量责任人确认",
           "risk": "low"
         },
         {
@@ -384,19 +402,19 @@
         {
           "id": "GL-402",
           "requirement_ref": "SEC-AUTH-002",
-          "title": "操作员无法提交复核或下载原图",
+          "title": "生产员工无法访问管理员样本导出和模型管理",
           "status": "PENDING_SITE_SIGNOFF",
           "evidence_ref": "verify_deployment_security.py",
-          "notes": "需现场权限验证",
+          "notes": "需现场验证生产员工不能管理候选、下载导出包、上传模型或发起启用",
           "risk": "low"
         },
         {
           "id": "GL-403",
           "requirement_ref": "SEC-AUTH-003",
-          "title": "算法工程师不能独自发布模型",
+          "title": "模型上传申请人不能独自启用模型",
           "status": "PENDING_SITE_SIGNOFF",
           "evidence_ref": "verify_deployment_security.py",
-          "notes": "需现场职责分离验证",
+          "notes": "需现场验证不同管理员账号确认和禁止自批",
           "risk": "low"
         },
         {
@@ -436,28 +454,28 @@
         {
           "id": "GL-501",
           "requirement_ref": "OPS-MANUAL-001",
-          "title": "操作员手册完成",
+          "title": "生产员工操作手册完成",
           "status": "PENDING_SITE_SIGNOFF",
           "evidence_ref": "Docs/runbooks/operator-manual.md",
-          "notes": "已编写，需现场操作人员培训后签字确认",
+          "notes": "历史文件名保留，需按生产员工角色完成培训和签字确认",
           "risk": "low"
         },
         {
           "id": "GL-502",
           "requirement_ref": "OPS-MANUAL-002",
-          "title": "复核员手册完成",
+          "title": "管理员反馈操作说明完成",
           "status": "PENDING_SITE_SIGNOFF",
           "evidence_ref": "Docs/runbooks/reviewer-manual.md",
-          "notes": "已编写，需复核员培训后签字确认",
+          "notes": "历史文件名保留，需按管理员六类反馈和不可变修订流程完成整改与演练",
           "risk": "low"
         },
         {
           "id": "GL-503",
           "requirement_ref": "OPS-MANUAL-003",
-          "title": "质量负责人手册完成",
+          "title": "管理员质量与样本导出手册完成",
           "status": "PENDING_SITE_SIGNOFF",
           "evidence_ref": "Docs/runbooks/quality-lead-manual.md",
-          "notes": "已编写，需质量负责人培训后签字确认",
+          "notes": "已改写，需授权管理员完成样本纳入、排除、导出审计和外部模型证据检查演练",
           "risk": "low"
         },
         {
@@ -556,10 +574,10 @@
         {
           "id": "GL-704",
           "requirement_ref": "MON-ALERT-004",
-          "title": "模型哈希校验告警已配置",
+          "title": "模型上传与隔离验证告警已配置",
           "status": "PENDING_SITE_SIGNOFF",
           "evidence_ref": "verify_monitoring.py",
-          "notes": "需在监控平台中确认",
+          "notes": "需确认上传失败、哈希冲突、安全拒绝和验证超时告警；不得监控内部训练进度或日志",
           "risk": "low"
         },
         {
@@ -622,7 +640,7 @@
         {
           "id": "GL-SIGNOFF-001",
           "requirement_ref": "SIGNOFF-QUALITY",
-          "title": "质量负责人签署",
+          "title": "质量责任人线下签署",
           "status": "PENDING_SITE_SIGNOFF",
           "evidence_ref": "需现场签字",
           "notes": "",
@@ -640,7 +658,7 @@
         {
           "id": "GL-SIGNOFF-003",
           "requirement_ref": "SIGNOFF-ALGORITHM",
-          "title": "算法负责人签署",
+          "title": "外部算法责任人线下签署",
           "status": "PENDING_SITE_SIGNOFF",
           "evidence_ref": "需现场签字",
           "notes": "",
@@ -691,6 +709,11 @@
       "risk": "MEDIUM",
       "description": "相机型号未确认可能导致成像质量不满足检测需求",
       "mitigation": "上线的先决条件，未签字不发布"
+    },
+    "INTERNAL_TRAINING_DEPENDENCY_PRESENT": {
+      "risk": "HIGH",
+      "description": "在线检测、样本导出或模型管理仍依赖内部数据集版本、训练服务、训练凭据或训练事件",
+      "mitigation": "作为第二版上线阻断；删除依赖并在外部训练完全不可用条件下重新验证"
     }
   }
 }
