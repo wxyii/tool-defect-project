@@ -171,6 +171,25 @@ public class JdbcManualDetectionRepository implements ManualDetectionRepository 
     }
 
     @Override
+    public List<TaskDispatch> queuedTasks(UUID batchId, String key) {
+        return jdbc.query("""
+            SELECT t.detection_task_id, i.batch_item_id, o.bucket, o.object_key,
+              o.object_version, o.sha256, o.size_bytes, o.media_type
+            FROM detection_task_v2 t
+            JOIN detection_batch_item_v2 i ON i.batch_item_id = t.batch_item_id
+            JOIN image_object o ON o.image_id = i.image_id
+            WHERE i.batch_id = ? AND t.submit_idempotency_key = ?
+            ORDER BY i.created_at, i.batch_item_id
+            """, (row, number) -> new TaskDispatch(
+                row.getObject("detection_task_id", UUID.class),
+                row.getObject("batch_item_id", UUID.class),
+                row.getString("bucket"), row.getString("object_key"),
+                row.getString("object_version"), row.getString("sha256").trim(),
+                row.getLong("size_bytes"), row.getString("media_type")),
+            batchId, key);
+    }
+
+    @Override
     public Optional<BatchView> findBatch(UUID batchId, UUID actorId, boolean all) {
         return batches("WHERE batch_id = ? AND (? OR created_by = ?)", batchId, all, actorId).stream().findFirst();
     }

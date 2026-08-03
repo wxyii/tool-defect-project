@@ -10,7 +10,10 @@ import com.tooldefect.business.audit.application.AuditTrail;
 import com.tooldefect.business.detectionbatch.application.ManualDetectionBatchService;
 import com.tooldefect.business.detectionbatch.application.ManualDetectionRepository;
 import com.tooldefect.business.detectionbatch.application.ManualDetectionSettings;
+import com.tooldefect.business.detectionbatch.application.ProductionDetectionRepository;
+import com.tooldefect.business.detectionbatch.application.ProductionDetectionService;
 import com.tooldefect.business.shared.application.IdempotencyService;
+import com.tooldefect.business.shared.application.OutboxRepository;
 import com.tooldefect.business.storage.application.ObjectStoragePort;
 
 @Configuration(proxyBeanMethods = false)
@@ -20,12 +23,19 @@ public class ManualDetectionConfiguration {
     @Bean
     ManualDetectionBatchService manualDetectionBatchService(ManualDetectionRepository repository,
             ObjectStoragePort storage, IdempotencyService idempotency, AuditTrail audit,
-            ManualDetectionProperties properties, Clock clock) {
+            ManualDetectionProperties properties, Clock clock, OutboxRepository outbox) {
         var settings = new ManualDetectionSettings(properties.enabled(), properties.objectBucket(),
             properties.objectPrefix(), properties.maximumItemsPerBatch(), properties.maximumObjectBytes(),
             properties.allowedMediaTypes(), properties.uploadTtl(), properties.readTtl(),
             properties.orphanRetention(), properties.cleanupBatchSize());
-        return new ManualDetectionBatchService(repository, storage, idempotency, audit, settings, clock);
+        return new ManualDetectionBatchService(repository, storage, idempotency, audit, settings, clock, outbox);
+    }
+
+    @Bean
+    ProductionDetectionService productionDetectionService(
+            ProductionDetectionRepository repository, ObjectStoragePort storage,
+            IdempotencyService idempotency, OutboxRepository outbox, Clock clock) {
+        return new ProductionDetectionService(repository, storage, idempotency, outbox, clock);
     }
 
     @Bean

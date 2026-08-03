@@ -33,7 +33,7 @@ public class SecurityConfiguration {
             ObjectProvider<JwtDecoder> jwtDecoders,
             ObjectMapper json) throws Exception {
         http
-            .securityMatcher("/api/v1/edge/**", "/internal/**")
+            .securityMatcher("/api/v1/edge/**", "/api/v2/production/**", "/internal/**")
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -61,6 +61,7 @@ public class SecurityConfiguration {
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers(
                     HttpMethod.POST,
+                    "/api/v2/production/detection-items",
                     "/api/v1/edge/captures",
                     "/api/v1/edge/captures/*/submit",
                     "/api/v1/edge/captures/*/images/*/complete"

@@ -176,7 +176,7 @@ class ReliableMessagingIT {
             return null;
         });
         jdbc.update(
-            "UPDATE outbox_event SET next_attempt_at = now() WHERE event_id = ?",
+            "UPDATE outbox_event SET next_attempt_at = now() - interval '1 second' WHERE event_id = ?",
             returnedEventId
         );
         assertThat(messaging.publishDue(10)).isEqualTo(1);

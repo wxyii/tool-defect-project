@@ -7,7 +7,7 @@
       "event_operations": []
     },
     {
-      "consumer_id": "edge-agent-v2", "owner": "边缘采集所有者", "language": "python", "generated_package": "tool-defect-contracts.v2", "telemetry_source": "contract-v2-edge-client", "migration_status": "PLANNED",
+      "consumer_id": "edge-agent-v2", "owner": "边缘采集所有者", "language": "python", "generated_package": "tool-defect-contracts.v2", "telemetry_source": "contract-v2-edge-client", "migration_status": "TESTING",
       "http_operations": ["createProductionDetectionItemV2"], "event_operations": []
     },
     {

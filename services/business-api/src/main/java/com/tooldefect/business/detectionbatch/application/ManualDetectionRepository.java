@@ -16,6 +16,7 @@ public interface ManualDetectionRepository {
     void recordUploadFailure(UUID batchId, UUID itemId, UUID ownerId, String errorCode);
     void deleteItem(UUID batchId, UUID itemId, UUID ownerId, long expectedVersion);
     BatchView submit(UUID batchId, UUID ownerId, long expectedVersion, String idempotencyKey);
+    List<TaskDispatch> queuedTasks(UUID batchId, String submitIdempotencyKey);
     Optional<BatchView> findBatch(UUID batchId, UUID actorId, boolean canReadAll);
     Optional<ItemView> findItem(UUID batchId, UUID itemId, UUID actorId, boolean canReadAll);
     Page list(UUID actorId, boolean canReadAll, Instant beforeCreatedAt, UUID beforeId, int limit);
@@ -36,4 +37,7 @@ public interface ManualDetectionRepository {
                         String expectedSha256, Instant expiresAt) {}
     record Page(List<BatchView> items, String nextCursor) {}
     record OrphanObject(UUID batchId, UUID itemId, String bucket, String objectKey) {}
+    record TaskDispatch(UUID detectionTaskId, UUID batchItemId, String bucket,
+                        String objectKey, String objectVersion, String sha256,
+                        long sizeBytes, String mediaType) {}
 }

@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.nio.charset.StandardCharsets;
 
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +16,8 @@ import com.tooldefect.business.audit.domain.AuditRecord;
 import com.tooldefect.business.detectionbatch.application.ManualDetectionViolation.Kind;
 import com.tooldefect.business.shared.application.CanonicalJson;
 import com.tooldefect.business.shared.application.IdempotencyService;
+import com.tooldefect.business.shared.application.OutboxRepository;
+import com.tooldefect.business.shared.messaging.OutboxEvent;
 import com.tooldefect.business.storage.application.ObjectStoragePort;
 
 public class ManualDetectionBatchService {
@@ -26,16 +29,24 @@ public class ManualDetectionBatchService {
     private final AuditTrail audit;
     private final ManualDetectionSettings properties;
     private final Clock clock;
+    private final OutboxRepository outbox;
 
     public ManualDetectionBatchService(ManualDetectionRepository repository,
             ObjectStoragePort storage, IdempotencyService idempotency, AuditTrail audit,
             ManualDetectionSettings properties, Clock clock) {
+        this(repository, storage, idempotency, audit, properties, clock, null);
+    }
+
+    public ManualDetectionBatchService(ManualDetectionRepository repository,
+            ObjectStoragePort storage, IdempotencyService idempotency, AuditTrail audit,
+            ManualDetectionSettings properties, Clock clock, OutboxRepository outbox) {
         this.repository = java.util.Objects.requireNonNull(repository);
         this.storage = java.util.Objects.requireNonNull(storage);
         this.idempotency = java.util.Objects.requireNonNull(idempotency);
         this.audit = java.util.Objects.requireNonNull(audit);
         this.properties = java.util.Objects.requireNonNull(properties);
         this.clock = java.util.Objects.requireNonNull(clock);
+        this.outbox = outbox;
     }
 
     public Map<String,Object> capabilities() {
@@ -137,9 +148,45 @@ public class ManualDetectionBatchService {
             var before = repository.findBatch(batchId, actor, false)
                 .orElseThrow(() -> violation(Kind.NOT_FOUND, "批次不存在"));
             var after = repository.submit(batchId, actor, expectedVersion, key);
+            for (var task : repository.queuedTasks(batchId, key)) {
+                appendSingleItemTask(task, key, traceId);
+            }
             audit(actor, "MANUAL_BATCH_SUBMIT", batchId, digest(before), digest(after), requestId, traceId);
             return new IdempotencyService.Response(202, batch(after));
         });
+    }
+
+    private void appendSingleItemTask(ManualDetectionRepository.TaskDispatch task,
+            String key, String traceId) {
+        if (outbox == null) {
+            throw violation(Kind.DISABLED, "第二版推理发件箱未配置");
+        }
+        UUID messageId = UUID.nameUUIDFromBytes(
+            ("r4-message:" + task.detectionTaskId()).getBytes(StandardCharsets.UTF_8));
+        UUID eventId = UUID.nameUUIDFromBytes(
+            ("r4-outbox:" + task.detectionTaskId()).getBytes(StandardCharsets.UTF_8));
+        Instant occurredAt = Instant.now(clock);
+        String traceparent = "00-" + traceId + "-"
+            + CanonicalJson.sha256(messageId.toString()).substring(0, 16) + "-01";
+        Map<String,Object> image = new LinkedHashMap<>();
+        image.put("bucket", task.bucket()); image.put("object_key", task.objectKey());
+        image.put("sha256", task.sha256()); image.put("size_bytes", task.sizeBytes());
+        image.put("media_type", task.mediaType());
+        if (task.objectVersion() != null && !task.objectVersion().isBlank()) {
+            image.put("object_version", task.objectVersion());
+        }
+        Map<String,Object> payload = new LinkedHashMap<>();
+        payload.put("message_id", messageId.toString());
+        payload.put("occurred_at", occurredAt.toString());
+        payload.put("idempotency_key", key);
+        payload.put("traceparent", traceparent);
+        payload.put("batch_item_id", task.batchItemId().toString());
+        payload.put("detection_task_id", task.detectionTaskId().toString());
+        payload.put("image", image);
+        payload.put("pipeline_version", "2.0.0");
+        outbox.append(OutboxEvent.pending(eventId, "detection_task",
+            task.detectionTaskId(), "tool_defect.inference.item.requested.v2",
+            "inference.item.requested.v2", CanonicalJson.encode(payload), occurredAt));
     }
 
     public Map<String,Object> getBatch(UUID actor, boolean all, UUID batchId) {

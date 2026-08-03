@@ -32,6 +32,12 @@ public final class RabbitMessagePublisher implements MessagePublisher {
         "tool_defect.outbox.inference_requested.v1";
     private static final String INFERENCE_TASK_EVENT_TYPE =
         "tool_defect.inference.task.v1";
+    private static final String SINGLE_ITEM_EVENT_TYPE =
+        "tool_defect.inference.item.requested.v2";
+    private static final Set<String> SINGLE_ITEM_FIELDS = Set.of(
+        "message_id", "occurred_at", "idempotency_key", "traceparent",
+        "batch_item_id", "detection_task_id", "image", "pipeline_version"
+    );
     private static final Set<String> OUTBOX_FIELDS = Set.of(
         "event_id",
         "event_type",
@@ -136,7 +142,7 @@ public final class RabbitMessagePublisher implements MessagePublisher {
             .setDeliveryMode(MessageDeliveryMode.PERSISTENT)
             .setMessageId(identity.messageId())
             .setType(identity.eventType())
-            .setHeader("schema_version", "1.0");
+            .setHeader("schema_version", identity.schemaVersion());
         if (identity.traceparent() != null) {
             builder.setHeader("traceparent", identity.traceparent());
         }
@@ -197,6 +203,9 @@ public final class RabbitMessagePublisher implements MessagePublisher {
     }
 
     private MessageIdentity messageIdentity(OutboxEvent event) {
+        if (SINGLE_ITEM_EVENT_TYPE.equals(event.eventType())) {
+            return singleItemIdentity(event);
+        }
         try {
             JsonNode envelope = json.readTree(event.payloadJson());
             requireObjectFields(
@@ -271,7 +280,8 @@ public final class RabbitMessagePublisher implements MessagePublisher {
                 eventType,
                 detectionTaskId,
                 traceparent,
-                json.writeValueAsString(task)
+                json.writeValueAsString(task),
+                "1.0"
             );
         } catch (NonRetryableMessageException error) {
             throw error;
@@ -280,6 +290,46 @@ public final class RabbitMessagePublisher implements MessagePublisher {
                 "发件箱 payload 不符合推理事件 v1",
                 error
             );
+        }
+    }
+
+    private MessageIdentity singleItemIdentity(OutboxEvent event) {
+        try {
+            JsonNode task = json.readTree(event.payloadJson());
+            requireObjectFields(task, SINGLE_ITEM_FIELDS, SINGLE_ITEM_FIELDS,
+                "第二版单图片项推理任务");
+            String messageId = requiredText(task, "message_id");
+            requireUuid(task, "message_id");
+            requireUuid(task, "batch_item_id");
+            requireUuid(task, "detection_task_id");
+            if (!event.aggregateId().toString().equals(requiredText(task, "detection_task_id"))
+                    || !"detection_task".equals(event.aggregateType())) {
+                throw new DomainViolation("第二版任务标识与发件箱聚合不一致");
+            }
+            requiredUtcInstant(task, "occurred_at");
+            String key = requiredText(task, "idempotency_key");
+            if (key.length() < 8 || key.length() > 128) {
+                throw new DomainViolation("第二版幂等键长度非法");
+            }
+            String traceparent = requiredTraceparent(task, "traceparent");
+            requireVersion(task, "pipeline_version");
+            validateV2ObjectReference(task.path("image"));
+            return new MessageIdentity(messageId, SINGLE_ITEM_EVENT_TYPE,
+                event.aggregateId().toString(), traceparent,
+                json.writeValueAsString(task), "2.0");
+        } catch (NonRetryableMessageException error) {
+            throw error;
+        } catch (RuntimeException error) {
+            throw new NonRetryableMessageException(
+                "发件箱 payload 不符合第二版单图片项事件", error);
+        }
+    }
+
+    private static void validateV2ObjectReference(JsonNode object) {
+        validateObjectReference(object);
+        String key = requiredText(object, "object_key");
+        if (!key.matches("^(manual-originals|production-originals)/.+")) {
+            throw new DomainViolation("第二版推理原图对象前缀非法");
         }
     }
 
@@ -443,7 +493,8 @@ public final class RabbitMessagePublisher implements MessagePublisher {
         String eventType,
         String detectionTaskId,
         String traceparent,
-        String payloadJson
+        String payloadJson,
+        String schemaVersion
     ) {
     }
 }

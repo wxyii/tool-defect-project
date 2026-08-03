@@ -28,6 +28,8 @@ public class RabbitTopology {
         "tool-defect.inference.shadow.gpu.multitask";
     public static final String BATCH_QUEUE =
         "tool-defect.inference.batch.v1";
+    public static final String SINGLE_ITEM_V2_QUEUE =
+        "tool-defect.inference.item.requested.v2";
     public static final String DEAD_EXCHANGE = "tool-defect.inference.dead";
     public static final String DEAD_QUEUE =
         "tool-defect.inference.dead-letter.v1";
@@ -62,6 +64,11 @@ public class RabbitTopology {
     @Bean
     Queue batchQueue() {
         return inferenceQueue(BATCH_QUEUE);
+    }
+
+    @Bean
+    Queue singleItemV2Queue() {
+        return inferenceQueue(SINGLE_ITEM_V2_QUEUE);
     }
 
     @Bean
@@ -109,6 +116,15 @@ public class RabbitTopology {
         return BindingBuilder.bind(queue)
             .to(exchange)
             .with("batch.#");
+    }
+
+    @Bean
+    Binding singleItemV2Binding(
+            @Qualifier("singleItemV2Queue") Queue queue,
+            TopicExchange exchange) {
+        return BindingBuilder.bind(queue)
+            .to(exchange)
+            .with("inference.item.requested.v2");
     }
 
     @Bean

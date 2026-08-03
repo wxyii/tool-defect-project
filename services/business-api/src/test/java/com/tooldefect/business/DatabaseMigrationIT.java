@@ -28,12 +28,16 @@ import org.testcontainers.utility.DockerImageName;
 import com.tooldefect.business.detection.domain.DetectionNotFound;
 import com.tooldefect.business.detection.infrastructure.JdbcDetectionQueryRepository;
 import com.tooldefect.business.detectionbatch.infrastructure.JdbcManualDetectionRepository;
+import com.tooldefect.business.detectionbatch.infrastructure.JdbcProductionDetectionRepository;
+import com.tooldefect.business.detectionbatch.infrastructure.R4InferenceResultHandler;
+import com.tooldefect.business.detectionbatch.application.ProductionDetectionRepository;
 import com.tooldefect.business.dataset.infrastructure.JdbcDatasetRepository;
 import com.tooldefect.business.deployment.infrastructure.JdbcDeploymentRepository;
 import com.tooldefect.business.model.infrastructure.JdbcModelRepository;
 import com.tooldefect.business.review.domain.ReviewStatus;
 import com.tooldefect.business.review.infrastructure.JdbcReviewRepository;
 import com.tooldefect.business.training.infrastructure.JdbcTrainingRunRepository;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * 真实 PostgreSQL 上验证空库、向前迁移、约束以及备份恢复。Docker 不可用时
@@ -48,6 +52,97 @@ class DatabaseMigrationIT {
         .withDatabaseName("tool_defect")
         .withUsername("tool_defect_test")
         .withPassword("tool-defect-test-only");
+
+    @Test
+    void r4ProductionRepositoryPersistsInspectedDimensionsAndIsIdempotent() {
+        String schema = uniqueName("r4_production");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+        var repository = new JdbcProductionDetectionRepository(jdbc);
+        UUID captureId = UUID.randomUUID();
+        var image = new ProductionDetectionRepository.Image(
+            "td-original", "production-originals/station/" + captureId + ".png",
+            "version-1", "f".repeat(64), 1024, "image/png", 640, 480);
+
+        var first = repository.create(captureId, "device:station-1", image, "r4-production-1");
+        var replay = repository.create(captureId, "device:station-1", image, "r4-production-1");
+
+        assertThat(replay).isEqualTo(first);
+        assertThat(jdbc.queryForMap(
+            "SELECT width,height,state FROM image_object WHERE image_id=?",
+            first.batchItemId())).containsEntry("width", 640)
+                .containsEntry("height", 480)
+                .containsEntry("state", "AVAILABLE");
+    }
+
+    @Test
+    void r4SingleItemResultsDriveSafeAggregateStates() {
+        String schema = uniqueName("r4_single_item");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+
+        UUID partial = r4Batch(jdbc, 10);
+        var partialItems = jdbc.queryForList(
+            "SELECT batch_item_id FROM detection_batch_item_v2 WHERE batch_id=? ORDER BY batch_item_id",
+            UUID.class, partial);
+        for (int index = 0; index < partialItems.size(); index++) {
+            jdbc.update("UPDATE detection_batch_item_v2 SET status=?,algorithm_outcome=? WHERE batch_item_id=?",
+                index == 0 ? "QUALITY_REJECTED" : "COMPLETED",
+                index == 0 ? null : "QUALIFIED", partialItems.get(index));
+        }
+        assertThat(jdbc.queryForMap("""
+            SELECT status,completed_count,normal_count,quality_rejected_count
+            FROM detection_batch_v2 WHERE batch_id=?
+            """, partial)).containsEntry("status", "PARTIALLY_COMPLETED")
+                .containsEntry("completed_count", 10)
+                .containsEntry("normal_count", 9)
+                .containsEntry("quality_rejected_count", 1);
+
+        UUID failed = r4Batch(jdbc, 2);
+        jdbc.update("UPDATE detection_batch_item_v2 SET status='QUALITY_REJECTED' WHERE batch_id=?", failed);
+        assertThat(jdbc.queryForObject(
+            "SELECT status FROM detection_batch_v2 WHERE batch_id=?", String.class, failed))
+            .isEqualTo("FAILED");
+
+        UUID completed = r4Batch(jdbc, 1);
+        UUID item = jdbc.queryForObject(
+            "SELECT batch_item_id FROM detection_batch_item_v2 WHERE batch_id=?", UUID.class, completed);
+        UUID task = jdbc.queryForObject(
+            "SELECT detection_task_id FROM detection_task_v2 WHERE batch_item_id=?", UUID.class, item);
+        UUID message = UUID.randomUUID();
+        UUID attempt = UUID.randomUUID();
+        String payload = """
+            {"message_id":"%s","occurred_at":"2026-08-03T00:00:00Z",
+             "idempotency_key":"r4-completed-0001",
+             "traceparent":"00-0123456789abcdef0123456789abcdef-0123456789abcdef-01",
+             "batch_item_id":"%s","detection_task_id":"%s","attempt_id":"%s",
+             "quality":{"overall":"ACCEPTED","checker_version":"quality-2.0.0","checks":[
+               {"check_type":"DECODABLE","status":"PASS","rule_id":"q/decode","reason_code":"OK","user_hint":"可读取"},
+               {"check_type":"BLADE_PRESENT","status":"PASS","rule_id":"q/present","reason_code":"OK","user_hint":"存在"},
+               {"check_type":"BLADE_COMPLETE","status":"PASS","rule_id":"q/complete","reason_code":"OK","user_hint":"完整"},
+               {"check_type":"BLUR","status":"PASS","rule_id":"q/blur","reason_code":"OK","user_hint":"清晰"},
+               {"check_type":"EXPOSURE","status":"PASS","rule_id":"q/exposure","reason_code":"OK","user_hint":"曝光可用"}]},
+             "algorithm_outcome":"INCONCLUSIVE",
+             "result_reference":{"bucket":"model-evidence","object_key":"model-evidence/r4/result.json",
+               "sha256":"%s","size_bytes":512,"media_type":"application/json"}}
+            """.formatted(message, item, task, attempt, "a".repeat(64));
+
+        new R4InferenceResultHandler(jdbc, new ObjectMapper()).handle(payload);
+
+        assertThat(jdbc.queryForMap("""
+            SELECT status,completed_count,inconclusive_count FROM detection_batch_v2 WHERE batch_id=?
+            """, completed)).containsEntry("status", "COMPLETED")
+                .containsEntry("completed_count", 1)
+                .containsEntry("inconclusive_count", 1);
+        assertThat(jdbc.queryForObject(
+            """
+            SELECT count(*) FROM image_quality_check_v2 checks
+            JOIN image_quality_result_v2 result
+              ON result.quality_result_id=checks.quality_result_id
+            WHERE result.batch_item_id=?
+            """,
+            Integer.class, item)).isEqualTo(5);
+    }
 
     @Test
     void r3ManualBatchAcceptsTenIndependentItemsAndCreatesOneTaskEach() {
@@ -106,7 +201,7 @@ class DatabaseMigrationIT {
 
         var result = flyway.migrate();
 
-        assertThat(result.migrationsExecuted).isEqualTo(17);
+        assertThat(result.migrationsExecuted).isEqualTo(18);
         flyway.validate();
         JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
         assertThat(jdbc.queryForObject(
@@ -116,7 +211,7 @@ class DatabaseMigrationIT {
             WHERE success AND version IS NOT NULL
             """,
             Integer.class
-        )).isEqualTo(17);
+        )).isEqualTo(18);
         assertThat(jdbc.queryForObject(
             """
             SELECT COUNT(*)
@@ -352,7 +447,7 @@ class DatabaseMigrationIT {
         );
 
         Flyway latest = flyway(POSTGRES.getJdbcUrl(), schema, null);
-        assertThat(latest.migrate().migrationsExecuted).isEqualTo(15);
+        assertThat(latest.migrate().migrationsExecuted).isEqualTo(16);
 
         assertThat(jdbc.queryForObject(
             "SELECT organization_id FROM production_line WHERE line_id = ?",
@@ -1274,7 +1369,7 @@ class DatabaseMigrationIT {
         assertThat(restored.queryForObject(
             "SELECT COUNT(*) FROM flyway_schema_history WHERE success",
             Integer.class
-        )).isEqualTo(17);
+        )).isEqualTo(18);
         flyway(databaseUrl(restoredDatabase), "public", null).validate();
     }
 
@@ -1674,6 +1769,32 @@ class DatabaseMigrationIT {
             reviewRecordId,
             "c".repeat(64)
         );
+    }
+
+    private static UUID r4Batch(JdbcTemplate jdbc, int itemCount) {
+        UUID batchId = UUID.randomUUID();
+        jdbc.update("""
+            INSERT INTO detection_batch_v2(batch_id,batch_no,source,usage_stage,status)
+            VALUES (?,?,'MANUAL_UPLOAD','UNSPECIFIED','PROCESSING')
+            """, batchId, "R4-" + batchId.toString().substring(0, 20));
+        for (int index = 0; index < itemCount; index++) {
+            UUID itemId = UUID.randomUUID();
+            jdbc.update("""
+                INSERT INTO image_object(image_id,kind,bucket,object_key,sha256,
+                  size_bytes,media_type,width,height,state)
+                VALUES (?,'RAW','td-original',?,? ,128,'image/png',64,64,'AVAILABLE')
+                """, itemId, "manual-originals/r4/" + itemId + ".png",
+                "%064x".formatted(index + 100));
+            jdbc.update("""
+                INSERT INTO detection_batch_item_v2(batch_item_id,batch_id,image_id,status)
+                VALUES (?,?,?,'QUEUED')
+                """, itemId, batchId, itemId);
+            jdbc.update("""
+                INSERT INTO detection_task_v2(detection_task_id,batch_item_id,status,
+                  submit_idempotency_key) VALUES (?,?,'QUEUED',?)
+                """, UUID.randomUUID(), itemId, "r4-test-" + batchId);
+        }
+        return batchId;
     }
 
     private static Flyway flyway(

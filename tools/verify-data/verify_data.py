@@ -25,6 +25,7 @@ R2_MIGRATION = (
     / "V16__r2_unified_detection_core.sql"
 )
 R3_MIGRATION = R2_MIGRATION.parent / "V17__r3_manual_detection_batches.sql"
+R4_MIGRATION = R2_MIGRATION.parent / "V18__r4_single_item_inference.sql"
 
 
 def validate_r2_sources() -> list[str]:
@@ -114,6 +115,17 @@ def validate_r2_sources() -> list[str]:
         for label, marker in required_r3.items():
             if marker not in r3_sql:
                 errors.append(f"V17 缺少{label}：{marker}")
+    if R4_MIGRATION.is_file():
+        r4_sql = R4_MIGRATION.read_text(encoding="utf-8")
+        required_r4 = {
+            "产线单项映射": "CREATE TABLE production_capture_item_v2",
+            "单项推理终态": "CREATE TABLE detection_item_result_v2",
+            "全质量拒绝失败聚合": "summary.technical_failed + summary.quality_rejected = summary.total",
+            "第二版事实聚合": "td_recompute_detection_batch_v2",
+        }
+        for label, marker in required_r4.items():
+            if marker not in r4_sql:
+                errors.append(f"V18 缺少{label}：{marker}")
     return errors
 
 
@@ -143,7 +155,7 @@ def main() -> int:
         ],
         "expected_blocker_count": len(first["blockers"]),
         "r2_migration_version": 16,
-        "latest_migration_version": 17 if R3_MIGRATION.is_file() else 16,
+        "latest_migration_version": 18 if R4_MIGRATION.is_file() else (17 if R3_MIGRATION.is_file() else 16),
         "errors": errors,
     }
     print(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2))
