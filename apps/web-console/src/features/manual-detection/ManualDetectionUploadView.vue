@@ -15,6 +15,7 @@ interface SelectedImage {
   readonly completeKey: string
   intent?: UploadItemIntent
   item?: DetectionBatchItem
+  transferred?: boolean
   state: 'READY' | 'UPLOADING' | 'UPLOADED' | 'FAILED'
   error?: string
 }
@@ -96,8 +97,18 @@ async function uploadOne(item: SelectedImage): Promise<void> {
   if (batchId.value === null) return
   item.state = 'UPLOADING'; item.error = undefined
   try {
-    item.intent ??= await service.addItem(batchId.value, item.prepared, item.addKey)
-    await service.upload(item.intent, item.prepared.file)
+    if (item.intent === undefined) {
+      item.intent = await service.addItem(batchId.value, item.prepared, item.addKey)
+    } else if (!item.transferred) {
+      item.intent = await service.renewUpload(
+        batchId.value,
+        item.intent.item.batch_item_id,
+      )
+    }
+    if (!item.transferred) {
+      await service.upload(item.intent, item.prepared.file)
+      item.transferred = true
+    }
     item.item = await service.complete(batchId.value, item.prepared, item.intent, item.completeKey)
     item.state = 'UPLOADED'
   } catch (caught) {

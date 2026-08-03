@@ -73,7 +73,6 @@ public final class AwsS3ClientFacade implements S3ClientFacade {
         PutObjectRequest put = PutObjectRequest.builder()
             .bucket(bucket)
             .key(objectKey)
-            .contentLength(sizeBytes)
             .contentType(mediaType)
             .checksumSHA256(hexSha256ToBase64(sha256))
             .metadata(Map.copyOf(metadata))

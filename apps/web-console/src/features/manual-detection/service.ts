@@ -158,6 +158,14 @@ export class ManualDetectionService {
     return parseUploadIntent(value)
   }
 
+  async renewUpload(batchId: string, itemId: string, idempotencyKey = this.idFactory()): Promise<UploadItemIntent> {
+    const value = await this.api.renewDetectionBatchItemUploadV2({
+      path: { batch_id: batchId, item_id: itemId },
+      headers: { 'Idempotency-Key': idempotencyKey },
+    })
+    return parseUploadIntent(value)
+  }
+
   async upload(intent: UploadItemIntent, file: File): Promise<void> {
     const response = await this.uploadFetcher(intent.url, {
       method: intent.method,

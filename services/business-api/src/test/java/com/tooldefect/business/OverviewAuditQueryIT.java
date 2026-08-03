@@ -184,11 +184,12 @@ class OverviewAuditQueryIT {
         jdbc.update("""
             INSERT INTO sys_user(
                 user_id, external_subject, username, display_name,
-                status, password_change_required
-            ) VALUES (?, ?, ?, '总览测试用户', 'ACTIVE', false)
+                status, password_change_required, person_role
+            ) VALUES (?, ?, ?, '总览测试用户', 'ACTIVE', false,
+                'PRODUCTION_EMPLOYEE')
             """, actorId, actorId.toString(), "overview-" + actorId);
         UUID roleId = jdbc.queryForObject(
-            "SELECT role_id FROM sys_role WHERE role_code = 'OPERATOR'",
+            "SELECT role_id FROM sys_role WHERE role_code = 'PRODUCTION_EMPLOYEE'",
             UUID.class
         );
         jdbc.update(

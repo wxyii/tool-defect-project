@@ -1,5 +1,5 @@
 // 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。
-// 契约主版本: 1；源哈希: 159efe83cd0f071d155864372a56d28b72668271b4f6b4e4a4b3d895f9193540
+// 契约主版本: 1；源哈希: f72a5a3390cfe2d9530d4d12b3bb2d572a57fbbb290c10bf886c1479509935fb
 import type {
   Acknowledgement,
   ActionRequest,
@@ -20,6 +20,39 @@ import type {
   CaptureSyncQueryRequest,
   CaptureSyncQueryResponse,
   ClientImage,
+  Common,
+  CommonAdminFeedbackLabel,
+  CommonAdminFeedbackRecord,
+  CommonAlgorithmOutcome,
+  CommonBatchAggregateCounts,
+  CommonBatchItemStatus,
+  CommonBatchSource,
+  CommonBatchStatus,
+  CommonDetectionBatch,
+  CommonDetectionBatchItem,
+  CommonExportJobStatus,
+  CommonImageQualityCheck,
+  CommonImageQualityCheckStatus,
+  CommonImageQualityCheckType,
+  CommonImageQualityOverall,
+  CommonImageQualityResult,
+  CommonLegacyProvenanceSnapshot,
+  CommonModelUploadSession,
+  CommonModelUploadStatus,
+  CommonModelValidationResult,
+  CommonModelValidationStatus,
+  CommonObjectReference,
+  CommonPersonRole,
+  CommonQuickReviewDecision,
+  CommonQuickReviewRecord,
+  CommonSampleCandidate,
+  CommonSampleCandidateStatus,
+  CommonSampleExportJob,
+  CommonSha256,
+  CommonStandardError,
+  CommonUsageStage,
+  CommonUtcTimestamp,
+  CommonUuid,
   CsrfTokenResponse,
   DatasetApprovalRequest,
   DatasetCandidateManifestApprovalResponse,
@@ -51,8 +84,13 @@ import type {
   LocalLoginRequest,
   LocalQueueStatus,
   LocalUserCreateRequest,
+  LocalUserDisplayNameRequest,
   LocalUserList,
   LocalUserPasswordResetRequest,
+  LocalUserRoleMigrationDecision,
+  LocalUserRoleMigrationList,
+  LocalUserRoleMigrationPreview,
+  LocalUserRoleMigrationRequest,
   LocalUserRolesRequest,
   LocalUserSession,
   LocalUserStatusRequest,
@@ -173,6 +211,12 @@ export const API_OPERATION_METADATA = {
   completeReviewAnnotation: {
     method: "POST",
     path: "/api/v1/review-tasks/{review_task_id}/annotations/{image_id}/complete",
+    responseMediaCategory: "json",
+    responseMediaTypes: ["application/json"],
+  },
+  confirmLocalUserRoleMigration: {
+    method: "POST",
+    path: "/api/v1/users/{user_id}/role-migration",
     responseMediaCategory: "json",
     responseMediaTypes: ["application/json"],
   },
@@ -398,6 +442,12 @@ export const API_OPERATION_METADATA = {
     responseMediaCategory: "empty",
     responseMediaTypes: [],
   },
+  previewLocalUserRoleMigrations: {
+    method: "GET",
+    path: "/api/v1/users/role-migration-preview",
+    responseMediaCategory: "json",
+    responseMediaTypes: ["application/json"],
+  },
   queryCaptureSync: {
     method: "POST",
     path: "/api/v1/edge/sync/captures/query",
@@ -488,6 +538,12 @@ export const API_OPERATION_METADATA = {
     responseMediaCategory: "json",
     responseMediaTypes: ["application/json"],
   },
+  updateLocalUserDisplayName: {
+    method: "PATCH",
+    path: "/api/v1/users/{user_id}/display-name",
+    responseMediaCategory: "empty",
+    responseMediaTypes: [],
+  },
   updateLocalUserRoles: {
     method: "PUT",
     path: "/api/v1/users/{user_id}/roles",
@@ -562,6 +618,13 @@ export type CompleteReviewAnnotationRequestEnvelope = Readonly<{
   readonly query?: never;
   readonly headers: Readonly<{ readonly "Idempotency-Key": string; }>;
   readonly body: (ObjectCompleteRequest);
+}>;
+
+export type ConfirmLocalUserRoleMigrationRequestEnvelope = Readonly<{
+  readonly path: Readonly<{ readonly "user_id": Uuid; }>;
+  readonly query?: never;
+  readonly headers: Readonly<{ readonly "Idempotency-Key": string; }>;
+  readonly body: (LocalUserRoleMigrationRequest);
 }>;
 
 export type CreateAnnotationUploadTicketRequestEnvelope = Readonly<{
@@ -823,6 +886,13 @@ export type LogoutLocalUserRequestEnvelope = Readonly<{
   readonly body?: never;
 }>;
 
+export type PreviewLocalUserRoleMigrationsRequestEnvelope = Readonly<{
+  readonly path?: never;
+  readonly query?: never;
+  readonly headers?: never;
+  readonly body?: never;
+}>;
+
 export type QueryCaptureSyncRequestEnvelope = Readonly<{
   readonly path?: never;
   readonly query?: never;
@@ -928,6 +998,13 @@ export type SubmitReviewRequestEnvelope = Readonly<{
   readonly body: (ReviewSubmissionRequest);
 }>;
 
+export type UpdateLocalUserDisplayNameRequestEnvelope = Readonly<{
+  readonly path: Readonly<{ readonly "user_id": Uuid; }>;
+  readonly query?: never;
+  readonly headers: Readonly<{ readonly "Idempotency-Key": string; }>;
+  readonly body: (LocalUserDisplayNameRequest);
+}>;
+
 export type UpdateLocalUserRolesRequestEnvelope = Readonly<{
   readonly path: Readonly<{ readonly "user_id": Uuid; }>;
   readonly query?: never;
@@ -957,6 +1034,7 @@ export type ApiOperationRequestMap = Readonly<{
   readonly claimReviewTask: ClaimReviewTaskRequestEnvelope;
   readonly completeCaptureImage: CompleteCaptureImageRequestEnvelope;
   readonly completeReviewAnnotation: CompleteReviewAnnotationRequestEnvelope;
+  readonly confirmLocalUserRoleMigration: ConfirmLocalUserRoleMigrationRequestEnvelope;
   readonly createAnnotationUploadTicket: CreateAnnotationUploadTicketRequestEnvelope;
   readonly createCapture: CreateCaptureRequestEnvelope;
   readonly createDataset: CreateDatasetRequestEnvelope;
@@ -994,6 +1072,7 @@ export type ApiOperationRequestMap = Readonly<{
   readonly listTrainingRuns: ListTrainingRunsRequestEnvelope;
   readonly loginLocalUser: LoginLocalUserRequestEnvelope;
   readonly logoutLocalUser: LogoutLocalUserRequestEnvelope;
+  readonly previewLocalUserRoleMigrations: PreviewLocalUserRoleMigrationsRequestEnvelope;
   readonly queryCaptureSync: QueryCaptureSyncRequestEnvelope;
   readonly registerModelVersion: RegisterModelVersionRequestEnvelope;
   readonly releaseReviewTask: ReleaseReviewTaskRequestEnvelope;
@@ -1009,6 +1088,7 @@ export type ApiOperationRequestMap = Readonly<{
   readonly submitDetectionResult: SubmitDetectionResultRequestEnvelope;
   readonly submitModelValidationDecision: SubmitModelValidationDecisionRequestEnvelope;
   readonly submitReview: SubmitReviewRequestEnvelope;
+  readonly updateLocalUserDisplayName: UpdateLocalUserDisplayNameRequestEnvelope;
   readonly updateLocalUserRoles: UpdateLocalUserRolesRequestEnvelope;
   readonly updateLocalUserStatus: UpdateLocalUserStatusRequestEnvelope;
   readonly updateTrainingRunStatus: UpdateTrainingRunStatusRequestEnvelope;
@@ -1022,6 +1102,7 @@ export interface ApiClient {
   claimReviewTask(request: ClaimReviewTaskRequestEnvelope): Promise<JsonObject>;
   completeCaptureImage(request: CompleteCaptureImageRequestEnvelope): Promise<JsonObject>;
   completeReviewAnnotation(request: CompleteReviewAnnotationRequestEnvelope): Promise<JsonObject>;
+  confirmLocalUserRoleMigration(request: ConfirmLocalUserRoleMigrationRequestEnvelope): Promise<JsonObject>;
   createAnnotationUploadTicket(request: CreateAnnotationUploadTicketRequestEnvelope): Promise<JsonObject>;
   createCapture(request: CreateCaptureRequestEnvelope): Promise<JsonObject>;
   createDataset(request: CreateDatasetRequestEnvelope): Promise<JsonObject>;
@@ -1059,6 +1140,7 @@ export interface ApiClient {
   listTrainingRuns(request?: ListTrainingRunsRequestEnvelope): Promise<JsonObject>;
   loginLocalUser(request: LoginLocalUserRequestEnvelope): Promise<JsonObject>;
   logoutLocalUser(request: LogoutLocalUserRequestEnvelope): Promise<JsonObject>;
+  previewLocalUserRoleMigrations(request?: PreviewLocalUserRoleMigrationsRequestEnvelope): Promise<JsonObject>;
   queryCaptureSync(request: QueryCaptureSyncRequestEnvelope): Promise<JsonObject>;
   registerModelVersion(request: RegisterModelVersionRequestEnvelope): Promise<JsonObject>;
   releaseReviewTask(request: ReleaseReviewTaskRequestEnvelope): Promise<JsonObject>;
@@ -1074,6 +1156,7 @@ export interface ApiClient {
   submitDetectionResult(request: SubmitDetectionResultRequestEnvelope): Promise<JsonObject>;
   submitModelValidationDecision(request: SubmitModelValidationDecisionRequestEnvelope): Promise<JsonObject>;
   submitReview(request: SubmitReviewRequestEnvelope): Promise<JsonObject>;
+  updateLocalUserDisplayName(request: UpdateLocalUserDisplayNameRequestEnvelope): Promise<JsonObject>;
   updateLocalUserRoles(request: UpdateLocalUserRolesRequestEnvelope): Promise<JsonObject>;
   updateLocalUserStatus(request: UpdateLocalUserStatusRequestEnvelope): Promise<JsonObject>;
   updateTrainingRunStatus(request: UpdateTrainingRunStatusRequestEnvelope): Promise<JsonObject>;

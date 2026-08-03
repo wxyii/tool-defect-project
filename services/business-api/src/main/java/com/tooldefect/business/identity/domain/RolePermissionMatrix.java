@@ -4,7 +4,7 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.Set;
 
-/** 首期职责分离基线；数据库角色绑定只能在此基线上进一步收紧。 */
+/** 第二版人员业务角色基线；设备和服务身份不使用此矩阵。 */
 public final class RolePermissionMatrix {
     private static final Map<SystemRole, Set<String>> PERMISSIONS =
         permissions();
@@ -24,60 +24,17 @@ public final class RolePermissionMatrix {
         Map<SystemRole, Set<String>> values =
             new EnumMap<>(SystemRole.class);
         values.put(
-            SystemRole.OPERATOR,
-            Set.of("capture:read", "detection:read", "image:view",
-                "manual-detection:read", "manual-detection:write")
-        );
-        values.put(
-            SystemRole.REVIEWER,
+            SystemRole.PRODUCTION_EMPLOYEE,
             Set.of(
                 "capture:read",
                 "detection:read",
                 "image:view",
-                "review:read",
-                "review:claim",
-                "review:submit",
-                "review:annotate"
+                "manual-detection:read",
+                "manual-detection:write"
             )
         );
         values.put(
-            SystemRole.QUALITY_MANAGER,
-            Set.of(
-                "capture:read",
-                "detection:read",
-                "image:view",
-                "image:original:download",
-                "review:read",
-                "review:claim",
-                "review:submit",
-                "review:annotate",
-                "review:escalate",
-                "quality:override",
-                "quality:read",
-                "audit:read"
-            )
-        );
-        values.put(
-            SystemRole.ALGORITHM_ENGINEER,
-            Set.of(
-                "detection:read",
-                "image:view",
-                "model:register"
-            )
-        );
-        values.put(
-            SystemRole.MODEL_APPROVER,
-            Set.of(
-                "detection:read",
-                "model:validate",
-                "model:approve",
-                "model:deploy:approve",
-                "model:rollback",
-                "audit:read"
-            )
-        );
-        values.put(
-            SystemRole.SYSTEM_OPERATOR,
+            SystemRole.ADMINISTRATOR,
             Set.of(
                 "capture:read",
                 "detection:read",
@@ -104,24 +61,6 @@ public final class RolePermissionMatrix {
                 "manual-detection:read:all",
                 "manual-detection:write",
                 "audit:read"
-            )
-        );
-        values.put(
-            SystemRole.SECURITY_ADMIN,
-            Set.of(
-                "certificate:manage",
-                "security:policy:manage",
-                "audit:read"
-            )
-        );
-        values.put(
-            SystemRole.AUDITOR,
-            Set.of(
-                "capture:read",
-                "detection:read",
-                "image:view",
-                "audit:read",
-                "quality:read"
             )
         );
         return Map.copyOf(values);

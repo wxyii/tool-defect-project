@@ -11,6 +11,7 @@ public interface ManualDetectionRepository {
                          String mediaType, String sha256, String bucket, String objectKey,
                          Instant expiresAt, int maximumItems);
     Optional<UploadIntent> findUpload(UUID batchId, UUID itemId, UUID ownerId);
+    UploadIntent renewUpload(UUID batchId, UUID itemId, UUID ownerId, Instant expiresAt);
     ItemView confirmUpload(UUID batchId, UUID itemId, UUID ownerId, String objectVersion,
                            int width, int height);
     void recordUploadFailure(UUID batchId, UUID itemId, UUID ownerId, String errorCode);

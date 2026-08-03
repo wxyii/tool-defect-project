@@ -25,6 +25,7 @@ class R5ManualDetectionE2ETest(unittest.TestCase):
             "createDetectionBatchV2",
             "addDetectionBatchItemV2",
             "completeDetectionBatchItemUploadV2",
+            "renewDetectionBatchItemUploadV2",
             "submitDetectionBatchV2",
             "putQuickReviewV2",
         ):

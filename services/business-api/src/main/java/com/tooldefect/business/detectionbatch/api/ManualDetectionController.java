@@ -65,6 +65,17 @@ public final class ManualDetectionController {
         return ResponseEntity.status(response.status()).body(response.body());
     }
 
+    @PostMapping("/detection-batches/{batch_id}/items/{item_id}/renew")
+    ResponseEntity<Map<String,Object>> renew(@PathVariable("batch_id") UUID batchId,
+            @PathVariable("item_id") UUID itemId,
+            @RequestHeader("Idempotency-Key") String key,
+            Authentication authentication,HttpServletRequest servlet){
+        var user = identity(authentication);
+        var response = service.renewUpload(user.userId(), batchId, itemId, key, Map.of(),
+            requestId(servlet), traceId(servlet));
+        return ResponseEntity.status(response.status()).body(response.body());
+    }
+
     @PostMapping("/detection-batches/{batch_id}/submit")
     ResponseEntity<Map<String,Object>> submit(@PathVariable("batch_id") UUID batchId,@RequestHeader("Idempotency-Key") String key,
             @RequestBody Map<String,Object> body,Authentication authentication,HttpServletRequest servlet){

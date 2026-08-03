@@ -2,6 +2,7 @@ package com.tooldefect.business;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -26,6 +27,8 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import com.tooldefect.business.detection.domain.DetectionNotFound;
+import com.tooldefect.business.audit.application.AuditTrail;
+import com.tooldefect.business.identity.application.LocalIdentityService;
 import com.tooldefect.business.detection.infrastructure.JdbcDetectionQueryRepository;
 import com.tooldefect.business.detectionbatch.infrastructure.JdbcManualDetectionRepository;
 import com.tooldefect.business.detectionbatch.infrastructure.JdbcProductionDetectionRepository;
@@ -239,13 +242,146 @@ class DatabaseMigrationIT {
     }
 
     @Test
+    void r6RoleMigrationRequiresExplicitConfirmationAndRevokesSessions() {
+        String schema = uniqueName("r6_roles");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+        UUID operator = UUID.randomUUID();
+        UUID highPrivilege = UUID.randomUUID();
+        insertR6User(jdbc, operator, "r6-operator");
+        insertR6User(jdbc, highPrivilege, "r6-high");
+        UUID operatorRole = roleId(jdbc, "OPERATOR");
+        UUID highRole = roleId(jdbc, "SYSTEM_OPERATOR");
+        jdbc.update(
+            "INSERT INTO sys_user_role(user_id, role_id) VALUES (?, ?), (?, ?)",
+            operator, operatorRole, highPrivilege, highRole
+        );
+        jdbc.update(
+            "INSERT INTO auth_session("
+                + "session_hash, user_id, created_at, last_accessed_at, "
+                + "idle_expires_at, absolute_expires_at) "
+                + "VALUES (?, ?, now(), now(), now() + interval '30 minutes', "
+                + "now() + interval '8 hours')",
+            "r".repeat(64), operator
+        );
+
+        LocalIdentityService identities = new LocalIdentityService(
+            jdbc,
+            mock(AuditTrail.class),
+            "",
+            "",
+            ""
+        );
+        Map<String, Object> operatorPreview = identities.previewRoleMappings()
+            .stream()
+            .filter(item -> operator.equals(item.get("user_id")))
+            .findFirst()
+            .orElseThrow();
+        Map<String, Object> highPreview = identities.previewRoleMappings()
+            .stream()
+            .filter(item -> highPrivilege.equals(item.get("user_id")))
+            .findFirst()
+            .orElseThrow();
+        assertThat(operatorPreview)
+            .containsEntry("suggested_role", "PRODUCTION_EMPLOYEE")
+            .containsEntry("migration_status", "UNCONFIRMED");
+        assertThat(highPreview)
+            .containsEntry("suggested_role", null)
+            .containsEntry("migration_status", "CONFLICT");
+        assertThat(jdbc.queryForObject(
+            "SELECT person_role FROM sys_user WHERE user_id = ?",
+            String.class,
+            operator
+        )).isNull();
+
+        assertThatThrownBy(() -> identities.confirmRoleMigration(
+            highPrivilege,
+            "ADMINISTRATOR",
+            operator.toString(),
+            ""
+        )).isInstanceOf(IllegalArgumentException.class);
+        assertThat(jdbc.queryForObject(
+            "SELECT person_role FROM sys_user WHERE user_id = ?",
+            String.class,
+            highPrivilege
+        )).isNull();
+
+        Map<String, Object> confirmed = identities.confirmRoleMigration(
+            operator,
+            "PRODUCTION_EMPLOYEE",
+            highPrivilege.toString(),
+            "按职责清单确认生产员工"
+        );
+        assertThat(confirmed)
+            .containsEntry("status", "CONFIRMED")
+            .containsEntry("idempotent", false);
+        assertThat(jdbc.queryForObject(
+            "SELECT person_role FROM sys_user WHERE user_id = ?",
+            String.class,
+            operator
+        )).isEqualTo("PRODUCTION_EMPLOYEE");
+        assertThat(jdbc.queryForObject(
+            "SELECT revoked_at IS NOT NULL FROM auth_session WHERE user_id = ?",
+            Boolean.class,
+            operator
+        )).isTrue();
+        identities.setDisplayName(operator, "生产线员工", highPrivilege.toString());
+        assertThat(jdbc.queryForObject(
+            "SELECT display_name FROM sys_user WHERE user_id = ?",
+            String.class,
+            operator
+        )).isEqualTo("生产线员工");
+
+        Map<String, Object> replay = identities.confirmRoleMigration(
+            operator,
+            "PRODUCTION_EMPLOYEE",
+            highPrivilege.toString(),
+            "重复提交"
+        );
+        assertThat(replay).containsEntry("idempotent", true);
+        assertThatThrownBy(() -> identities.confirmRoleMigration(
+            operator,
+            "ADMINISTRATOR",
+            highPrivilege.toString(),
+            "冲突替换"
+        )).isInstanceOf(IllegalStateException.class);
+
+        Map<String, Object> highConfirmed = identities.confirmRoleMigration(
+            highPrivilege,
+            "ADMINISTRATOR",
+            operator.toString(),
+            "双人复核后确认管理员职责"
+        );
+        assertThat(highConfirmed).containsEntry("status", "CONFIRMED");
+    }
+
+    private static void insertR6User(JdbcTemplate jdbc, UUID userId, String username) {
+        jdbc.update(
+            "INSERT INTO sys_user(user_id, external_subject, username, display_name, status) "
+                + "VALUES (?, ?, ?, ?, 'ACTIVE')",
+            userId,
+            userId.toString(),
+            username,
+            username
+        );
+    }
+
+    private static UUID roleId(JdbcTemplate jdbc, String roleCode) {
+        return jdbc.queryForObject(
+            "SELECT role_id FROM sys_role WHERE role_code = ?",
+            UUID.class,
+            roleCode
+        );
+    }
+
+    @Test
     void emptyDatabaseMigratesAndContainsNoBinaryColumns() {
         String schema = uniqueName("empty");
         Flyway flyway = flyway(POSTGRES.getJdbcUrl(), schema, null);
 
         var result = flyway.migrate();
 
-        assertThat(result.migrationsExecuted).isEqualTo(18);
+        assertThat(result.migrationsExecuted).isEqualTo(19);
         flyway.validate();
         JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
         assertThat(jdbc.queryForObject(
@@ -255,7 +391,7 @@ class DatabaseMigrationIT {
             WHERE success AND version IS NOT NULL
             """,
             Integer.class
-        )).isEqualTo(18);
+        )).isEqualTo(19);
         assertThat(jdbc.queryForObject(
             """
             SELECT COUNT(*)
@@ -296,12 +432,18 @@ class DatabaseMigrationIT {
             """,
             String.class
         )).containsExactly(
-            "AUDITOR:quality:read",
-            "MODEL_APPROVER:model:approve",
-            "QUALITY_MANAGER:quality:read",
-            "SYSTEM_OPERATOR:model:approve",
-            "SYSTEM_OPERATOR:quality:read"
+            "ADMINISTRATOR:model:approve",
+            "ADMINISTRATOR:quality:read"
         );
+        assertThat(jdbc.queryForObject(
+            "SELECT COUNT(*) FROM sys_role WHERE role_code IN "
+                + "('PRODUCTION_EMPLOYEE', 'ADMINISTRATOR')",
+            Integer.class
+        )).isEqualTo(2);
+        assertThat(jdbc.queryForObject(
+            "SELECT COUNT(*) FROM sys_user_role_migration_v2",
+            Integer.class
+        )).isZero();
     }
 
     @Test
@@ -491,7 +633,7 @@ class DatabaseMigrationIT {
         );
 
         Flyway latest = flyway(POSTGRES.getJdbcUrl(), schema, null);
-        assertThat(latest.migrate().migrationsExecuted).isEqualTo(16);
+        assertThat(latest.migrate().migrationsExecuted).isEqualTo(17);
 
         assertThat(jdbc.queryForObject(
             "SELECT organization_id FROM production_line WHERE line_id = ?",
@@ -1413,7 +1555,7 @@ class DatabaseMigrationIT {
         assertThat(restored.queryForObject(
             "SELECT COUNT(*) FROM flyway_schema_history WHERE success",
             Integer.class
-        )).isEqualTo(18);
+        )).isEqualTo(19);
         flyway(databaseUrl(restoredDatabase), "public", null).validate();
     }
 

@@ -67,6 +67,32 @@ describe('R5 手工批量检测前端', () => {
     expect(calls).toHaveLength(2)
   })
 
+  it('失败项重试会先为原图片项换取新上传票据', async () => {
+    const itemValue = item('UPLOADING')
+    const renew = vi.fn(async () => ({
+      ...itemValue,
+      upload: {
+        method: 'PUT',
+        url: 'https://objects.invalid/renewed',
+        headers: { 'content-type': 'image/png' },
+        expires_at: '2026-08-03T00:10:00Z',
+      },
+    }))
+    const api = { renewDetectionBatchItemUploadV2: renew } as unknown as ApiClient
+    const service = new ManualDetectionService(api)
+    const intent = await service.renewUpload(
+      batch.batch_id,
+      itemValue.batch_item_id as string,
+      'renew-key',
+    )
+
+    expect(intent.url).toBe('https://objects.invalid/renewed')
+    expect(renew).toHaveBeenCalledWith({
+      path: { batch_id: batch.batch_id, item_id: itemValue.batch_item_id },
+      headers: { 'Idempotency-Key': 'renew-key' },
+    })
+  })
+
   it('三按钮立即提交；失败重试复用幂等键且无法判断显示暂停提示', async () => {
     const submit = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined)
     const wrapper = mount(QuickReviewButtons, { props: { submit } })

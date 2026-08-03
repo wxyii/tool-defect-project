@@ -189,7 +189,7 @@ public final class DeploymentController {
     private static void requireApprovalPermission(
             Authentication authentication, String role) {
         String required = "QUALITY_APPROVER".equals(role)
-            ? "dataset:approve"
+            ? "model:approve"
             : "model:deploy:approve";
         if (authentication == null
                 || !authentication.getAuthorities().stream()

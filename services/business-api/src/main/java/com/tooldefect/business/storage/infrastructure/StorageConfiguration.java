@@ -85,7 +85,8 @@ public class StorageConfiguration {
             StorageProperties properties) {
         return new S3CompatibleStorageAdapter(
             client,
-            clock
+            clock,
+            properties.requireTls()
         );
     }
 
@@ -132,15 +133,34 @@ public class StorageConfiguration {
         requireText(properties.derivedBucket(), "S3 派生对象桶");
         requireText(properties.reviewBucket(), "S3 人工标注桶");
         if (properties.endpoint() != null
-                && properties.requireTls()
-                && !"https".equalsIgnoreCase(properties.endpoint().getScheme())) {
-            throw new DomainViolation("启用对象存储 TLS 时端点必须使用 HTTPS");
+                && !isSafeEndpoint(properties.endpoint(), properties.requireTls())) {
+            throw new DomainViolation(properties.requireTls()
+                ? "启用对象存储 TLS 时端点必须使用 HTTPS"
+                : "非 TLS 对象存储端点仅允许使用本机回环地址");
         }
         if (properties.publicEndpoint() != null
-                && !"https".equalsIgnoreCase(
-                    properties.publicEndpoint().getScheme())) {
-            throw new DomainViolation("对象存储公开签名端点必须使用 HTTPS");
+                && !isSafeEndpoint(
+                    properties.publicEndpoint(), properties.requireTls())) {
+            throw new DomainViolation(properties.requireTls()
+                ? "对象存储公开签名端点必须使用 HTTPS"
+                : "非 TLS 对象存储公开签名端点仅允许使用本机回环地址");
         }
+    }
+
+    private static boolean isSafeEndpoint(URI endpoint, boolean requireTls) {
+        if ("https".equalsIgnoreCase(endpoint.getScheme())) {
+            return true;
+        }
+        return !requireTls
+                && "http".equalsIgnoreCase(endpoint.getScheme())
+                && isLoopbackHost(endpoint.getHost());
+    }
+
+    private static boolean isLoopbackHost(String host) {
+        return "localhost".equalsIgnoreCase(host)
+                || "127.0.0.1".equals(host)
+                || "::1".equals(host)
+                || "[::1]".equals(host);
     }
 
     private static void requireText(String value, String name) {

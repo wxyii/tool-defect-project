@@ -87,6 +87,7 @@
         "createLocalUser",
         "updateLocalUserStatus",
         "updateLocalUserRoles",
+        "updateLocalUserDisplayName",
         "resetLocalUserPassword",
         "getSystemOverview",
         "listAuditRecords",

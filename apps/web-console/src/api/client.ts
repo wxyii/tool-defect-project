@@ -51,6 +51,7 @@ type WebConsoleOperation =
   | 'getDetectionBatchItemV2'
   | 'deleteDetectionBatchItemV2'
   | 'completeDetectionBatchItemUploadV2'
+  | 'renewDetectionBatchItemUploadV2'
   | 'submitDetectionBatchV2'
   | 'putQuickReviewV2'
 
@@ -63,6 +64,7 @@ type ManualDetectionApiV2 = Pick<ApiClientV2,
   | 'getDetectionBatchItemV2'
   | 'deleteDetectionBatchItemV2'
   | 'completeDetectionBatchItemUploadV2'
+  | 'renewDetectionBatchItemUploadV2'
   | 'submitDetectionBatchV2'
   | 'putQuickReviewV2'
 >
@@ -319,6 +321,9 @@ const OPERATIONS = {
   completeDetectionBatchItemUploadV2: {
     method: 'POST', path: '/api/v2/detection-batches/{batch_id}/items/{item_id}/complete', response: 'json',
   },
+  renewDetectionBatchItemUploadV2: {
+    method: 'POST', path: '/api/v2/detection-batches/{batch_id}/items/{item_id}/renew', response: 'json',
+  },
   submitDetectionBatchV2: {
     method: 'POST', path: '/api/v2/detection-batches/{batch_id}/submit', response: 'json',
   },
@@ -520,6 +525,10 @@ export class ApiClient implements ManualDetectionApiV2 {
 
   completeDetectionBatchItemUploadV2(request?: JsonObject): Promise<JsonObject> {
     return this.invokeJson('completeDetectionBatchItemUploadV2', request)
+  }
+
+  renewDetectionBatchItemUploadV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('renewDetectionBatchItemUploadV2', request)
   }
 
   submitDetectionBatchV2(request?: JsonObject): Promise<JsonObject> {

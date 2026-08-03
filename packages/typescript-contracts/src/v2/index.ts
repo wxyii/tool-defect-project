@@ -1,6 +1,6 @@
 // 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。
-// 契约主版本: 2；源哈希: 22c752871f6e08eabb41421367fff400af7513cc7fdfc2a1a5cab551308ca2f9
-export const CONTRACT_SOURCE_SHA256 = "22c752871f6e08eabb41421367fff400af7513cc7fdfc2a1a5cab551308ca2f9" as const;
+// 契约主版本: 2；源哈希: b30eca1ebbb6b533902ed4ba897e07c0daebd02a7ecf931154f9d2fb3ae0fc8e
+export const CONTRACT_SOURCE_SHA256 = "b30eca1ebbb6b533902ed4ba897e07c0daebd02a7ecf931154f9d2fb3ae0fc8e" as const;
 export const CONTRACT_MAJOR_VERSION = 2 as const;
 
 export type AdminFeedbackLabel = "CORRECT_DETECTION" | "FALSE_POSITIVE" | "FALSE_NEGATIVE" | "LOCALIZATION_INACCURATE" | "IMAGE_UNUSABLE" | "UNCONFIRMED";

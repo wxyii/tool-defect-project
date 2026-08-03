@@ -1,10 +1,10 @@
 # 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。
-# 契约主版本: 2；源哈希: 22c752871f6e08eabb41421367fff400af7513cc7fdfc2a1a5cab551308ca2f9
+# 契约主版本: 2；源哈希: b30eca1ebbb6b533902ed4ba897e07c0daebd02a7ecf931154f9d2fb3ae0fc8e
 from dataclasses import dataclass
 from enum import Enum
 from typing import Mapping
 
-CONTRACT_SOURCE_SHA256 = "22c752871f6e08eabb41421367fff400af7513cc7fdfc2a1a5cab551308ca2f9"
+CONTRACT_SOURCE_SHA256 = "b30eca1ebbb6b533902ed4ba897e07c0daebd02a7ecf931154f9d2fb3ae0fc8e"
 CONTRACT_MAJOR_VERSION = 2
 
 class AdminFeedbackLabel(str, Enum):

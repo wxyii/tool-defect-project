@@ -181,8 +181,15 @@ function fakeApi(): ApiClient {
 }
 
 describe('P6 MLOps 页面消费者', () => {
-  it('四个管理模块按后端任一合法读取权限显示', () => {
-    const featureNames = ['datasets', 'training-runs', 'models', 'quality']
+  it('R6 页面注册表移除数据集和训练入口', () => {
+    expect(applicationRoutes.find((item) => item.name === 'datasets'))
+      .toBeUndefined()
+    expect(applicationRoutes.find((item) => item.name === 'training-runs'))
+      .toBeUndefined()
+  })
+
+  it('R6 管理员可进入模型页面且旧数据集训练深链接不可达', () => {
+    const featureNames = ['models', 'quality']
     const auditPermissions = new Set(['audit:read'])
 
     for (const name of featureNames) {
@@ -199,19 +206,20 @@ describe('P6 MLOps 页面消费者', () => {
     }
   })
 
-  it('算法工程师可进入数据集、训练和模型页面', () => {
+  it('生产员工没有模型、数据集或训练管理入口', () => {
     const permissions = new Set([
-      'dataset:create',
-      'training:create',
-      'model:register',
+      'capture:read',
+      'detection:read',
     ])
 
-    for (const name of ['datasets', 'training-runs', 'models']) {
+    for (const name of ['datasets', 'training-runs']) {
       const route = applicationRoutes.find((item) => item.name === name)
-      expect(
-        hasRouteAccess(route?.meta, (permission) => permissions.has(permission)),
-      ).toBe(true)
+      expect(route).toBeUndefined()
     }
+    expect(hasRouteAccess(
+      applicationRoutes.find((item) => item.name === 'models')?.meta,
+      (permission) => permissions.has(permission),
+    )).toBe(false)
   })
 
   it('模型列表严格携带模型范围并消费冻结字段', async () => {

@@ -14,6 +14,7 @@
     {"operation_id": "addDetectionBatchItemV2", "success_status": 201},
     {"operation_id": "deleteDetectionBatchItemV2", "success_status": 204},
     {"operation_id": "completeDetectionBatchItemUploadV2", "success_status": 200},
+    {"operation_id": "renewDetectionBatchItemUploadV2", "success_status": 200},
     {"operation_id": "submitDetectionBatchV2", "success_status": 202},
     {"operation_id": "putQuickReviewV2", "success_status": 200},
     {"operation_id": "createProductionDetectionItemV2", "success_status": 202},

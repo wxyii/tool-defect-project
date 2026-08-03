@@ -138,6 +138,7 @@ public class SecurityConfiguration {
                     "/api/v2/detection-batches",
                     "/api/v2/detection-batches/*/items",
                     "/api/v2/detection-batches/*/items/*/complete",
+                    "/api/v2/detection-batches/*/items/*/renew",
                     "/api/v2/detection-batches/*/submit"
                 ).hasAuthority("manual-detection:write")
                 .requestMatchers(
@@ -254,7 +255,7 @@ public class SecurityConfiguration {
                 .requestMatchers(
                     HttpMethod.POST,
                     "/api/v1/model-deployments/*/approvals"
-                ).hasAnyAuthority("dataset:approve", "model:deploy:approve")
+                ).hasAnyAuthority("model:approve", "model:deploy:approve")
                 .requestMatchers(
                     HttpMethod.POST,
                     "/api/v1/model-deployments/*/rollback"

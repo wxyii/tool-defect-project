@@ -423,6 +423,7 @@ V2_EXPECTED_PATHS = {
     "/api/v2/detection-batches/{batch_id}/items",
     "/api/v2/detection-batches/{batch_id}/items/{item_id}",
     "/api/v2/detection-batches/{batch_id}/items/{item_id}/complete",
+    "/api/v2/detection-batches/{batch_id}/items/{item_id}/renew",
     "/api/v2/detection-batches/{batch_id}/submit",
     "/api/v2/detection-batches/{batch_id}/items/{item_id}/quick-review",
     "/api/v2/production/detection-items",

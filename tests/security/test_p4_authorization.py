@@ -71,41 +71,20 @@ class P4AuthorizationTest(unittest.TestCase):
             self.assertIsNotNone(match, role)
             return set(re.findall(r'"([^"]+)"', match.group(1)))
 
-        system_operator = permissions("SYSTEM_OPERATOR")
+        production_employee = permissions("PRODUCTION_EMPLOYEE")
+        administrator = permissions("ADMINISTRATOR")
         cancelled_permissions = {
             "dataset:approve",
             "dataset:create",
             "training:create",
             "training:read",
         }
-        for role in (
-            "OPERATOR",
-            "REVIEWER",
-            "QUALITY_MANAGER",
-            "ALGORITHM_ENGINEER",
-            "MODEL_APPROVER",
-            "SYSTEM_OPERATOR",
-            "SECURITY_ADMIN",
-            "AUDITOR",
-        ):
-            self.assertTrue(
-                permissions(role).isdisjoint(cancelled_permissions),
-                role,
-            )
-
-        self.assertNotIn("review:submit", permissions("OPERATOR"))
-        self.assertNotIn("quality:override", permissions("ALGORITHM_ENGINEER"))
-        self.assertNotIn("review:claim", permissions("AUDITOR"))
-        self.assertNotIn("image:original:download", permissions("AUDITOR"))
-        self.assertIn("model:approve", permissions("MODEL_APPROVER"))
-        self.assertIn("model:approve", system_operator)
-        for role in (
-            "OPERATOR",
-            "QUALITY_MANAGER",
-            "ALGORITHM_ENGINEER",
-            "AUDITOR",
-        ):
-            self.assertNotIn("model:approve", permissions(role), role)
+        self.assertTrue(production_employee.isdisjoint(cancelled_permissions))
+        self.assertTrue(administrator.isdisjoint(cancelled_permissions))
+        self.assertNotIn("review:submit", production_employee)
+        self.assertNotIn("quality:override", production_employee)
+        self.assertNotIn("image:original:download", production_employee)
+        self.assertIn("model:approve", administrator)
         self.assertTrue({
             "capture:read",
             "detection:read",
@@ -129,15 +108,24 @@ class P4AuthorizationTest(unittest.TestCase):
             "certificate:manage",
             "security:policy:manage",
             "audit:read",
-        }.issubset(system_operator))
+        }.issubset(administrator))
+
+        self.assertNotIn('"dataset:approve"', matrix)
+        self.assertNotIn('"dataset:create"', matrix)
+        self.assertNotIn('"training:create"', matrix)
+        self.assertNotIn('"training:read"', matrix)
+        self.assertIn('"model:approve"', matrix)
+        self.assertIn('"model:deploy:approve"', matrix)
 
         migration = (
             ROOT
             / "services/business-api/src/main/resources/db/migration/"
-            "V13__system_operator_full_permissions.sql"
+            "V19__r6_two_person_roles.sql"
         ).read_text(encoding="utf-8")
-        self.assertIn("role.role_code = 'SYSTEM_OPERATOR'", migration)
-        self.assertIn("CROSS JOIN sys_permission permission", migration)
+        self.assertIn("'PRODUCTION_EMPLOYEE', 'ADMINISTRATOR'", migration)
+        self.assertIn("status IN ('UNCONFIRMED', 'CONFIRMED', 'CONFLICT', 'REJECTED')", migration)
+        self.assertIn("model:approve", migration)
+        self.assertIn("dataset:create", migration)
 
     def test_review_audit_and_training_decisions_are_append_only(self) -> None:
         migration = (

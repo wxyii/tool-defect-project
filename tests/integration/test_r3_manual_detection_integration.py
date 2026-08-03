@@ -21,6 +21,7 @@ class R3ManualDetectionIntegrationTest(unittest.TestCase):
             "getDetectionBatchItemV2",
             "deleteDetectionBatchItemV2",
             "completeDetectionBatchItemUploadV2",
+            "renewDetectionBatchItemUploadV2",
             "submitDetectionBatchV2",
         }
         actual = {
@@ -35,6 +36,7 @@ class R3ManualDetectionIntegrationTest(unittest.TestCase):
             '"/detection-batches"',
             '"/detection-batches/{batch_id}/items"',
             '"/detection-batches/{batch_id}/items/{item_id}/complete"',
+            '"/detection-batches/{batch_id}/items/{item_id}/renew"',
             '"/detection-batches/{batch_id}/submit"',
         ):
             self.assertIn(mapping, controller)

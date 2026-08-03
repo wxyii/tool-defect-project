@@ -10,8 +10,6 @@ const DetectionListView = () => import('@/views/DetectionListView.vue')
 const DetectionDetailView = () => import('@/views/DetectionDetailView.vue')
 const ReviewQueueView = () => import('@/views/ReviewQueueView.vue')
 const ReviewWorkbenchView = () => import('@/views/ReviewWorkbenchView.vue')
-const DatasetVersionsView = () => import('@/features/datasets/DatasetVersionsView.vue')
-const TrainingRunsView = () => import('@/features/training/TrainingRunsView.vue')
 const ModelsView = () => import('@/features/models/ModelsView.vue')
 const QualityDashboard = () => import('@/features/quality/QualityDashboard.vue')
 const SystemOverviewView = () => import('@/features/overview/SystemOverviewView.vue')
@@ -192,28 +190,6 @@ function featureRoutes(): RouteRecordRaw[] {
       },
     },
     {
-      path: '/datasets',
-      name: 'datasets',
-      component: DatasetVersionsView,
-      meta: {
-        requiresAuth: true,
-        anyPermissions: ['dataset:create', 'dataset:approve', 'audit:read'],
-        menuLabel: '数据集',
-        menuIcon: '▤',
-      },
-    },
-    {
-      path: '/training-runs',
-      name: 'training-runs',
-      component: TrainingRunsView,
-      meta: {
-        requiresAuth: true,
-        anyPermissions: ['training:read', 'training:create', 'audit:read'],
-        menuLabel: '训练运行',
-        menuIcon: '⚙',
-      },
-    },
-    {
       path: '/models',
       name: 'models',
       component: ModelsView,
@@ -222,6 +198,7 @@ function featureRoutes(): RouteRecordRaw[] {
         anyPermissions: [
           'model:register',
           'model:validate',
+          'model:approve',
           'model:deploy:approve',
           'audit:read',
         ],

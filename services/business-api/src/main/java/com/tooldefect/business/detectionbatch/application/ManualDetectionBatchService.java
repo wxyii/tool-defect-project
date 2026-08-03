@@ -67,7 +67,7 @@ public class ManualDetectionBatchService {
         }
         return idempotency.execute("v2.manual-batch.create", actor.toString(), key, request, () -> {
             var batch = repository.createBatch(actor, stage, note);
-            audit(actor, "MANUAL_BATCH_CREATE", batch.batchId(), null, digest(batch), requestId, traceId);
+            audit(actor, "MANUAL_BATCH_CREATE", batch.batchId(), null, digestBatch(batch), requestId, traceId);
             return new IdempotencyService.Response(201, batch(batch));
         });
     }
@@ -97,9 +97,36 @@ public class ManualDetectionBatchService {
             Map<String,Object> body = new LinkedHashMap<>(item(intent.item()));
             body.put("upload", Map.of("method", ticket.method(), "url", ticket.url().toString(),
                 "headers", ticket.headers(), "expires_at", ticket.expiresAt().toString()));
-            audit(actor, "MANUAL_BATCH_ITEM_ADD", batchId, null, digest(intent.item()), requestId, traceId);
+            audit(actor, "MANUAL_BATCH_ITEM_ADD", batchId, null, digestItem(intent.item()), requestId, traceId);
             return new IdempotencyService.Response(201, body);
         });
+    }
+
+    @Transactional
+    public IdempotencyService.Response renewUpload(UUID actor, UUID batchId, UUID itemId,
+            String key, Map<String,Object> request, String requestId, String traceId) {
+        requireEnabled();
+        return idempotency.execute("v2.manual-batch.renew-upload:" + itemId,
+            actor.toString(), key, request, () -> {
+                var current = repository.findUpload(batchId, itemId, actor)
+                    .orElseThrow(() -> violation(Kind.NOT_FOUND, "图片项不存在"));
+                if (!"UPLOADING".equals(current.item().status())) {
+                    throw violation(Kind.CONFLICT, "图片项不处于可续签上传状态");
+                }
+                var ticket = storage.authorizeUpload(current.item().bucket(),
+                    current.item().objectKey(), current.expectedSizeBytes(),
+                    current.expectedSha256(), current.expectedMediaType(),
+                    Map.of("batch-id", batchId.toString(),
+                        "batch-item-id", itemId.toString()), properties.uploadTtl());
+                var renewed = repository.renewUpload(batchId, itemId, actor, ticket.expiresAt());
+                Map<String,Object> body = new LinkedHashMap<>(item(renewed.item()));
+                body.put("upload", Map.of("method", ticket.method(),
+                    "url", ticket.url().toString(), "headers", ticket.headers(),
+                    "expires_at", ticket.expiresAt().toString()));
+                audit(actor, "MANUAL_BATCH_ITEM_UPLOAD_RENEW", batchId, null,
+                    digestItem(renewed.item()), requestId, traceId);
+                return new IdempotencyService.Response(200, body);
+            });
     }
 
     @Transactional
@@ -129,7 +156,7 @@ public class ManualDetectionBatchService {
             }
             var confirmed = repository.confirmUpload(batchId, itemId, actor,
                 head.objectVersion(), head.width(), head.height());
-            audit(actor, "MANUAL_BATCH_ITEM_CONFIRM", batchId, null, digest(confirmed), requestId, traceId);
+            audit(actor, "MANUAL_BATCH_ITEM_CONFIRM", batchId, null, digestItem(confirmed), requestId, traceId);
             return new IdempotencyService.Response(200, item(confirmed));
         });
     }
@@ -153,7 +180,7 @@ public class ManualDetectionBatchService {
             for (var task : repository.queuedTasks(batchId, key)) {
                 appendSingleItemTask(task, key, traceId);
             }
-            audit(actor, "MANUAL_BATCH_SUBMIT", batchId, digest(before), digest(after), requestId, traceId);
+            audit(actor, "MANUAL_BATCH_SUBMIT", batchId, digestBatch(before), digestBatch(after), requestId, traceId);
             return new IdempotencyService.Response(202, batch(after));
         });
     }
@@ -254,7 +281,7 @@ public class ManualDetectionBatchService {
             request, () -> {
                 var record = repository.saveQuickReview(batchId, itemId, actor, all,
                     decision, supersedesId, key);
-                audit(actor, "QUICK_REVIEW_SUBMIT", batchId, null, digest(record),
+                audit(actor, "QUICK_REVIEW_SUBMIT", batchId, null, digestQuickReview(record),
                     requestId, traceId);
                 return new IdempotencyService.Response(200, quickReview(record));
             });
@@ -308,42 +335,96 @@ public class ManualDetectionBatchService {
             requestId, traceId, "SUCCESS", null));
     }
 
-    private static String digest(Object value) { return value == null ? null : CanonicalJson.sha256(value); }
+    private static String digestBatch(ManualDetectionRepository.BatchView value) {
+        return CanonicalJson.sha256(batchSnapshot(value));
+    }
+
+    private static String digestItem(ManualDetectionRepository.ItemView value) {
+        return CanonicalJson.sha256(itemSnapshot(value));
+    }
+
+    private static String digestQuickReview(ManualDetectionRepository.QuickReviewView value) {
+        return CanonicalJson.sha256(quickReviewSnapshot(value));
+    }
+
+    private static Map<String,Object> batchSnapshot(ManualDetectionRepository.BatchView value) {
+        Map<String,Object> map = new LinkedHashMap<>();
+        map.put("batch_id", value.batchId().toString());
+        map.put("batch_no", value.batchNo());
+        map.put("source", "MANUAL_UPLOAD");
+        map.put("created_by", value.createdBy().toString());
+        map.put("usage_stage", value.usageStage());
+        if (value.usageStageNote() != null) map.put("usage_stage_note", value.usageStageNote());
+        map.put("status", value.status());
+        map.put("counts", countsSnapshot(value.counts()));
+        map.put("created_at", value.createdAt().toString());
+        map.put("updated_at", value.updatedAt().toString());
+        map.put("version", value.version());
+        return map;
+    }
+
+    private static Map<String,Object> countsSnapshot(ManualDetectionRepository.Counts value) {
+        return Map.of(
+            "total", value.total(),
+            "completed", value.completed(),
+            "defect_suspected", value.defectSuspected(),
+            "normal", value.normal(),
+            "inconclusive", value.inconclusive(),
+            "quality_rejected", value.qualityRejected(),
+            "technical_failed", value.technicalFailed()
+        );
+    }
+
+    private static Map<String,Object> itemSnapshot(ManualDetectionRepository.ItemView value) {
+        Map<String,Object> image = new LinkedHashMap<>();
+        image.put("bucket", value.bucket());
+        image.put("object_key", value.objectKey());
+        image.put("sha256", value.sha256());
+        image.put("size_bytes", value.sizeBytes());
+        image.put("media_type", value.mediaType());
+        if (value.objectVersion() != null && !value.objectVersion().isBlank()) {
+            image.put("object_version", value.objectVersion());
+        }
+        Map<String,Object> map = new LinkedHashMap<>();
+        map.put("batch_item_id", value.itemId().toString());
+        map.put("batch_id", value.batchId().toString());
+        map.put("image", image);
+        map.put("status", value.status());
+        if (value.algorithmOutcome() != null) map.put("algorithm_outcome", value.algorithmOutcome());
+        if (value.quickReviewDecision() != null) map.put("quick_review_decision", value.quickReviewDecision());
+        map.put("created_at", value.createdAt().toString());
+        map.put("updated_at", value.updatedAt().toString());
+        return map;
+    }
+
+    private static Map<String,Object> quickReviewSnapshot(
+            ManualDetectionRepository.QuickReviewView value) {
+        Map<String,Object> map = new LinkedHashMap<>();
+        map.put("review_record_id", value.reviewRecordId().toString());
+        map.put("batch_item_id", value.batchItemId().toString());
+        map.put("decision", value.decision());
+        map.put("submitted_by", value.submittedBy().toString());
+        map.put("submitted_at", value.submittedAt().toString());
+        map.put("idempotency_key", value.idempotencyKey());
+        if (value.supersedesRecordId() != null) {
+            map.put("supersedes_record_id", value.supersedesRecordId().toString());
+        }
+        return map;
+    }
+
     private static ManualDetectionViolation violation(Kind kind,String message){return new ManualDetectionViolation(kind,message);}
 
     private static Map<String,Object> batch(ManualDetectionRepository.BatchView value) {
-        Map<String,Object> map = new LinkedHashMap<>();
-        map.put("batch_id",value.batchId()); map.put("batch_no",value.batchNo());
-        map.put("source","MANUAL_UPLOAD"); map.put("created_by",value.createdBy());
-        map.put("usage_stage",value.usageStage()); if(value.usageStageNote()!=null)map.put("usage_stage_note",value.usageStageNote());
-        map.put("status",value.status()); var c=value.counts();
-        map.put("counts",Map.of("total",c.total(),"completed",c.completed(),"defect_suspected",c.defectSuspected(),
-            "normal",c.normal(),"inconclusive",c.inconclusive(),"quality_rejected",c.qualityRejected(),"technical_failed",c.technicalFailed()));
-        map.put("created_at",value.createdAt());map.put("updated_at",value.updatedAt());map.put("version",value.version());return map;
+        return batchSnapshot(value);
     }
 
     private static Map<String,Object> item(ManualDetectionRepository.ItemView value) {
-        Map<String,Object> image=new LinkedHashMap<>(); image.put("bucket",value.bucket());image.put("object_key",value.objectKey());
-        image.put("sha256",value.sha256());image.put("size_bytes",value.sizeBytes());image.put("media_type",value.mediaType());
-        if(value.objectVersion()!=null&&!value.objectVersion().isBlank())image.put("object_version",value.objectVersion());
-        Map<String,Object> map=new LinkedHashMap<>();map.put("batch_item_id",value.itemId());map.put("batch_id",value.batchId());
-        map.put("image",image);map.put("status",value.status());if(value.algorithmOutcome()!=null)map.put("algorithm_outcome",value.algorithmOutcome());
-        if(value.quickReviewDecision()!=null)map.put("quick_review_decision",value.quickReviewDecision());map.put("created_at",value.createdAt());map.put("updated_at",value.updatedAt());return map;
+        return itemSnapshot(value);
     }
 
     private static Map<String,Object> quickReview(
             ManualDetectionRepository.QuickReviewView value) {
-        Map<String,Object> map = new LinkedHashMap<>();
-        map.put("review_record_id", value.reviewRecordId());
-        map.put("batch_item_id", value.batchItemId());
-        map.put("decision", value.decision());
-        map.put("submitted_by", value.submittedBy());
-        map.put("submitted_at", value.submittedAt());
-        map.put("idempotency_key", value.idempotencyKey());
-        if (value.supersedesRecordId() != null) {
-            map.put("supersedes_record_id", value.supersedesRecordId());
-        }
-        return map;
+        return quickReviewSnapshot(value);
     }
 
     private static Map<String,Object> quality(ManualDetectionRepository.QualityView value) {

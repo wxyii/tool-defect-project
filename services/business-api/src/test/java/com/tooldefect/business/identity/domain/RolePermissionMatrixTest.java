@@ -8,124 +8,68 @@ import org.junit.jupiter.api.Test;
 
 class RolePermissionMatrixTest {
     @Test
-    void ordinaryOperatorCannotSubmitReviewOrDownloadOriginal() {
-        assertThat(RolePermissionMatrix.allows(
-            SystemRole.OPERATOR,
-            "review:submit"
-        )).isFalse();
-        assertThat(RolePermissionMatrix.allows(
-            SystemRole.OPERATOR,
-            "image:original:download"
-        )).isFalse();
+    void onlyTwoPersonRolesAreExposed() {
+        assertThat(SystemRole.values())
+            .containsExactly(SystemRole.PRODUCTION_EMPLOYEE, SystemRole.ADMINISTRATOR);
     }
 
     @Test
-    void algorithmEngineerCannotChangeFinalDisposition() {
-        assertThat(RolePermissionMatrix.allows(
-            SystemRole.ALGORITHM_ENGINEER,
-            "review:submit"
-        )).isFalse();
-        assertThat(RolePermissionMatrix.allows(
-            SystemRole.ALGORITHM_ENGINEER,
-            "quality:override"
-        )).isFalse();
-    }
+    void productionEmployeeIsLimitedToProductionAndManualDetection() {
+        Set<String> permissions = RolePermissionMatrix.permissions(
+            SystemRole.PRODUCTION_EMPLOYEE);
 
-    @Test
-    void systemAdministratorHasAllPersonnelPermissions() {
-        Set<String> expected = Set.of(
+        assertThat(permissions).containsExactlyInAnyOrder(
             "capture:read",
             "detection:read",
             "image:view",
-            "image:original:download",
-            "review:read",
-            "review:claim",
-            "review:submit",
-            "review:annotate",
-            "review:escalate",
-            "quality:override",
-            "quality:read",
+            "manual-detection:read",
+            "manual-detection:write"
+        );
+        assertThat(permissions).doesNotContain(
+            "user:manage",
+            "model:approve",
+            "dataset:create",
+            "dataset:approve",
+            "training:create",
+            "training:read"
+        );
+    }
+
+    @Test
+    void administratorHasModelApprovalButNoDatasetOrTrainingPermission() {
+        Set<String> permissions = RolePermissionMatrix.permissions(
+            SystemRole.ADMINISTRATOR);
+
+        assertThat(permissions).contains(
+            "user:manage",
             "model:register",
             "model:validate",
             "model:approve",
             "model:deploy:approve",
-            "model:rollback",
-            "device:configure",
-            "user:manage",
             "model:deploy:execute",
-            "certificate:manage",
-            "security:policy:manage",
-            "manual-detection:read",
-            "manual-detection:read:all",
-            "manual-detection:write",
             "audit:read"
         );
-
-        assertThat(RolePermissionMatrix.permissions(SystemRole.SYSTEM_OPERATOR))
-            .containsExactlyInAnyOrderElementsOf(expected);
+        assertThat(permissions).doesNotContain(
+            "dataset:create",
+            "dataset:approve",
+            "training:create",
+            "training:read"
+        );
     }
 
     @Test
-    void auditorIsReadOnlyAndCannotDownloadOriginal() {
+    void administratorCanReviewButCannotBypassResourceRules() {
         assertThat(RolePermissionMatrix.allows(
-            SystemRole.AUDITOR,
-            "audit:read"
-        )).isTrue();
-        assertThat(RolePermissionMatrix.allows(
-            SystemRole.AUDITOR,
-            "review:claim"
-        )).isFalse();
-        assertThat(RolePermissionMatrix.allows(
-            SystemRole.AUDITOR,
-            "image:original:download"
-        )).isFalse();
-    }
-
-    @Test
-    void cancelledDatasetAndTrainingPermissionsAreNeverAssigned() {
-        assertThat(RolePermissionMatrix.allows(
-            SystemRole.QUALITY_MANAGER,
+            SystemRole.ADMINISTRATOR,
             "review:submit"
         )).isTrue();
         assertThat(RolePermissionMatrix.allows(
-            SystemRole.QUALITY_MANAGER,
-            "dataset:approve"
-        )).isFalse();
-        assertThat(RolePermissionMatrix.allows(
-            SystemRole.SYSTEM_OPERATOR,
-            "dataset:create"
-        )).isFalse();
-        assertThat(RolePermissionMatrix.allows(
-            SystemRole.ALGORITHM_ENGINEER,
-            "training:create"
-        )).isFalse();
-    }
-
-    @Test
-    void qualityAndTrainingReadsFollowRoleBoundaries() {
-        assertThat(RolePermissionMatrix.allows(
-            SystemRole.QUALITY_MANAGER,
-            "quality:read"
+            SystemRole.ADMINISTRATOR,
+            "quality:override"
         )).isTrue();
         assertThat(RolePermissionMatrix.allows(
-            SystemRole.ALGORITHM_ENGINEER,
-            "training:read"
-        )).isFalse();
-        assertThat(RolePermissionMatrix.allows(
-            SystemRole.OPERATOR,
-            "quality:read"
-        )).isFalse();
-    }
-
-    @Test
-    void modelApprovalUsesDedicatedPermission() {
-        assertThat(RolePermissionMatrix.allows(
-            SystemRole.MODEL_APPROVER,
-            "model:approve"
-        )).isTrue();
-        assertThat(RolePermissionMatrix.allows(
-            SystemRole.MODEL_APPROVER,
-            "dataset:approve"
+            SystemRole.PRODUCTION_EMPLOYEE,
+            "review:submit"
         )).isFalse();
     }
 }

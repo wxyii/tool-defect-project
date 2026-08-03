@@ -21,7 +21,7 @@ final class UserAdministrationControllerTest {
             "系统管理员",
             "ACTIVE",
             false,
-            List.of("SYSTEM_OPERATOR"),
+            List.of("ADMINISTRATOR"),
             List.of("user:manage", "audit:read")
         );
         Authentication authentication = UsernamePasswordAuthenticationToken.authenticated(

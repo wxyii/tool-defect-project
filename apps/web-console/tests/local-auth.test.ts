@@ -14,7 +14,7 @@ const identity = {
   user_id: '10000000-0000-0000-0000-000000000001',
   username: 'operator',
   display_name: '操作员',
-  roles: ['OPERATOR'],
+  roles: ['PRODUCTION_EMPLOYEE'],
   permissions: ['detection:read'],
   password_change_required: true,
 }
@@ -30,6 +30,15 @@ describe('本地账号会话', () => {
       displayName: '操作员',
       passwordChangeRequired: true,
     })
+  })
+
+  it('拒绝旧角色或多个第二版人员角色', () => {
+    expect(() => parseIdentity({ ...identity, roles: ['OPERATOR'] }))
+      .toThrow('TD-AUTH-RESPONSE-001')
+    expect(() => parseIdentity({
+      ...identity,
+      roles: ['PRODUCTION_EMPLOYEE', 'ADMINISTRATOR'],
+    })).toThrow('TD-AUTH-RESPONSE-001')
   })
 
   it('登录前获取请求校验令牌并仅使用同源凭据', async () => {

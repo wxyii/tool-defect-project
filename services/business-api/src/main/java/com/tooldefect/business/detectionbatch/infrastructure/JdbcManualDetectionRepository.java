@@ -97,6 +97,31 @@ public class JdbcManualDetectionRepository implements ManualDetectionRepository 
     }
 
     @Override
+    public UploadIntent renewUpload(UUID batchId, UUID itemId, UUID ownerId,
+            Instant expiresAt) {
+        BatchView batch = requireBatch(batchId, ownerId, false, true);
+        if (!List.of("DRAFT", "UPLOADING", "READY").contains(batch.status())) {
+            throw violation(Kind.CONFLICT, "批次已提交，不能续签图片上传票据");
+        }
+        int changed = jdbc.update("""
+            UPDATE manual_batch_upload_v2 u
+            SET expires_at = ?, status = 'AUTHORIZED', confirmed_at = NULL,
+              updated_at = now(), record_version = record_version + 1
+            WHERE u.batch_item_id = ? AND u.owner_id = ? AND u.status = 'AUTHORIZED'
+              AND EXISTS (
+                SELECT 1 FROM detection_batch_item_v2 i
+                WHERE i.batch_item_id = u.batch_item_id
+                  AND i.batch_id = ? AND i.status = 'UPLOADING'
+              )
+            """, Timestamp.from(expiresAt), itemId, ownerId, batchId);
+        if (changed != 1) {
+            throw violation(Kind.CONFLICT, "图片项不处于可续签上传状态");
+        }
+        return findUpload(batchId, itemId, ownerId)
+            .orElseThrow(() -> violation(Kind.NOT_FOUND, "图片项不存在"));
+    }
+
+    @Override
     public ItemView confirmUpload(UUID batchId, UUID itemId, UUID ownerId,
             String objectVersion, int width, int height) {
         UploadIntent upload = findUpload(batchId, itemId, ownerId)
