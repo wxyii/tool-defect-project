@@ -27,6 +27,7 @@ import org.testcontainers.utility.DockerImageName;
 
 import com.tooldefect.business.detection.domain.DetectionNotFound;
 import com.tooldefect.business.detection.infrastructure.JdbcDetectionQueryRepository;
+import com.tooldefect.business.detectionbatch.infrastructure.JdbcManualDetectionRepository;
 import com.tooldefect.business.dataset.infrastructure.JdbcDatasetRepository;
 import com.tooldefect.business.deployment.infrastructure.JdbcDeploymentRepository;
 import com.tooldefect.business.model.infrastructure.JdbcModelRepository;
@@ -49,13 +50,63 @@ class DatabaseMigrationIT {
         .withPassword("tool-defect-test-only");
 
     @Test
+    void r3ManualBatchAcceptsTenIndependentItemsAndCreatesOneTaskEach() {
+        String schema = uniqueName("r3_manual");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+        UUID owner = UUID.randomUUID();
+        UUID stranger = UUID.randomUUID();
+        for (UUID user : List.of(owner, stranger)) {
+            jdbc.update("""
+                INSERT INTO sys_user(user_id, external_subject, display_name, status, username)
+                VALUES (?, ?, 'R3 测试用户', 'ACTIVE', ?)
+                """, user, "r3:" + user, "r3-" + user.toString().substring(0, 8));
+        }
+        var repository = new JdbcManualDetectionRepository(jdbc);
+        var batch = repository.createBatch(owner, "NEW_BLADE", null);
+
+        for (int index = 0; index < 10; index++) {
+            String sha256 = "%064x".formatted(index + 1);
+            UUID itemId = UUID.randomUUID();
+            var upload = repository.addItem(
+                batch.batchId(), itemId, owner, "blade-" + index + ".png", 128 + index,
+                "image/png", sha256, "td-raw",
+                "manual-originals/" + owner + "/" + batch.batchId() + "/" + index + ".png",
+                Instant.now().plusSeconds(300), 100
+            );
+            assertThat(upload.item().itemId()).isEqualTo(itemId);
+            repository.confirmUpload(
+                batch.batchId(), upload.item().itemId(), owner, "v" + index, 32, 32
+            );
+        }
+
+        var ready = repository.findBatch(batch.batchId(), owner, false).orElseThrow();
+        assertThat(ready.status()).isEqualTo("READY");
+        assertThat(ready.counts().total()).isEqualTo(10);
+        assertThat(repository.findBatch(batch.batchId(), stranger, false)).isEmpty();
+
+        var submitted = repository.submit(
+            batch.batchId(), owner, ready.version(), "r3-submit-once"
+        );
+        assertThat(submitted.status()).isEqualTo("PROCESSING");
+        assertThat(jdbc.queryForObject(
+            "SELECT count(*) FROM detection_task_v2 task JOIN detection_batch_item_v2 item ON item.batch_item_id=task.batch_item_id WHERE item.batch_id=?",
+            Integer.class, batch.batchId()
+        )).isEqualTo(10);
+        assertThat(jdbc.queryForObject(
+            "SELECT count(DISTINCT batch_item_id) FROM detection_task_v2",
+            Integer.class
+        )).isEqualTo(10);
+    }
+
+    @Test
     void emptyDatabaseMigratesAndContainsNoBinaryColumns() {
         String schema = uniqueName("empty");
         Flyway flyway = flyway(POSTGRES.getJdbcUrl(), schema, null);
 
         var result = flyway.migrate();
 
-        assertThat(result.migrationsExecuted).isEqualTo(16);
+        assertThat(result.migrationsExecuted).isEqualTo(17);
         flyway.validate();
         JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
         assertThat(jdbc.queryForObject(
@@ -65,7 +116,7 @@ class DatabaseMigrationIT {
             WHERE success AND version IS NOT NULL
             """,
             Integer.class
-        )).isEqualTo(16);
+        )).isEqualTo(17);
         assertThat(jdbc.queryForObject(
             """
             SELECT COUNT(*)
@@ -301,7 +352,7 @@ class DatabaseMigrationIT {
         );
 
         Flyway latest = flyway(POSTGRES.getJdbcUrl(), schema, null);
-        assertThat(latest.migrate().migrationsExecuted).isEqualTo(14);
+        assertThat(latest.migrate().migrationsExecuted).isEqualTo(15);
 
         assertThat(jdbc.queryForObject(
             "SELECT organization_id FROM production_line WHERE line_id = ?",
@@ -1223,7 +1274,7 @@ class DatabaseMigrationIT {
         assertThat(restored.queryForObject(
             "SELECT COUNT(*) FROM flyway_schema_history WHERE success",
             Integer.class
-        )).isEqualTo(16);
+        )).isEqualTo(17);
         flyway(databaseUrl(restoredDatabase), "public", null).validate();
     }
 

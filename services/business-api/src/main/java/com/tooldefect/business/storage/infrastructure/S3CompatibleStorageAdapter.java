@@ -80,6 +80,12 @@ public final class S3CompatibleStorageAdapter implements ObjectStoragePort {
         return uri;
     }
 
+    @Override
+    public void delete(String bucket, String objectKey) {
+        requireObjectLocation(bucket, objectKey);
+        client.delete(bucket, objectKey);
+    }
+
     private void requireSafeUri(URI uri) {
         if (uri == null || uri.getHost() == null) {
             throw new DomainViolation("签名地址必须是绝对网络地址");

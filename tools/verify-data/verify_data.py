@@ -24,6 +24,7 @@ R2_MIGRATION = (
     / "services/business-api/src/main/resources/db/migration"
     / "V16__r2_unified_detection_core.sql"
 )
+R3_MIGRATION = R2_MIGRATION.parent / "V17__r3_manual_detection_batches.sql"
 
 
 def validate_r2_sources() -> list[str]:
@@ -35,8 +36,9 @@ def validate_r2_sources() -> list[str]:
         for path in migration_dir.glob("V*__*.sql")
         if (match := re.match(r"V([0-9]+)__", path.name))
     )
-    if versions != list(range(1, 17)):
-        errors.append(f"数据库迁移序号必须连续为 V1—V16，实际为 {versions}")
+    expected_versions = list(range(1, max(versions, default=0) + 1))
+    if versions != expected_versions or 16 not in versions:
+        errors.append(f"数据库迁移序号必须从 V1 连续且包含 R2 V16，实际为 {versions}")
     if not R2_MIGRATION.is_file():
         return errors + ["缺少 R2 的 V16 数据迁移"]
 
@@ -99,6 +101,19 @@ def validate_r2_sources() -> list[str]:
             errors.append(f"人员角色矩阵仍分配已取消权限：{permission}")
     if '"model:approve"' not in matrix:
         errors.append("模型审批尚未解耦到 model:approve")
+    if R3_MIGRATION.is_file():
+        r3_sql = R3_MIGRATION.read_text(encoding="utf-8")
+        required_r3 = {
+            "手工上传会话": "CREATE TABLE manual_batch_upload_v2",
+            "单项逻辑检测任务": "CREATE TABLE detection_task_v2",
+            "补偿对账事实": "CREATE TABLE r3_compensation_event",
+            "手工原图前缀": "object_key LIKE 'manual-originals/%'",
+            "补偿事实只追加": "trg_r3_compensation_event_append_only",
+            "事实驱动聚合": "td_recompute_detection_batch_v2",
+        }
+        for label, marker in required_r3.items():
+            if marker not in r3_sql:
+                errors.append(f"V17 缺少{label}：{marker}")
     return errors
 
 
@@ -128,6 +143,7 @@ def main() -> int:
         ],
         "expected_blocker_count": len(first["blockers"]),
         "r2_migration_version": 16,
+        "latest_migration_version": 17 if R3_MIGRATION.is_file() else 16,
         "errors": errors,
     }
     print(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2))

@@ -655,6 +655,10 @@ final class StorageApplicationServiceTest {
         public URI authorizeRead(String bucket, String objectKey, Duration ttl) {
             return URI.create("https://storage.invalid/read");
         }
+
+        @Override
+        public void delete(String bucket, String objectKey) {
+        }
     }
 
     private static final class MutableClock extends Clock {

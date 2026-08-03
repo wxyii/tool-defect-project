@@ -45,6 +45,18 @@ management:
       enabled: ${td.messaging.enabled:false}
 
 td:
+  manual-detection:
+    enabled: ${TD_MANUAL_DETECTION_ENABLED:false}
+    object-bucket: ${TD_MANUAL_OBJECT_BUCKET:td-raw}
+    object-prefix: ${TD_MANUAL_OBJECT_PREFIX:manual-originals}
+    maximum-items-per-batch: ${TD_MANUAL_MAX_ITEMS_PER_BATCH:100}
+    maximum-object-bytes: ${TD_MANUAL_MAX_OBJECT_BYTES:52428800}
+    allowed-media-types: ${TD_MANUAL_ALLOWED_MEDIA_TYPES:image/jpeg,image/png}
+    upload-ttl: ${TD_MANUAL_UPLOAD_TTL:PT5M}
+    read-ttl: ${TD_MANUAL_READ_TTL:PT5M}
+    orphan-retention: ${TD_MANUAL_ORPHAN_RETENTION:PT24H}
+    cleanup-batch-size: ${TD_MANUAL_CLEANUP_BATCH_SIZE:100}
+    cleanup-fixed-delay: ${TD_MANUAL_CLEANUP_FIXED_DELAY_MS:60000}
   legacy:
     dataset-training-write-enabled: ${TD_LEGACY_DATASET_TRAINING_WRITE_ENABLED:false}
     production-v1-write-enabled: ${TD_PRODUCTION_V1_WRITE_ENABLED:true}

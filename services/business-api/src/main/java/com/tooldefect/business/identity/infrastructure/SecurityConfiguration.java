@@ -110,7 +110,7 @@ public class SecurityConfiguration {
             LocalCsrfFilter csrfFilter,
             PasswordChangeRequiredFilter passwordChange) throws Exception {
         http
-            .securityMatcher("/api/v1/**")
+            .securityMatcher("/api/v1/**", "/api/v2/**")
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -125,6 +125,24 @@ public class SecurityConfiguration {
                         "TD-SECURITY-AUTHORIZATION-001",
                         "没有访问该资源的权限", false)))
             .authorizeHttpRequests(authorize -> authorize
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/v2/capabilities/manual-detection",
+                    "/api/v2/detection-batches",
+                    "/api/v2/detection-batches/*",
+                    "/api/v2/detection-batches/*/items/*"
+                ).hasAnyAuthority("manual-detection:read", "manual-detection:read:all")
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v2/detection-batches",
+                    "/api/v2/detection-batches/*/items",
+                    "/api/v2/detection-batches/*/items/*/complete",
+                    "/api/v2/detection-batches/*/submit"
+                ).hasAuthority("manual-detection:write")
+                .requestMatchers(
+                    HttpMethod.DELETE,
+                    "/api/v2/detection-batches/*/items/*"
+                ).hasAuthority("manual-detection:write")
                 .requestMatchers(
                     HttpMethod.GET, "/api/v1/auth/csrf"
                 ).permitAll()

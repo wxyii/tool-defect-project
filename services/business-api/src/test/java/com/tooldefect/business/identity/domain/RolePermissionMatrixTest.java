@@ -55,6 +55,9 @@ class RolePermissionMatrixTest {
             "model:deploy:execute",
             "certificate:manage",
             "security:policy:manage",
+            "manual-detection:read",
+            "manual-detection:read:all",
+            "manual-detection:write",
             "audit:read"
         );
 

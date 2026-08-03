@@ -42,4 +42,6 @@ public interface ObjectStoragePort {
     ObjectHead head(String bucket, String objectKey);
 
     URI authorizeRead(String bucket, String objectKey, Duration ttl);
+
+    void delete(String bucket, String objectKey);
 }

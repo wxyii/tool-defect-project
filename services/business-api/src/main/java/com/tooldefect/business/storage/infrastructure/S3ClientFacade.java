@@ -34,4 +34,6 @@ public interface S3ClientFacade {
     PresignedRequest presignGet(String bucket, String objectKey, Duration ttl);
 
     HeadResult headAndInspect(String bucket, String objectKey);
+
+    void delete(String bucket, String objectKey);
 }

@@ -38,10 +38,13 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import com.tooldefect.business.storage.application.StorageApplicationService;
+import com.tooldefect.business.storage.application.ObjectStoragePort;
 import com.tooldefect.business.storage.domain.StorageIntegrityViolation;
 
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -112,7 +115,24 @@ class S3StorageIT {
     StorageApplicationService storage;
 
     @Autowired
+    ObjectStoragePort objectStorage;
+
+    @Autowired
     ObjectMapper json;
+
+    @Test
+    void orphanCleanupDeletesObjectAndMissingHeadFailsSafe() throws Exception {
+        ensureBucket();
+        byte[] png = png();
+        String key = "manual-originals/test/orphan-" + UUID.randomUUID() + ".png";
+        s3.putObject(PutObjectRequest.builder().bucket("td-raw").key(key)
+            .contentType("image/png").build(), RequestBody.fromBytes(png));
+
+        objectStorage.delete("td-raw", key);
+
+        assertThatThrownBy(() -> objectStorage.head("td-raw", key))
+            .isInstanceOf(StorageIntegrityViolation.class);
+    }
 
     @DynamicPropertySource
     static void infrastructureProperties(DynamicPropertyRegistry registry) {

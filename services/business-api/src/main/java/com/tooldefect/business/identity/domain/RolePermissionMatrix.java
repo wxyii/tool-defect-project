@@ -25,7 +25,8 @@ public final class RolePermissionMatrix {
             new EnumMap<>(SystemRole.class);
         values.put(
             SystemRole.OPERATOR,
-            Set.of("capture:read", "detection:read", "image:view")
+            Set.of("capture:read", "detection:read", "image:view",
+                "manual-detection:read", "manual-detection:write")
         );
         values.put(
             SystemRole.REVIEWER,
@@ -99,6 +100,9 @@ public final class RolePermissionMatrix {
                 "model:deploy:execute",
                 "certificate:manage",
                 "security:policy:manage",
+                "manual-detection:read",
+                "manual-detection:read:all",
+                "manual-detection:write",
                 "audit:read"
             )
         );
