@@ -16,6 +16,9 @@ const ModelsView = () => import('@/features/models/ModelsView.vue')
 const QualityDashboard = () => import('@/features/quality/QualityDashboard.vue')
 const SystemOverviewView = () => import('@/features/overview/SystemOverviewView.vue')
 const AuditTrailView = () => import('@/features/audit/AuditTrailView.vue')
+const ManualDetectionUploadView = () => import('@/features/manual-detection/ManualDetectionUploadView.vue')
+const ManualDetectionHistoryView = () => import('@/features/manual-detection/ManualDetectionHistoryView.vue')
+const ManualDetectionDetailView = () => import('@/features/manual-detection/ManualDetectionDetailView.vue')
 
 export const applicationRoutes: readonly RouteRecordRaw[] = [
   {
@@ -135,6 +138,37 @@ function placeholderRoutes(): RouteRecordRaw[] {
 
 function featureRoutes(): RouteRecordRaw[] {
   return [
+    {
+      path: '/manual-detection',
+      name: 'manual-detection-upload',
+      component: ManualDetectionUploadView,
+      meta: {
+        requiresAuth: true,
+        permissions: ['manual-detection:write'],
+        menuLabel: '手工检测',
+        menuIcon: '＋',
+      },
+    },
+    {
+      path: '/detection-batches',
+      name: 'manual-detection-history',
+      component: ManualDetectionHistoryView,
+      meta: {
+        requiresAuth: true,
+        anyPermissions: ['manual-detection:read', 'manual-detection:read:all'],
+        menuLabel: '批次历史',
+        menuIcon: '▧',
+      },
+    },
+    {
+      path: '/detection-batches/:id',
+      name: 'manual-detection-detail',
+      component: ManualDetectionDetailView,
+      meta: {
+        requiresAuth: true,
+        anyPermissions: ['manual-detection:read', 'manual-detection:read:all'],
+      },
+    },
     {
       path: '/dashboard',
       name: 'dashboard',

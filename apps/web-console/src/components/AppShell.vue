@@ -22,6 +22,7 @@ const currentLabel = computed(() => {
   if (route.meta.menuLabel !== undefined) return String(route.meta.menuLabel)
   if (route.name === 'detection-detail') return '检测详情'
   if (route.name === 'review-workbench') return '复核工作台'
+  if (route.name === 'manual-detection-detail') return '批次详情'
   return '受控工作区'
 })
 

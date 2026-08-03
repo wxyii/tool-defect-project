@@ -142,6 +142,11 @@ class DatabaseMigrationIT {
             WHERE result.batch_item_id=?
             """,
             Integer.class, item)).isEqualTo(5);
+        var evidence = new JdbcManualDetectionRepository(jdbc).findItemEvidence(item);
+        assertThat(evidence.quality()).isNotNull();
+        assertThat(evidence.quality().checks()).hasSize(5);
+        assertThat(evidence.result()).isNotNull();
+        assertThat(evidence.result().objectKey()).isEqualTo("model-evidence/r4/result.json");
     }
 
     @Test
@@ -192,6 +197,45 @@ class DatabaseMigrationIT {
             "SELECT count(DISTINCT batch_item_id) FROM detection_task_v2",
             Integer.class
         )).isEqualTo(10);
+    }
+
+    @Test
+    void r5QuickReviewIsAppendOnlyIdempotentAndUpdatesCurrentDecision() {
+        String schema = uniqueName("r5_quick_review");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+        UUID owner = UUID.randomUUID();
+        jdbc.update("""
+            INSERT INTO sys_user(user_id, external_subject, display_name, status, username)
+            VALUES (?, ?, 'R5 反馈用户', 'ACTIVE', ?)
+            """, owner, "r5:" + owner, "r5-" + owner.toString().substring(0, 8));
+        var repository = new JdbcManualDetectionRepository(jdbc);
+        var batch = repository.createBatch(owner, "UNSPECIFIED", null);
+        UUID itemId = UUID.randomUUID();
+        repository.addItem(batch.batchId(), itemId, owner, "blade.png", 256,
+            "image/png", "a".repeat(64), "td-raw",
+            "manual-originals/" + owner + "/" + batch.batchId() + "/blade.png",
+            Instant.now().plusSeconds(300), 10);
+        jdbc.update("""
+            UPDATE detection_batch_item_v2
+            SET status='COMPLETED',algorithm_outcome='INCONCLUSIVE'
+            WHERE batch_item_id=?
+            """, itemId);
+
+        var first = repository.saveQuickReview(batch.batchId(), itemId, owner, false,
+            "UNABLE_TO_DETERMINE", null, "r5-review-first");
+        var revised = repository.saveQuickReview(batch.batchId(), itemId, owner, false,
+            "DEFECT_CONFIRMED", null, "r5-review-revised");
+
+        assertThat(revised.supersedesRecordId()).isEqualTo(first.reviewRecordId());
+        assertThat(jdbc.queryForObject(
+            "SELECT count(*) FROM quick_feedback_v2 WHERE batch_item_id=?",
+            Integer.class, itemId)).isEqualTo(2);
+        assertThat(repository.findItem(batch.batchId(), itemId, owner, false)
+            .orElseThrow().quickReviewDecision()).isEqualTo("DEFECT_CONFIRMED");
+        assertThatThrownBy(() -> jdbc.update(
+            "UPDATE quick_feedback_v2 SET decision='NO_DEFECT_CONFIRMED' WHERE feedback_id=?",
+            first.reviewRecordId())).isInstanceOf(DataAccessException.class);
     }
 
     @Test

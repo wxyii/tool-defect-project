@@ -2,6 +2,7 @@ import { ensureCsrf } from '@/auth/local-auth'
 
 import { toApiError } from './errors'
 import type { JsonObject } from './generated'
+import type { ApiClientV2 } from '@contracts/v2/client'
 
 type WebConsoleOperation =
   | 'getSystemOverview'
@@ -42,6 +43,29 @@ type WebConsoleOperation =
   | 'approveModelDeployment'
   | 'rollbackModelDeployment'
   | 'getQualityMetrics'
+  | 'getManualDetectionCapabilitiesV2'
+  | 'listDetectionBatchesV2'
+  | 'createDetectionBatchV2'
+  | 'getDetectionBatchV2'
+  | 'addDetectionBatchItemV2'
+  | 'getDetectionBatchItemV2'
+  | 'deleteDetectionBatchItemV2'
+  | 'completeDetectionBatchItemUploadV2'
+  | 'submitDetectionBatchV2'
+  | 'putQuickReviewV2'
+
+type ManualDetectionApiV2 = Pick<ApiClientV2,
+  | 'getManualDetectionCapabilitiesV2'
+  | 'listDetectionBatchesV2'
+  | 'createDetectionBatchV2'
+  | 'getDetectionBatchV2'
+  | 'addDetectionBatchItemV2'
+  | 'getDetectionBatchItemV2'
+  | 'deleteDetectionBatchItemV2'
+  | 'completeDetectionBatchItemUploadV2'
+  | 'submitDetectionBatchV2'
+  | 'putQuickReviewV2'
+>
 
 export type WebConsoleGeneratedApiClient = ApiClient
 
@@ -68,7 +92,7 @@ export class AuthenticationRefreshError extends Error {
 }
 
 interface OperationDefinition {
-  readonly method: 'GET' | 'POST'
+  readonly method: 'GET' | 'POST' | 'PUT' | 'DELETE'
   readonly path: string
   readonly response: 'json' | 'event-stream'
 }
@@ -271,9 +295,39 @@ const OPERATIONS = {
     path: '/api/v1/quality/metrics',
     response: 'json',
   },
+  getManualDetectionCapabilitiesV2: {
+    method: 'GET', path: '/api/v2/capabilities/manual-detection', response: 'json',
+  },
+  listDetectionBatchesV2: {
+    method: 'GET', path: '/api/v2/detection-batches', response: 'json',
+  },
+  createDetectionBatchV2: {
+    method: 'POST', path: '/api/v2/detection-batches', response: 'json',
+  },
+  getDetectionBatchV2: {
+    method: 'GET', path: '/api/v2/detection-batches/{batch_id}', response: 'json',
+  },
+  addDetectionBatchItemV2: {
+    method: 'POST', path: '/api/v2/detection-batches/{batch_id}/items', response: 'json',
+  },
+  getDetectionBatchItemV2: {
+    method: 'GET', path: '/api/v2/detection-batches/{batch_id}/items/{item_id}', response: 'json',
+  },
+  deleteDetectionBatchItemV2: {
+    method: 'DELETE', path: '/api/v2/detection-batches/{batch_id}/items/{item_id}', response: 'json',
+  },
+  completeDetectionBatchItemUploadV2: {
+    method: 'POST', path: '/api/v2/detection-batches/{batch_id}/items/{item_id}/complete', response: 'json',
+  },
+  submitDetectionBatchV2: {
+    method: 'POST', path: '/api/v2/detection-batches/{batch_id}/submit', response: 'json',
+  },
+  putQuickReviewV2: {
+    method: 'PUT', path: '/api/v2/detection-batches/{batch_id}/items/{item_id}/quick-review', response: 'json',
+  },
 } as const satisfies Record<WebConsoleOperation, OperationDefinition>
 
-export class ApiClient {
+export class ApiClient implements ManualDetectionApiV2 {
   private readonly baseUrl: string
   private readonly fetcher: typeof fetch
   private readonly requestIdFactory: () => string
@@ -436,6 +490,46 @@ export class ApiClient {
     return this.invokeJson('getQualityMetrics', request)
   }
 
+  getManualDetectionCapabilitiesV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('getManualDetectionCapabilitiesV2', request)
+  }
+
+  listDetectionBatchesV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('listDetectionBatchesV2', request)
+  }
+
+  createDetectionBatchV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('createDetectionBatchV2', request)
+  }
+
+  getDetectionBatchV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('getDetectionBatchV2', request)
+  }
+
+  addDetectionBatchItemV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('addDetectionBatchItemV2', request)
+  }
+
+  getDetectionBatchItemV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('getDetectionBatchItemV2', request)
+  }
+
+  deleteDetectionBatchItemV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('deleteDetectionBatchItemV2', request)
+  }
+
+  completeDetectionBatchItemUploadV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('completeDetectionBatchItemUploadV2', request)
+  }
+
+  submitDetectionBatchV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('submitDetectionBatchV2', request)
+  }
+
+  putQuickReviewV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('putQuickReviewV2', request)
+  }
+
   async streamAuthorizedEvents(request?: JsonObject): Promise<JsonObject> {
     const response = await this.openAuthorizedEventStream(request)
     const content = await response.text()
@@ -521,7 +615,9 @@ export class ApiClient {
     const method = (init.method ?? 'GET').toUpperCase()
     if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
       headers.set('X-TD-CSRF', await ensureCsrf(this.fetcher))
-      headers.set('Idempotency-Key', this.requestIdFactory())
+      if (!headers.has('Idempotency-Key')) {
+        headers.set('Idempotency-Key', this.requestIdFactory())
+      }
     }
     const response = await this.fetcher(url, {
       ...init,

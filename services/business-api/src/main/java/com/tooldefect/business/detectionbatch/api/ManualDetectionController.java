@@ -22,6 +22,9 @@ public final class ManualDetectionController {
     private static final Set<String> ITEM_FIELDS=Set.of("file_name","size_bytes","media_type","sha256");
     private static final Set<String> COMPLETE_FIELDS=Set.of("sha256","size_bytes");
     private static final Set<String> SUBMIT_FIELDS=Set.of("expected_version");
+    private static final Set<String> QUICK_REVIEW_FIELDS=Set.of("decision","supersedes_record_id");
+    private static final Set<String> QUICK_REVIEW_DECISIONS=Set.of(
+        "DEFECT_CONFIRMED","NO_DEFECT_CONFIRMED","UNABLE_TO_DETERMINE");
     private static final Set<String> STAGES=Set.of("NEW_BLADE","AFTER_ONE_WHEEL","AFTER_TWO_WHEELS","AFTER_THREE_WHEELS","OTHER","UNSPECIFIED");
     private final ManualDetectionBatchService service;
     public ManualDetectionController(ManualDetectionBatchService service){this.service=java.util.Objects.requireNonNull(service);}
@@ -90,6 +93,25 @@ public final class ManualDetectionController {
     @GetMapping("/detection-batches/{batch_id}/items/{item_id}")
     Map<String,Object> getItem(@PathVariable("batch_id") UUID batchId,@PathVariable("item_id") UUID itemId,Authentication authentication){
         var user=identity(authentication);return service.getItem(user.userId(),canReadAll(user),batchId,itemId);
+    }
+
+    @PutMapping("/detection-batches/{batch_id}/items/{item_id}/quick-review")
+    ResponseEntity<Map<String,Object>> quickReview(@PathVariable("batch_id") UUID batchId,
+            @PathVariable("item_id") UUID itemId,
+            @RequestHeader("Idempotency-Key") String key,
+            @RequestBody Map<String,Object> body, Authentication authentication,
+            HttpServletRequest servlet) {
+        var request=object(body,QUICK_REVIEW_FIELDS,"快速反馈请求");
+        var user=identity(authentication);
+        UUID supersedes=null;
+        if(request.containsKey("supersedes_record_id")){
+            try{supersedes=UUID.fromString(text(request,"supersedes_record_id",36,36));}
+            catch(RuntimeException invalid){throw new ManualDetectionViolation(Kind.INTEGRITY,"修订记录标识不合法");}
+        }
+        var response=service.saveQuickReview(user.userId(),canReadAll(user),batchId,itemId,
+            key,oneOf(request,"decision",QUICK_REVIEW_DECISIONS),supersedes,request,
+            requestId(servlet),traceId(servlet));
+        return ResponseEntity.status(response.status()).body(response.body());
     }
 
     private static LocalIdentity identity(Authentication auth){

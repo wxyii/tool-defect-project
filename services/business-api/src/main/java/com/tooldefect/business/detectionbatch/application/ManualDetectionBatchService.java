@@ -23,6 +23,8 @@ import com.tooldefect.business.storage.application.ObjectStoragePort;
 public class ManualDetectionBatchService {
     private static final Set<String> STAGES = Set.of("NEW_BLADE", "AFTER_ONE_WHEEL",
         "AFTER_TWO_WHEELS", "AFTER_THREE_WHEELS", "OTHER", "UNSPECIFIED");
+    private static final Set<String> QUICK_REVIEW_DECISIONS = Set.of(
+        "DEFECT_CONFIRMED", "NO_DEFECT_CONFIRMED", "UNABLE_TO_DETERMINE");
     private final ManualDetectionRepository repository;
     private final ObjectStoragePort storage;
     private final IdempotencyService idempotency;
@@ -190,20 +192,72 @@ public class ManualDetectionBatchService {
     }
 
     public Map<String,Object> getBatch(UUID actor, boolean all, UUID batchId) {
-        return batch(repository.findBatch(batchId, actor, all)
-            .orElseThrow(() -> violation(Kind.NOT_FOUND, "批次不存在或不可访问")));
+        var result = new LinkedHashMap<>(batch(repository.findBatch(batchId, actor, all)
+            .orElseThrow(() -> violation(Kind.NOT_FOUND, "批次不存在或不可访问"))));
+        result.put("items", repository.listItems(batchId, actor, all).stream()
+            .map(ManualDetectionBatchService::item).toList());
+        return result;
     }
 
     public Map<String,Object> getItem(UUID actor, boolean all, UUID batchId, UUID itemId) {
         var value = repository.findItem(batchId, itemId, actor, all)
             .orElseThrow(() -> violation(Kind.NOT_FOUND, "图片项不存在或不可访问"));
         Map<String,Object> result = new LinkedHashMap<>(item(value));
-        if ("READY".equals(value.status()) || "COMPLETED".equals(value.status())) {
+        if (Set.of("READY", "QUEUED", "PROCESSING", "COMPLETED",
+                "QUALITY_REJECTED", "FAILED").contains(value.status())) {
             var url = storage.authorizeRead(value.bucket(), value.objectKey(), properties.readTtl());
             result.put("read", Map.of("url", url.toString(), "expires_at",
                 Instant.now(clock).plus(properties.readTtl()).toString()));
         }
+        var evidence = repository.findItemEvidence(itemId);
+        if (evidence.quality() != null) {
+            result.put("quality", quality(evidence.quality()));
+        }
+        if (evidence.result() != null) {
+            var execution = evidence.result();
+            Map<String,Object> executionMap = new LinkedHashMap<>();
+            executionMap.put("attempt_id", execution.attemptId());
+            executionMap.put("created_at", execution.createdAt());
+            if (execution.errorCode() != null) {
+                executionMap.put("error_code", execution.errorCode());
+                executionMap.put("retryable", execution.retryable());
+            } else {
+                Map<String,Object> reference = new LinkedHashMap<>();
+                reference.put("bucket", execution.bucket());
+                reference.put("object_key", execution.objectKey());
+                reference.put("sha256", execution.sha256());
+                reference.put("size_bytes", execution.sizeBytes());
+                reference.put("media_type", "application/json");
+                if (execution.objectVersion() != null) {
+                    reference.put("object_version", execution.objectVersion());
+                }
+                executionMap.put("result_reference", reference);
+                var resultUrl = storage.authorizeRead(execution.bucket(),
+                    execution.objectKey(), properties.readTtl());
+                executionMap.put("result_read", Map.of("url", resultUrl.toString(),
+                    "expires_at", Instant.now(clock).plus(properties.readTtl()).toString()));
+            }
+            result.put("execution", executionMap);
+        }
         return result;
+    }
+
+    @Transactional
+    public IdempotencyService.Response saveQuickReview(UUID actor, boolean all,
+            UUID batchId, UUID itemId, String key, String decision, UUID supersedesId,
+            Map<String,Object> request, String requestId, String traceId) {
+        requireEnabled();
+        if (!QUICK_REVIEW_DECISIONS.contains(decision)) {
+            throw violation(Kind.INTEGRITY, "快速反馈结论不合法");
+        }
+        return idempotency.execute("v2.quick-review:" + itemId, actor.toString(), key,
+            request, () -> {
+                var record = repository.saveQuickReview(batchId, itemId, actor, all,
+                    decision, supersedesId, key);
+                audit(actor, "QUICK_REVIEW_SUBMIT", batchId, null, digest(record),
+                    requestId, traceId);
+                return new IdempotencyService.Response(200, quickReview(record));
+            });
     }
 
     public Map<String,Object> list(UUID actor, boolean all, String cursor) {
@@ -275,5 +329,36 @@ public class ManualDetectionBatchService {
         Map<String,Object> map=new LinkedHashMap<>();map.put("batch_item_id",value.itemId());map.put("batch_id",value.batchId());
         map.put("image",image);map.put("status",value.status());if(value.algorithmOutcome()!=null)map.put("algorithm_outcome",value.algorithmOutcome());
         if(value.quickReviewDecision()!=null)map.put("quick_review_decision",value.quickReviewDecision());map.put("created_at",value.createdAt());map.put("updated_at",value.updatedAt());return map;
+    }
+
+    private static Map<String,Object> quickReview(
+            ManualDetectionRepository.QuickReviewView value) {
+        Map<String,Object> map = new LinkedHashMap<>();
+        map.put("review_record_id", value.reviewRecordId());
+        map.put("batch_item_id", value.batchItemId());
+        map.put("decision", value.decision());
+        map.put("submitted_by", value.submittedBy());
+        map.put("submitted_at", value.submittedAt());
+        map.put("idempotency_key", value.idempotencyKey());
+        if (value.supersedesRecordId() != null) {
+            map.put("supersedes_record_id", value.supersedesRecordId());
+        }
+        return map;
+    }
+
+    private static Map<String,Object> quality(ManualDetectionRepository.QualityView value) {
+        Map<String,Object> result = new LinkedHashMap<>();
+        result.put("overall", value.overall());
+        result.put("checker_version", value.checkerVersion());
+        result.put("checks", value.checks().stream().map(check -> {
+            Map<String,Object> mapped = new LinkedHashMap<>();
+            mapped.put("check_type", check.checkType()); mapped.put("status", check.status());
+            mapped.put("rule_id", check.ruleId()); mapped.put("reason_code", check.reasonCode());
+            mapped.put("user_hint", check.userHint());
+            if (check.measurement() != null) mapped.put("measurement", check.measurement());
+            if (check.threshold() != null) mapped.put("threshold", check.threshold());
+            return mapped;
+        }).toList());
+        return result;
     }
 }

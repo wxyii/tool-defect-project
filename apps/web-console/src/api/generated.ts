@@ -91,6 +91,22 @@ export type {
 } from '@contracts/index'
 
 export type {
+  AlgorithmOutcome as AlgorithmOutcomeV2,
+  BatchAggregateCounts,
+  BatchItemStatus,
+  BatchSource,
+  BatchStatus,
+  DetectionBatch,
+  DetectionBatchItem,
+  ImageQualityResult,
+  QuickReviewDecision,
+  QuickReviewRecord,
+  UsageStage,
+} from '@contracts/v2/index'
+
+export type {
   ApiClient as GeneratedApiClient,
   JsonObject,
 } from '@contracts/client'
+
+export type { ApiClientV2 as GeneratedApiClientV2 } from '@contracts/v2/client'

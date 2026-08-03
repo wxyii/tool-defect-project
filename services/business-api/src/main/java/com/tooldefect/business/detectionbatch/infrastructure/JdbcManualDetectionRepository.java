@@ -207,6 +207,109 @@ public class JdbcManualDetectionRepository implements ManualDetectionRepository 
     }
 
     @Override
+    public List<ItemView> listItems(UUID batchId, UUID actorId, boolean all) {
+        return jdbc.query("""
+            SELECT i.batch_item_id,i.batch_id,o.bucket,o.object_key,o.object_version,
+              o.sha256,o.size_bytes,o.media_type,i.status,i.algorithm_outcome,
+              i.quick_review_decision,i.created_at,i.updated_at
+            FROM detection_batch_item_v2 i
+            JOIN detection_batch_v2 b ON b.batch_id=i.batch_id
+            JOIN image_object o ON o.image_id=i.image_id
+            WHERE i.batch_id=? AND (? OR b.created_by=?)
+            ORDER BY i.created_at,i.batch_item_id
+            """, (row, number) -> item(row), batchId, all, actorId);
+    }
+
+    @Override
+    public ItemEvidence findItemEvidence(UUID itemId) {
+        List<QualityView> qualities = jdbc.query("""
+            SELECT overall,checker_version FROM image_quality_result_v2
+            WHERE batch_item_id=? ORDER BY created_at DESC LIMIT 1
+            """, (row, number) -> new QualityView(row.getString("overall"),
+                row.getString("checker_version"), List.of()), itemId);
+        QualityView quality = null;
+        if (!qualities.isEmpty()) {
+            QualityView head = qualities.getFirst();
+            List<QualityCheckView> checks = jdbc.query("""
+                SELECT check_type,status,rule_id,reason_code,user_hint,
+                  measurement,threshold
+                FROM image_quality_check_v2 checks
+                JOIN image_quality_result_v2 result
+                  ON result.quality_result_id=checks.quality_result_id
+                WHERE result.batch_item_id=? AND result.checker_version=?
+                ORDER BY check_type
+                """, (row, number) -> new QualityCheckView(
+                    row.getString("check_type"), row.getString("status"),
+                    row.getString("rule_id"), row.getString("reason_code"),
+                    row.getString("user_hint"),
+                    decimalOrNull(row, "measurement"),
+                    decimalOrNull(row, "threshold")),
+                itemId, head.checkerVersion());
+            quality = new QualityView(head.overall(), head.checkerVersion(),
+                List.copyOf(checks));
+        }
+        List<ResultView> results = jdbc.query("""
+            SELECT result_bucket,result_object_key,result_object_version,
+              result_sha256,result_size_bytes,error_code,retryable,attempt_id,created_at
+            FROM detection_item_result_v2 WHERE batch_item_id=?
+            """, (row, number) -> new ResultView(row.getString("result_bucket"),
+                row.getString("result_object_key"), row.getString("result_object_version"),
+                nullableTrimmed(row.getString("result_sha256")),
+                row.getObject("result_size_bytes", Long.class), row.getString("error_code"),
+                row.getObject("retryable", Boolean.class),
+                row.getObject("attempt_id", UUID.class),
+                row.getTimestamp("created_at").toInstant()), itemId);
+        return new ItemEvidence(quality, results.isEmpty() ? null : results.getFirst());
+    }
+
+    @Override
+    public QuickReviewView saveQuickReview(UUID batchId, UUID itemId, UUID actorId,
+            boolean all, String decision, UUID supersedesId, String idempotencyKey) {
+        ItemView item = findItem(batchId, itemId, actorId, all)
+            .orElseThrow(() -> violation(Kind.NOT_FOUND, "图片项不存在或不可访问"));
+        if (!List.of("COMPLETED", "QUALITY_REJECTED", "FAILED").contains(item.status())) {
+            throw violation(Kind.CONFLICT, "图片项尚未形成可反馈结果");
+        }
+        List<QuickReviewView> current = jdbc.query("""
+            SELECT feedback_id,batch_item_id,decision,submitted_by,submitted_at,
+              idempotency_key,supersedes_id
+            FROM quick_feedback_v2
+            WHERE batch_item_id=? AND submitted_by=?
+            ORDER BY submitted_at DESC,feedback_id DESC LIMIT 1 FOR UPDATE
+            """, (row, number) -> quickReview(row), itemId, actorId);
+        if (current.isEmpty() && supersedesId != null) {
+            throw violation(Kind.CONFLICT, "首次反馈不能引用修订记录");
+        }
+        if (!current.isEmpty() && supersedesId != null
+                && !current.getFirst().reviewRecordId().equals(supersedesId)) {
+            throw violation(Kind.CONFLICT, "修改反馈必须修订当前记录");
+        }
+        UUID effectiveSupersedes = current.isEmpty()
+            ? null : current.getFirst().reviewRecordId();
+        UUID feedbackId = UUID.randomUUID();
+        try {
+            jdbc.update("""
+                INSERT INTO quick_feedback_v2(feedback_id,batch_item_id,decision,
+                  submitted_by,idempotency_key,supersedes_id)
+                VALUES (?,?,?,?,?,?)
+                """, feedbackId, itemId, decision, actorId, idempotencyKey,
+                effectiveSupersedes);
+        } catch (DuplicateKeyException conflict) {
+            throw violation(Kind.CONFLICT, "反馈幂等键冲突");
+        }
+        jdbc.update("""
+            UPDATE detection_batch_item_v2
+            SET quick_review_decision=?,updated_at=now(),record_version=record_version+1
+            WHERE batch_item_id=?
+            """, decision, itemId);
+        return jdbc.query("""
+            SELECT feedback_id,batch_item_id,decision,submitted_by,submitted_at,
+              idempotency_key,supersedes_id
+            FROM quick_feedback_v2 WHERE feedback_id=?
+            """, (row, number) -> quickReview(row), feedbackId).getFirst();
+    }
+
+    @Override
     public Page list(UUID actorId, boolean all, Instant before, UUID beforeId, int limit) {
         List<BatchView> result = batches("""
             WHERE (? OR created_by = ?) AND (?::timestamptz IS NULL OR (created_at, batch_id) < (?::timestamptz, ?::uuid))
@@ -284,6 +387,25 @@ public class JdbcManualDetectionRepository implements ManualDetectionRepository 
             row.getString("sha256").trim(),row.getLong("size_bytes"),row.getString("media_type"),
             row.getString("status"),row.getString("algorithm_outcome"),row.getString("quick_review_decision"),
             row.getTimestamp("created_at").toInstant(),row.getTimestamp("updated_at").toInstant());
+    }
+
+    private static QuickReviewView quickReview(java.sql.ResultSet row)
+            throws java.sql.SQLException {
+        return new QuickReviewView(row.getObject("feedback_id", UUID.class),
+            row.getObject("batch_item_id", UUID.class), row.getString("decision"),
+            row.getObject("submitted_by", UUID.class),
+            row.getTimestamp("submitted_at").toInstant(), row.getString("idempotency_key"),
+            row.getObject("supersedes_id", UUID.class));
+    }
+
+    private static String nullableTrimmed(String value) {
+        return value == null ? null : value.trim();
+    }
+
+    private static Double decimalOrNull(java.sql.ResultSet row, String column)
+            throws java.sql.SQLException {
+        var value = row.getBigDecimal(column);
+        return value == null ? null : value.doubleValue();
     }
 
     private static ManualDetectionViolation violation(Kind kind, String message) {

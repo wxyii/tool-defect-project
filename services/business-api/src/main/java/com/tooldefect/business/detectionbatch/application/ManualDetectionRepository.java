@@ -19,6 +19,11 @@ public interface ManualDetectionRepository {
     List<TaskDispatch> queuedTasks(UUID batchId, String submitIdempotencyKey);
     Optional<BatchView> findBatch(UUID batchId, UUID actorId, boolean canReadAll);
     Optional<ItemView> findItem(UUID batchId, UUID itemId, UUID actorId, boolean canReadAll);
+    List<ItemView> listItems(UUID batchId, UUID actorId, boolean canReadAll);
+    ItemEvidence findItemEvidence(UUID itemId);
+    QuickReviewView saveQuickReview(UUID batchId, UUID itemId, UUID actorId,
+                                   boolean canReadAll, String decision,
+                                   UUID supersedesId, String idempotencyKey);
     Page list(UUID actorId, boolean canReadAll, Instant beforeCreatedAt, UUID beforeId, int limit);
     List<OrphanObject> claimExpiredOrphans(Instant cutoff, int limit);
     void recordOrphanCleanup(OrphanObject orphan, boolean resolved, String errorCode);
@@ -32,6 +37,18 @@ public interface ManualDetectionRepository {
                     String objectVersion, String sha256, long sizeBytes, String mediaType,
                     String status, String algorithmOutcome, String quickReviewDecision,
                     Instant createdAt, Instant updatedAt) {}
+    record QuickReviewView(UUID reviewRecordId, UUID batchItemId, String decision,
+                           UUID submittedBy, Instant submittedAt,
+                           String idempotencyKey, UUID supersedesRecordId) {}
+    record QualityCheckView(String checkType, String status, String ruleId,
+                            String reasonCode, String userHint, Double measurement,
+                            Double threshold) {}
+    record QualityView(String overall, String checkerVersion,
+                       List<QualityCheckView> checks) {}
+    record ResultView(String bucket, String objectKey, String objectVersion,
+                      String sha256, Long sizeBytes, String errorCode,
+                      Boolean retryable, UUID attemptId, Instant createdAt) {}
+    record ItemEvidence(QualityView quality, ResultView result) {}
     record UploadIntent(UUID uploadId, ItemView item, UUID ownerId, String fileName,
                         long expectedSizeBytes, String expectedMediaType,
                         String expectedSha256, Instant expiresAt) {}

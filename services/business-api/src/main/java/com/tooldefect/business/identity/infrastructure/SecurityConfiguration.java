@@ -145,6 +145,10 @@ public class SecurityConfiguration {
                     "/api/v2/detection-batches/*/items/*"
                 ).hasAuthority("manual-detection:write")
                 .requestMatchers(
+                    HttpMethod.PUT,
+                    "/api/v2/detection-batches/*/items/*/quick-review"
+                ).hasAuthority("manual-detection:write")
+                .requestMatchers(
                     HttpMethod.GET, "/api/v1/auth/csrf"
                 ).permitAll()
                 .requestMatchers(
