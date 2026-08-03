@@ -11,8 +11,7 @@ import org.junit.jupiter.api.Test;
 class ModelVersionTest {
     private static final Instant NOW = Instant.parse("2026-07-31T00:00:00Z");
     private static final UUID MODEL_ID = uuid(1);
-    private static final UUID DATASET_ID = uuid(2);
-    private static final UUID TRAINING_ID = uuid(3);
+    private static final UUID UPLOAD_ID = uuid(2);
     private static final UUID REGISTRAR = uuid(4);
     private static final UUID VALIDATOR = uuid(5);
     private static final UUID RELEASE_APPROVER = uuid(6);
@@ -48,7 +47,8 @@ class ModelVersionTest {
     @Test
     void historicalVersionCanBeReadButCannotAdvanceWithoutSupplyChainEvidence() {
         var historical = new ModelVersion(
-            uuid(10), MODEL_ID, 1, null, DATASET_ID,
+            uuid(10), MODEL_ID, 1, "EXTERNAL_UPLOAD", UPLOAD_ID,
+            "{\"source_system\":\"archive\"}",
             null, null, "models", "legacy/model.keras", "a".repeat(64),
             null, null, "{}", "{}", "{}", null, null,
             ModelApprovalState.CANDIDATE, null, null, null, null, null, NOW
@@ -62,7 +62,9 @@ class ModelVersionTest {
 
     private static ModelVersion completeCandidate() {
         return new ModelVersion(
-            uuid(20), MODEL_ID, 1, TRAINING_ID, DATASET_ID,
+            uuid(20), MODEL_ID, 1, "EXTERNAL_UPLOAD", UPLOAD_ID,
+            "{\"source_system\":\"external\",\"source_version\":\"1\",\"exported_at\":\"2026-07-31T00:00:00Z\",\"sha256\":\""
+                + "e".repeat(64) + "\"}",
             "registry", "1", "models", "model-1.keras", "a".repeat(64),
             "b".repeat(64), "key-1", "{}", "{}", "{}",
             "c".repeat(64), "d".repeat(64), ModelApprovalState.CANDIDATE,

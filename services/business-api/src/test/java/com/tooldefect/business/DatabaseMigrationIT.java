@@ -36,12 +36,10 @@ import com.tooldefect.business.detectionbatch.infrastructure.R4InferenceResultHa
 import com.tooldefect.business.detectionbatch.application.ProductionDetectionRepository;
 import com.tooldefect.business.sample.infrastructure.JdbcSampleLibraryRepository;
 import com.tooldefect.business.sample.infrastructure.SampleExportCompletedHandler;
-import com.tooldefect.business.dataset.infrastructure.JdbcDatasetRepository;
 import com.tooldefect.business.deployment.infrastructure.JdbcDeploymentRepository;
 import com.tooldefect.business.model.infrastructure.JdbcModelRepository;
 import com.tooldefect.business.review.domain.ReviewStatus;
 import com.tooldefect.business.review.infrastructure.JdbcReviewRepository;
-import com.tooldefect.business.training.infrastructure.JdbcTrainingRunRepository;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -383,7 +381,7 @@ class DatabaseMigrationIT {
 
         var result = flyway.migrate();
 
-        assertThat(result.migrationsExecuted).isEqualTo(20);
+        assertThat(result.migrationsExecuted).isEqualTo(21);
         flyway.validate();
         JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
         assertThat(jdbc.queryForObject(
@@ -393,7 +391,7 @@ class DatabaseMigrationIT {
             WHERE success AND version IS NOT NULL
             """,
             Integer.class
-        )).isEqualTo(20);
+        )).isEqualTo(21);
         assertThat(jdbc.queryForObject(
             """
             SELECT COUNT(*)
@@ -415,6 +413,27 @@ class DatabaseMigrationIT {
             FROM information_schema.columns
             WHERE table_schema = ? AND table_name = 'sample_candidate_v2'
               AND column_name IN ('dataset_version_id', 'training_run_id')
+            """,
+            String.class,
+            schema
+        )).isEmpty();
+        for (String retiredTable : new String[] {
+            "dataset", "dataset_version", "dataset_sample",
+            "dataset_candidate_manifest", "training_run",
+            "review_training_decision"
+        }) {
+            assertThat(jdbc.queryForObject(
+                "SELECT to_regclass(?) IS NOT NULL",
+                Boolean.class,
+                schema + "." + retiredTable
+            )).as("第一版退役表仍存在: %s", retiredTable).isFalse();
+        }
+        assertThat(jdbc.queryForList(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = ? AND table_name = 'model_version'
+              AND column_name IN ('training_run_id', 'dataset_version_id')
             """,
             String.class,
             schema
@@ -449,29 +468,44 @@ class DatabaseMigrationIT {
     }
 
     @Test
-    void managementCatalogsExposeCreatedRootsAndEmptyLifecycleLists() {
-        String schema = uniqueName("management_catalogs");
-        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+    void v21RefusesRetiredRowsBeforeDestructiveCleanup() {
+        String schema = uniqueName("r9_hold");
+        Flyway v20 = flyway(
+            POSTGRES.getJdbcUrl(),
+            schema,
+            MigrationVersion.fromVersion("20")
+        );
+        assertThat(v20.migrate().migrationsExecuted).isEqualTo(20);
         JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
         UUID datasetId = UUID.randomUUID();
+        jdbc.update(
+            "INSERT INTO dataset(dataset_id, dataset_name, purpose) VALUES (?, ?, ?)",
+            datasetId,
+            "r9-retired-dataset-" + datasetId,
+            "R9 HOLD fixture"
+        );
+
+        Flyway latest = flyway(POSTGRES.getJdbcUrl(), schema, null);
+        assertThatThrownBy(latest::migrate)
+            .hasMessageContaining("进入 HOLD");
+        assertThat(jdbc.queryForObject(
+            "SELECT count(*) FROM dataset WHERE dataset_id=?",
+            Integer.class,
+            datasetId
+        )).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+            "SELECT count(*) FROM flyway_schema_history WHERE version='21' AND success",
+            Integer.class
+        )).isZero();
+    }
+
+    @Test
+    void modelCatalogExposesCreatedRootsAndEmptyDeploymentLists() {
+        String schema = uniqueName("model_catalog");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
         UUID modelId = UUID.randomUUID();
         Instant createdAt = Instant.parse("2026-08-01T00:00:00Z");
-
-        var datasets = new JdbcDatasetRepository(jdbc);
-        datasets.insertDataset(
-            datasetId, "生产候选集", "增量训练", createdAt
-        );
-        Map<String, Object> datasetPage = datasets.listDatasets(
-            "auditor", 50, null
-        );
-        assertThat((List<?>) datasetPage.get("items")).singleElement()
-            .isInstanceOfSatisfying(Map.class, item -> assertThat(item)
-                .containsEntry("dataset_id", datasetId.toString())
-                .containsEntry("dataset_name", "生产候选集")
-                .containsEntry("version_count", 0));
-        assertThat(datasets.listVersions(
-            "auditor", null, "FROZEN", 50, null
-        )).containsEntry("items", List.of());
 
         var models = new JdbcModelRepository(jdbc);
         models.insertModel(
@@ -489,59 +523,9 @@ class DatabaseMigrationIT {
             "auditor", null, "APPROVED", 50, null
         )).containsEntry("items", List.of());
 
-        assertThat(new JdbcTrainingRunRepository(jdbc).listRuns(
-            "auditor", null, 50, null
-        )).containsEntry("items", List.of());
         assertThat(new JdbcDeploymentRepository(jdbc).listDeployments(
             "auditor", null, null, 50, null
         )).containsEntry("items", List.of());
-    }
-
-    @Test
-    void datasetBuildClaimsArePairedAndClearedBeforeValidation() {
-        String schema = uniqueName("dataset_build_claim");
-        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
-        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
-        UUID datasetVersionId = seedDatasetVersion(jdbc);
-
-        assertThatThrownBy(() -> jdbc.update(
-            """
-            UPDATE dataset_version
-            SET build_worker_id = 'builder-one',
-                record_version = record_version + 1
-            WHERE dataset_version_id = ?
-            """,
-            datasetVersionId
-        )).isInstanceOf(DataAccessException.class);
-
-        assertThat(jdbc.update(
-            """
-            UPDATE dataset_version
-            SET build_worker_id = 'builder-one', build_claimed_at = now(),
-                record_version = record_version + 1
-            WHERE dataset_version_id = ?
-            """,
-            datasetVersionId
-        )).isEqualTo(1);
-
-        assertThatThrownBy(() -> jdbc.update(
-            """
-            UPDATE dataset_version
-            SET status = 'VALIDATING', record_version = record_version + 1
-            WHERE dataset_version_id = ?
-            """,
-            datasetVersionId
-        )).isInstanceOf(DataAccessException.class);
-
-        assertThat(jdbc.update(
-            """
-            UPDATE dataset_version
-            SET status = 'VALIDATING', build_worker_id = NULL,
-                build_claimed_at = NULL, record_version = record_version + 1
-            WHERE dataset_version_id = ?
-            """,
-            datasetVersionId
-        )).isEqualTo(1);
     }
 
     @Test
@@ -635,7 +619,7 @@ class DatabaseMigrationIT {
         );
 
         Flyway latest = flyway(POSTGRES.getJdbcUrl(), schema, null);
-        assertThat(latest.migrate().migrationsExecuted).isEqualTo(18);
+        assertThat(latest.migrate().migrationsExecuted).isEqualTo(19);
 
         assertThat(jdbc.queryForObject(
             "SELECT organization_id FROM production_line WHERE line_id = ?",
@@ -866,90 +850,6 @@ class DatabaseMigrationIT {
             """,
             "b".repeat(64),
             imageId
-        )).isInstanceOf(DataAccessException.class);
-
-        UUID unavailable = insertImage(
-            jdbc,
-            fixture.captureId(),
-            "staging/not-available.png"
-        );
-        UUID datasetVersionId = seedDatasetVersion(jdbc);
-        assertThatThrownBy(() -> jdbc.update(
-            """
-            INSERT INTO dataset_sample(
-                dataset_sample_id, dataset_version_id, sample_key,
-                capture_id, image_id, label, split, content_sha256, group_key
-            ) VALUES (?, ?, 'sample-1', ?, ?, 'OK', 'TRAIN', ?, 'group-1')
-            """,
-            UUID.randomUUID(),
-            datasetVersionId,
-            fixture.captureId(),
-            unavailable,
-            "c".repeat(64)
-        )).isInstanceOf(DataAccessException.class);
-        UUID datasetSampleId = UUID.randomUUID();
-        assertThat(jdbc.update(
-            """
-            INSERT INTO dataset_sample(
-                dataset_sample_id, dataset_version_id, sample_key,
-                capture_id, image_id, label, split, content_sha256, group_key
-            ) VALUES (?, ?, 'sample-2', ?, ?, 'OK', 'TRAIN', ?, 'group-1')
-            """,
-            datasetSampleId,
-            datasetVersionId,
-            fixture.captureId(),
-            imageId,
-            "d".repeat(64)
-        )).isEqualTo(1);
-        assertThat(jdbc.update(
-            """
-            UPDATE dataset_version
-            SET manifest_bucket = 'td-datasets',
-                manifest_object_key = 'manifests/frozen-v1.json',
-                manifest_sha256 = ?,
-                status = 'VALIDATING',
-                record_version = record_version + 1
-            WHERE dataset_version_id = ?
-            """,
-            "4".repeat(64),
-            datasetVersionId
-        )).isEqualTo(1);
-        UUID datasetApproverId = seedUser(
-            jdbc, "dataset-approval-integrity"
-        );
-        assertThat(jdbc.update(
-            """
-            UPDATE dataset_version
-            SET status = 'FROZEN', approved_by = ?, approved_at = now(),
-                record_version = record_version + 1
-            WHERE dataset_version_id = ?
-            """,
-            datasetApproverId,
-            datasetVersionId
-        )).isEqualTo(1);
-        UUID mutableDatasetVersionId = UUID.randomUUID();
-        assertThat(jdbc.update(
-            """
-            INSERT INTO dataset_version(
-                dataset_version_id, dataset_id, version, status
-            )
-            SELECT ?, dataset_id, '2', 'BUILDING'
-            FROM dataset_version WHERE dataset_version_id = ?
-            """,
-            mutableDatasetVersionId,
-            datasetVersionId
-        )).isEqualTo(1);
-        assertThatThrownBy(() -> jdbc.update(
-            """
-            UPDATE dataset_sample SET dataset_version_id = ?
-            WHERE dataset_sample_id = ?
-            """,
-            mutableDatasetVersionId,
-            datasetSampleId
-        )).isInstanceOf(DataAccessException.class);
-        assertThatThrownBy(() -> jdbc.update(
-            "DELETE FROM dataset_sample WHERE dataset_sample_id = ?",
-            datasetSampleId
         )).isInstanceOf(DataAccessException.class);
 
         UUID firstDispositionId = UUID.randomUUID();
@@ -1183,13 +1083,12 @@ class DatabaseMigrationIT {
     }
 
     @Test
-    void humanReviewFactsAndTrainingApprovalAreDatabaseEnforced() {
+    void humanReviewFactsAreDatabaseEnforced() {
         String schema = uniqueName("review_facts");
         flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
         JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
         Fixture fixture = seedCapture(jdbc);
         UUID reviewerId = seedUser(jdbc, "review-record-owner");
-        UUID qualityId = seedUser(jdbc, "quality-approver");
         UUID taskId = UUID.randomUUID();
         jdbc.update(
             """
@@ -1226,60 +1125,6 @@ class DatabaseMigrationIT {
             reviewRecordId
         )).isInstanceOf(DataAccessException.class);
 
-        UUID rawImageId = insertImage(
-            jdbc,
-            fixture.captureId(),
-            "review-training/raw.png"
-        );
-        jdbc.update(
-            """
-            UPDATE image_object
-            SET state = 'AVAILABLE', width = 2, height = 3,
-                record_version = record_version + 1
-            WHERE image_id = ?
-            """,
-            rawImageId
-        );
-        UUID datasetVersionId = seedDatasetVersion(jdbc);
-        assertThatThrownBy(() -> insertReviewDatasetSample(
-            jdbc,
-            UUID.randomUUID(),
-            datasetVersionId,
-            fixture.captureId(),
-            rawImageId,
-            reviewRecordId,
-            "before-approval"
-        )).isInstanceOf(DataAccessException.class);
-
-        UUID trainingDecisionId = UUID.randomUUID();
-        jdbc.update(
-            """
-            INSERT INTO review_training_decision(
-                training_decision_id, review_record_id,
-                decision, decided_by, reason
-            ) VALUES (?, ?, 'APPROVED', ?, '质量负责人批准进入训练候选')
-            """,
-            trainingDecisionId,
-            reviewRecordId,
-            qualityId
-        );
-        assertThat(insertReviewDatasetSample(
-            jdbc,
-            UUID.randomUUID(),
-            datasetVersionId,
-            fixture.captureId(),
-            rawImageId,
-            reviewRecordId,
-            "after-approval"
-        )).isEqualTo(1);
-        assertThatThrownBy(() -> jdbc.update(
-            """
-            UPDATE review_training_decision
-            SET decision = 'REJECTED'
-            WHERE training_decision_id = ?
-            """,
-            trainingDecisionId
-        )).isInstanceOf(DataAccessException.class);
     }
 
     @Test
@@ -1351,7 +1196,6 @@ class DatabaseMigrationIT {
         JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
         UUID modelId = UUID.randomUUID();
         UUID uploadId = UUID.randomUUID();
-        UUID datasetVersionId = seedDatasetVersion(jdbc);
         jdbc.update(
             "INSERT INTO model(model_id, model_name, task_type) VALUES (?, ?, 'MULTITASK')",
             modelId,
@@ -1406,24 +1250,6 @@ class DatabaseMigrationIT {
             "c".repeat(64)
         )).isInstanceOf(DataAccessException.class);
 
-        assertThatThrownBy(() -> jdbc.update(
-            """
-            INSERT INTO model_version(
-                model_version_id, model_id, version, dataset_version_id,
-                source_kind, model_upload_id, external_source_snapshot,
-                artifact_bucket, artifact_object_key, artifact_sha256,
-                input_spec, output_spec, approval_state
-            ) VALUES (?, ?, '3', ?, 'EXTERNAL_UPLOAD', ?, CAST(? AS jsonb),
-                'td-models', ?, ?, '{}'::jsonb, '{}'::jsonb, 'CANDIDATE')
-            """,
-            UUID.randomUUID(), modelId, datasetVersionId, uploadId,
-            """
-            {"source_system":"offline-lab","source_version":"run-3",
-             "exported_at":"2026-08-03T00:00:00Z",
-             "sha256":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}
-            """,
-            "models/" + modelId + "/double.zip", "d".repeat(64)
-        )).isInstanceOf(DataAccessException.class);
     }
 
     @Test
@@ -1677,7 +1503,7 @@ class DatabaseMigrationIT {
         assertThat(restored.queryForObject(
             "SELECT COUNT(*) FROM flyway_schema_history WHERE success",
             Integer.class
-        )).isEqualTo(20);
+        )).isEqualTo(21);
         flyway(databaseUrl(restoredDatabase), "public", null).validate();
     }
 
@@ -1687,10 +1513,9 @@ class DatabaseMigrationIT {
         UUID recipeId = UUID.randomUUID();
         UUID stationId = UUID.randomUUID();
         UUID captureId = UUID.randomUUID();
-        UUID datasetId = UUID.randomUUID();
-        UUID datasetVersionId = UUID.randomUUID();
         UUID modelId = UUID.randomUUID();
         UUID modelVersionId = UUID.randomUUID();
+        UUID modelUploadId = UUID.randomUUID();
         UUID pipelineId = UUID.randomUUID();
         UUID detectionTaskId = UUID.randomUUID();
         UUID attemptId = UUID.randomUUID();
@@ -1751,36 +1576,42 @@ class DatabaseMigrationIT {
             "f".repeat(64)
         );
         jdbc.update(
-            "INSERT INTO dataset(dataset_id, dataset_name, purpose) VALUES (?, ?, '约束测试')",
-            datasetId,
-            "constraint-dataset-" + datasetId
-        );
-        jdbc.update(
-            """
-            INSERT INTO dataset_version(
-                dataset_version_id, dataset_id, version, status
-            ) VALUES (?, ?, '1', 'BUILDING')
-            """,
-            datasetVersionId,
-            datasetId
-        );
-        jdbc.update(
             "INSERT INTO model(model_id, model_name, task_type) VALUES (?, ?, 'MULTITASK')",
             modelId,
             "constraint-model-" + modelId
         );
         jdbc.update(
             """
+            INSERT INTO model_upload_session_v2(
+                model_upload_id, model_version_label, quarantine_bucket,
+                quarantine_object_key, declared_sha256, size_bytes, media_type,
+                status, expires_at
+            ) VALUES (?, 'constraint-model', 'td-model-quarantine', ?, ?, 1024,
+                'application/zip', 'VALIDATED', now() + interval '1 hour')
+            """,
+            modelUploadId,
+            "model-quarantine/" + modelUploadId + "/model.zip",
+            "4".repeat(64)
+        );
+        jdbc.update(
+            """
             INSERT INTO model_version(
-                model_version_id, model_id, version, dataset_version_id,
+                model_version_id, model_id, version, source_kind,
+                model_upload_id, external_source_snapshot,
                 artifact_bucket, artifact_object_key, artifact_sha256,
                 input_spec, output_spec, approval_state
-            ) VALUES (?, ?, '1', ?, 'td-models', ?, ?,
+            ) VALUES (?, ?, '1', 'EXTERNAL_UPLOAD', ?, CAST(? AS jsonb),
+                'td-models', ?, ?,
                 '{}'::jsonb, '{}'::jsonb, 'CANDIDATE')
             """,
             modelVersionId,
             modelId,
-            datasetVersionId,
+            modelUploadId,
+            """
+            {"source_system":"migration-test","source_version":"fixture-1",
+             "exported_at":"2026-08-03T00:00:00Z",
+             "sha256":"5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f"}
+            """,
             "models/" + modelVersionId + "/model.bin",
             "4".repeat(64)
         );
@@ -1853,26 +1684,6 @@ class DatabaseMigrationIT {
             "a".repeat(64)
         );
         return imageId;
-    }
-
-    private static UUID seedDatasetVersion(JdbcTemplate jdbc) {
-        UUID datasetId = UUID.randomUUID();
-        UUID versionId = UUID.randomUUID();
-        jdbc.update(
-            "INSERT INTO dataset(dataset_id, dataset_name, purpose) VALUES (?, ?, '测试')",
-            datasetId,
-            "dataset-" + datasetId
-        );
-        jdbc.update(
-            """
-            INSERT INTO dataset_version(
-                dataset_version_id, dataset_id, version, status
-            ) VALUES (?, ?, '1', 'BUILDING')
-            """,
-            versionId,
-            datasetId
-        );
-        return versionId;
     }
 
     private static void seedDetectionReaderScope(
@@ -2050,32 +1861,6 @@ class DatabaseMigrationIT {
             reasonCode,
             comment,
             "b".repeat(64)
-        );
-    }
-
-    private static int insertReviewDatasetSample(
-            JdbcTemplate jdbc,
-            UUID sampleId,
-            UUID datasetVersionId,
-            UUID captureId,
-            UUID imageId,
-            UUID reviewRecordId,
-            String sampleKey) {
-        return jdbc.update(
-            """
-            INSERT INTO dataset_sample(
-                dataset_sample_id, dataset_version_id, sample_key,
-                capture_id, image_id, label, split,
-                source_review_record_id, content_sha256, group_key
-            ) VALUES (?, ?, ?, ?, ?, 'PASS', 'TRAIN', ?, ?, 'review-group')
-            """,
-            sampleId,
-            datasetVersionId,
-            sampleKey,
-            captureId,
-            imageId,
-            reviewRecordId,
-            "c".repeat(64)
         );
     }
 

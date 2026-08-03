@@ -2,8 +2,8 @@ package com.tooldefect.business;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.Map;
 import java.util.UUID;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,10 +16,9 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
-import com.tooldefect.business.dataset.application.DatasetWorkflowService;
 import com.tooldefect.business.model.application.ModelWorkflowService;
 
-/** 在隔离数据库中验证数据集与模型目录资源可以被真实创建。 */
+/** 在隔离数据库中验证保留的模型目录资源可以被真实创建。 */
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.NONE,
     properties = {
@@ -39,9 +38,6 @@ class CatalogCreateIT {
         .withPassword("tool-defect-test-only");
 
     @Autowired
-    DatasetWorkflowService datasets;
-
-    @Autowired
     ModelWorkflowService models;
 
     @Autowired
@@ -55,17 +51,9 @@ class CatalogCreateIT {
     }
 
     @Test
-    void createsDatasetAndModelCatalogEntries() {
+    void createsModelCatalogEntry() {
         String actorId = UUID.randomUUID().toString();
 
-        var dataset = datasets.createDataset(
-            actorId,
-            UUID.randomUUID().toString(),
-            Map.of(
-                "dataset_name", "回归验证数据集",
-                "purpose", "验证数据集创建链路"
-            )
-        );
         var model = models.createModel(
             actorId,
             UUID.randomUUID().toString(),
@@ -75,11 +63,7 @@ class CatalogCreateIT {
             )
         );
 
-        assertThat(dataset.status()).isEqualTo(201);
         assertThat(model.status()).isEqualTo(201);
-        assertThat(jdbc.queryForObject(
-            "SELECT COUNT(*) FROM dataset", Integer.class
-        )).isEqualTo(1);
         assertThat(jdbc.queryForObject(
             "SELECT COUNT(*) FROM model", Integer.class
         )).isEqualTo(1);

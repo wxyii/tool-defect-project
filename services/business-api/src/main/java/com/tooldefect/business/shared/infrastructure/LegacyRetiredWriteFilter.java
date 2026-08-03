@@ -19,8 +19,8 @@ import java.util.Set;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * 第一版数据集和训练读取继续保留，所有写入口在消费者归零后明确返回 410。
- * 第一版产线采集使用独立开关，不受此过滤器影响。
+ * 第一版历史读取继续保留，退役写入口按资源域独立开关明确返回 410。
+ * 第二版生产检测不经过本过滤器。
  */
 @Component
 @Order(Ordered.LOWEST_PRECEDENCE - 20)
@@ -28,23 +28,28 @@ public final class LegacyRetiredWriteFilter extends OncePerRequestFilter {
     private static final Set<String> WRITE_METHODS = Set.of(
         "POST", "PUT", "PATCH", "DELETE"
     );
-    private static final Set<String> RETIRED_PREFIXES = Set.of(
+    private static final Set<String> DATASET_TRAINING_PREFIXES = Set.of(
         "/api/v1/datasets",
         "/api/v1/dataset-versions",
         "/api/v1/dataset-candidate-manifests",
         "/api/v1/training-runs",
         "/internal/v1/training-runs"
     );
+    private static final String PRODUCTION_V1_PREFIX = "/api/v1/edge/captures";
 
     private final ObjectMapper objectMapper;
-    private final boolean legacyWriteEnabled;
+    private final boolean datasetTrainingWriteEnabled;
+    private final boolean productionV1WriteEnabled;
 
     public LegacyRetiredWriteFilter(
             ObjectMapper objectMapper,
             @Value("${td.legacy.dataset-training-write-enabled:false}")
-            boolean legacyWriteEnabled) {
+            boolean datasetTrainingWriteEnabled,
+            @Value("${td.legacy.production-v1-write-enabled:false}")
+            boolean productionV1WriteEnabled) {
         this.objectMapper = java.util.Objects.requireNonNull(objectMapper);
-        this.legacyWriteEnabled = legacyWriteEnabled;
+        this.datasetTrainingWriteEnabled = datasetTrainingWriteEnabled;
+        this.productionV1WriteEnabled = productionV1WriteEnabled;
     }
 
     @Override
@@ -52,7 +57,7 @@ public final class LegacyRetiredWriteFilter extends OncePerRequestFilter {
             HttpServletRequest request,
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
-        if (legacyWriteEnabled || !isRetiredWrite(request)) {
+        if (!isRetiredWrite(request)) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -63,18 +68,22 @@ public final class LegacyRetiredWriteFilter extends OncePerRequestFilter {
             objectMapper,
             HttpServletResponse.SC_GONE,
             "TD-LEGACY-FEATURE-RETIRED",
-            "该第一版数据集或训练写能力已退役",
+            "该第一版兼容写能力已退役",
             false
         );
     }
 
-    private static boolean isRetiredWrite(HttpServletRequest request) {
+    private boolean isRetiredWrite(HttpServletRequest request) {
         if (!WRITE_METHODS.contains(request.getMethod())) {
             return false;
         }
         String path = request.getRequestURI();
-        return RETIRED_PREFIXES.stream().anyMatch(
+        boolean datasetTrainingPath = DATASET_TRAINING_PREFIXES.stream().anyMatch(
             prefix -> path.equals(prefix) || path.startsWith(prefix + "/")
         );
+        boolean productionV1Path = path.equals(PRODUCTION_V1_PREFIX)
+            || path.startsWith(PRODUCTION_V1_PREFIX + "/");
+        return (datasetTrainingPath && !datasetTrainingWriteEnabled)
+            || (productionV1Path && !productionV1WriteEnabled);
     }
 }

@@ -16,8 +16,7 @@
     "site-operations",
     "central-services",
     "inference-performance",
-    "quality-review",
-    "training-release"
+    "quality-review"
   ],
   "required_alerts": [
     "ToolDefectProductionModelNotReady",

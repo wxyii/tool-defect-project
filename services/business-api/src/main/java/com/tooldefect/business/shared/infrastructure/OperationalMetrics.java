@@ -35,9 +35,6 @@ public class OperationalMetrics {
     private final AtomicLong reviewOldestAgeSeconds = new AtomicLong();
     private final AtomicLong reviewPendingTasks = new AtomicLong();
     private final AtomicLong qualityReviewedSamples30d = new AtomicLong();
-    private final AtomicLong datasetCandidates = new AtomicLong();
-    private final AtomicLong trainingActiveRuns = new AtomicLong();
-    private final AtomicLong trainingFailedRuns30d = new AtomicLong();
     private final AtomicLong modelApprovalCandidates = new AtomicLong();
     private final AtomicLong productionModelDeployments = new AtomicLong();
     private final AtomicLong backupLastSuccessTimestamp = new AtomicLong();
@@ -88,21 +85,6 @@ public class OperationalMetrics {
             meters,
             "tool.defect.quality.reviewed.samples.30d",
             qualityReviewedSamples30d
-        );
-        gauge(
-            meters,
-            "tool.defect.dataset.candidates",
-            datasetCandidates
-        );
-        gauge(
-            meters,
-            "tool.defect.training.active.runs",
-            trainingActiveRuns
-        );
-        gauge(
-            meters,
-            "tool.defect.training.failed.runs.30d",
-            trainingFailedRuns30d
         );
         gauge(
             meters,
@@ -187,22 +169,6 @@ public class OperationalMetrics {
                 SELECT COUNT(*)
                 FROM review_record
                 WHERE submitted_at >= now() - interval '30 days'
-                """));
-            datasetCandidates.set(queryLong("""
-                SELECT COUNT(*)
-                FROM dataset_version
-                WHERE status IN ('BUILDING', 'VALIDATING')
-                """));
-            trainingActiveRuns.set(queryLong("""
-                SELECT COUNT(*)
-                FROM training_run
-                WHERE status IN ('QUEUED', 'RUNNING')
-                """));
-            trainingFailedRuns30d.set(queryLong("""
-                SELECT COUNT(*)
-                FROM training_run
-                WHERE status = 'FAILED'
-                  AND created_at >= now() - interval '30 days'
                 """));
             modelApprovalCandidates.set(queryLong("""
                 SELECT COUNT(*)

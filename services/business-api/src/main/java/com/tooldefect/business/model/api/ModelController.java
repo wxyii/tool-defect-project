@@ -30,13 +30,6 @@ public final class ModelController {
         "model_name", "task_type"
     );
 
-    private static final Set<String> REGISTER_FIELDS = Set.of(
-        "model_id", "training_run_id", "dataset_version_id",
-        "registry_name", "registry_version", "artifact_sha256",
-        "artifact_bucket", "artifact_object_key", "sbom_sha256",
-        "signature_key_id", "input_spec", "output_spec", "evaluation_summary"
-    );
-
     private static final Set<String> VALIDATION_DECISION_FIELDS = Set.of(
         "decision", "reason", "evaluation_report_sha256"
     );
@@ -81,31 +74,6 @@ public final class ModelController {
         var response = models.createModel(
             actor(authentication), idempotencyKey, request
         );
-        return ResponseEntity.status(response.status()).body(response.body());
-    }
-
-    @PostMapping("/model-versions")
-    ResponseEntity<Map<String, Object>> registerModelVersion(
-            @RequestHeader("Idempotency-Key") String idempotencyKey,
-            @RequestBody Map<String, Object> body,
-            Authentication authentication) {
-        var request = ContractValues.object(body, REGISTER_FIELDS, "模型版本注册请求");
-        ContractValues.uuid(request, "model_id");
-        ContractValues.uuid(request, "training_run_id");
-        ContractValues.uuid(request, "dataset_version_id");
-        ContractValues.text(request, "registry_name", 1, 256);
-        ContractValues.text(request, "registry_version", 1, 128);
-        ContractValues.text(request, "artifact_bucket", 1, 128);
-        ContractValues.text(request, "artifact_object_key", 1, 1024);
-        ContractValues.sha256(request, "artifact_sha256");
-        ContractValues.sha256(request, "sbom_sha256");
-        ContractValues.text(request, "signature_key_id", 1, 256);
-        requireObject(request, "input_spec");
-        requireObject(request, "output_spec");
-        var evaluation = requireObject(request, "evaluation_summary");
-        ContractValues.sha256(evaluation, "evaluation_report_sha256");
-        ContractValues.sha256(evaluation, "threshold_gate_sha256");
-        var response = models.registerVersion(actor(authentication), idempotencyKey, request);
         return ResponseEntity.status(response.status()).body(response.body());
     }
 
@@ -163,18 +131,4 @@ public final class ModelController {
         return authentication.getName();
     }
 
-    private static Map<String, Object> requireObject(Map<String, Object> request, String field) {
-        Object raw = request.get(field);
-        if (!(raw instanceof Map<?, ?> value)) {
-            throw new ContractValues.ContractInputViolation(field + " 必须是对象");
-        }
-        Map<String, Object> result = new java.util.LinkedHashMap<>();
-        for (var entry : value.entrySet()) {
-            if (!(entry.getKey() instanceof String key)) {
-                throw new ContractValues.ContractInputViolation(field + " 包含非字符串键");
-            }
-            result.put(key, entry.getValue());
-        }
-        return result;
-    }
 }

@@ -69,7 +69,7 @@ td:
     cleanup-fixed-delay: ${TD_SAMPLE_EXPORT_CLEANUP_FIXED_DELAY_MS:3600000}
   legacy:
     dataset-training-write-enabled: ${TD_LEGACY_DATASET_TRAINING_WRITE_ENABLED:false}
-    production-v1-write-enabled: ${TD_PRODUCTION_V1_WRITE_ENABLED:true}
+    production-v1-write-enabled: ${TD_PRODUCTION_V1_WRITE_ENABLED:false}
   auth:
     secure-cookie: ${TD_AUTH_SECURE_COOKIE:true}
     bootstrap:
@@ -87,10 +87,6 @@ td:
     environment: ${TD_ENVIRONMENT:unknown}
   review:
     claim-lease: ${TD_REVIEW_CLAIM_LEASE:PT5M}
-  training:
-    code-commit: ${TD_TRAINING_CODE_COMMIT:}
-    environment-lock-sha256: ${TD_TRAINING_ENVIRONMENT_LOCK_SHA256:}
-    random-seed: ${TD_TRAINING_RANDOM_SEED:}
   quality:
     default-window-days: ${TD_QUALITY_DEFAULT_WINDOW_DAYS:30}
   detection:

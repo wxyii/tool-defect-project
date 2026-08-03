@@ -3,10 +3,10 @@ PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 .PHONY: verify-layout verify-contracts verify-monitoring verify-production-security verify-runbooks verify-p5-offline test-core test-edge test-inference \
 	test-backend test-web test-integration test-e2e test-faults test-security \
 	test-performance verify-data verify-models verify-all \
-	verify-sample-export \
+	verify-sample-export verify-model-supply verify-online-without-training \
 	check-environment check-environment-source generate-contracts \
 	verify-contracts-source verify-v2-scope test-contract-packages-offline verify-compose \
-	verify-sbom sbom verify-p1-offline verify-p1-strict verify-p6-01 verify-p6-02 verify-p6-03 verify-p6-04 verify-p6-05 verify-p6-06 verify-p6-07 verify-p6-08 verify-g6 \
+	verify-sbom sbom verify-p1-offline verify-p1-strict verify-p6-01 verify-p6-04 verify-p6-05 verify-p6-06 verify-p6-07 verify-p6-08 verify-g6 \
 	verify-p7-01 verify-p7-02 verify-p7-03 verify-p7-04 verify-p7-05 verify-p7-06 verify-p7-07 verify-g7
 
 verify-layout:
@@ -64,6 +64,15 @@ verify-sample-export:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s jobs/sample-export-worker/tests -p 'test_*.py'
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) jobs/sample-export-worker/verify_sample_export.py
 
+verify-model-supply:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s jobs/model-supply/tests -p 'test_*.py'
+	TD_MODEL_ARCHIVE="$(TD_MODEL_ARCHIVE)" TD_MODEL_DECLARED_SIZE="$(TD_MODEL_DECLARED_SIZE)" \
+	TD_MODEL_DECLARED_SHA256="$(TD_MODEL_DECLARED_SHA256)" TD_MODEL_TRUSTED_KEYS="$(TD_MODEL_TRUSTED_KEYS)" \
+	TD_MODEL_POLICY="$(TD_MODEL_POLICY)" PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/verify_model_supply.py
+
+verify-online-without-training:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/verify_online_without_training.py
+
 test-performance:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/verify-layout/run_target.py test-performance
 
@@ -75,13 +84,6 @@ verify-models:
 
 verify-p6-01:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) jobs/artifact-migrator/verify_p6_01.py
-
-verify-p6-02:
-	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s jobs/dataset-builder/tests -p 'test_*.py'
-	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) jobs/dataset-builder/verify_p6_02.py
-
-verify-p6-03:
-	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) jobs/training-pipeline/verify_p6_03.py
 
 verify-p6-04:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) jobs/model-evaluator/verify_p6_04.py
@@ -161,5 +163,6 @@ verify-p1-strict: check-environment verify-layout verify-contracts verify-compos
 	MINIO_ROOT_PASSWORD=ci-only GRAFANA_ADMIN_USER=ci-only GRAFANA_ADMIN_PASSWORD=ci-only \
 	docker compose -f deploy/compose/development.yml config --quiet
 
-verify-all: verify-p1-strict verify-data test-core test-edge test-inference \
+verify-all: verify-p1-strict verify-v2-scope verify-data verify-sample-export \
+	verify-model-supply verify-online-without-training test-core test-edge test-inference \
 	test-backend test-web test-integration test-e2e verify-p5-offline verify-models verify-g7

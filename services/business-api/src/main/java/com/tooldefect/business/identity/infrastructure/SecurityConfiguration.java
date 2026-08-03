@@ -33,7 +33,7 @@ public class SecurityConfiguration {
             ObjectProvider<JwtDecoder> jwtDecoders,
             ObjectMapper json) throws Exception {
         http
-            .securityMatcher("/api/v1/edge/**", "/api/v2/production/**", "/internal/**")
+            .securityMatcher("/api/v2/production/**", "/internal/**")
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -61,35 +61,13 @@ public class SecurityConfiguration {
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers(
                     HttpMethod.POST,
-                    "/api/v2/production/detection-items",
-                    "/api/v1/edge/captures",
-                    "/api/v1/edge/captures/*/submit",
-                    "/api/v1/edge/captures/*/images/*/complete"
-                ).hasAuthority("SCOPE_capture:write")
-                .requestMatchers(
-                    HttpMethod.GET,
-                    "/api/v1/edge/captures/*"
-                ).hasAuthority("SCOPE_capture:read")
-                .requestMatchers(
-                    HttpMethod.POST,
-                    "/api/v1/edge/sync/captures/query"
-                ).hasAuthority("SCOPE_capture:read")
-                .requestMatchers(
-                    HttpMethod.POST,
-                    "/api/v1/edge/devices/*/heartbeat"
-                ).hasAuthority("SCOPE_device:heartbeat")
-                .requestMatchers(
-                    HttpMethod.POST,
-                    "/api/v1/edge/captures/*/images/*/upload-ticket"
+                    "/api/v2/production/detection-items"
                 ).hasAuthority("SCOPE_capture:write")
                 .requestMatchers(
                     "/internal/v1/detection-tasks/*/attempts",
                     "/internal/v1/detection-attempts/*/result",
                     "/internal/v1/detection-attempts/*/failure"
                 ).hasAuthority("SCOPE_inference:callback")
-                .requestMatchers(
-                    "/internal/v1/training-runs/*/status"
-                ).hasAuthority("SCOPE_training:callback")
                 .requestMatchers("/internal/**")
                     .hasAuthority("SCOPE_runtime:read")
                 .anyRequest().authenticated());
@@ -225,42 +203,12 @@ public class SecurityConfiguration {
                     "/api/v1/review-tasks/*/annotations/*/complete"
                 ).hasAuthority("review:annotate")
                 .requestMatchers(
-                    HttpMethod.POST,
-                    "/api/v1/datasets",
-                    "/api/v1/dataset-versions"
-                ).hasAuthority("dataset:create")
-                .requestMatchers(
-                    HttpMethod.POST,
-                    "/api/v1/training-runs"
-                ).hasAuthority("training:create")
-                .requestMatchers(
-                    HttpMethod.GET,
-                    "/api/v1/training-runs",
-                    "/api/v1/training-runs/*"
-                ).hasAnyAuthority("training:read", "training:create", "audit:read")
-                .requestMatchers(
                     HttpMethod.GET,
                     "/api/v1/quality/metrics"
                 ).hasAnyAuthority("quality:read", "audit:read")
                 .requestMatchers(
-                    HttpMethod.GET,
-                    "/api/v1/datasets",
-                    "/api/v1/dataset-versions",
-                    "/api/v1/datasets/*/versions",
-                    "/api/v1/dataset-versions/*",
-                    "/api/v1/dataset-versions/diff",
-                    "/api/v1/dataset-candidate-manifests",
-                    "/api/v1/dataset-candidates"
-                ).hasAnyAuthority("dataset:create", "dataset:approve", "audit:read")
-                .requestMatchers(
                     HttpMethod.POST,
-                    "/api/v1/dataset-versions/*/approval",
-                    "/api/v1/dataset-candidate-manifests/*/approval"
-                ).hasAuthority("dataset:approve")
-                .requestMatchers(
-                    HttpMethod.POST,
-                    "/api/v1/models",
-                    "/api/v1/model-versions"
+                    "/api/v1/models"
                 ).hasAuthority("model:register")
                 .requestMatchers(
                     HttpMethod.GET,

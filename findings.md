@@ -1,5 +1,180 @@
 # R0/R1/R2/R3/R4/R5/R6/R7 发现与决策
 
+## R9 启动记录（2026-08-03）
+
+- 用户明确要求开始 `R9` 阶段，并指定以 `Docs/16-手工批量检测与管理简化需求规格.md`、`Docs/17-手工批量检测整改实施计划.md` 为依据。
+- `planning-with-files` 技能已读取；仓库根目录的 `task_plan.md`、`findings.md`、`progress.md` 已存在，包含 R0—R8 历史记录，本轮只追加 R9 内容。
+- R9 的具体任务编号、`RG9` 标准、契约版本、迁移序列和验证命令尚待从 DOC-16/DOC-17 完整提取；在完成入口核对前不宣称任何 R9 子项或门禁通过。
+- 下一步先读取两份目标文档、当前 Git 工作树和相关 R9 代码/测试表面，再确定本轮实现边界；必须避让其他所有者的未提交改动。
+
+## R9 需求提取（2026-08-03）
+
+- DOC-17 第 15 节将 R9 定义为“第一版其余写入退役、多视角运行语义退役和全量验收”。入口要求 `RG3—RG8` 全部通过、第一版消费者/采集代理清单归零或有批准延期隔离方案、第二版稳定运行/对账/回滚窗口达到批准时长，并完成数据库/对象存储/配置备份恢复演练。
+- `R9-01`—`R9-09` 的范围已提取：网关和业务后端停第一版兼容写、边缘/推理删除多视角运行分支、数据库收紧非空和唯一约束、前端物理清理旧入口与兼容引用、更新文档手册、执行全系统验收、移除在线数据集构建/训练回调及开发启动逻辑、生成并验证带哈希的 `LegacyProvenanceSnapshot`、固化消费者清单/观察窗/批准人/指标/`410` 证据。
+- DOC-17 明确历史多视角记录和第一版契约/基线不能因源码扫描而删除；研究代码仅可在无生产凭据、无自动启动、无在线接口/事件、无生产镜像、无 `verify-all` 依赖时离线保留；`src/tool_defect/training/` 在 P1 保持原位。
+- `RG9` 要求所有生产写请求走第二版单图片项模型，第一版写调用在批准观察窗为零，清单与遥测完整，两类角色/批次/产线/反馈/样本导出/模型直传端到端通过，历史与审计完整，第二版无数据集/训练一等资源与写能力，在线能力不依赖内部训练，且有真实设备、完整工具链和外部服务证据。
+- DOC-17 规定的 R9 命令为：`make verify-p1-strict`、`make verify-v2-scope`、`make verify-data`、`make verify-sample-export`、`make verify-model-supply`、`make verify-online-without-training`、`make test-core`、`make test-edge`、`make test-inference`、`make test-backend`、`make test-web`、`make test-integration`、`make test-e2e`、`make test-faults`、`make test-security`、`make test-performance`、`make verify-models`、`make verify-all`。
+- DOC-16 对应的关键约束包括：`FR-GOV-010`（已取消第一版写接口返回 `410 / TD-LEGACY-FEATURE-RETIRED`）、`MIG-009`（消费者归零/历史验证/回滚窗口后才删多视角运行代码）、`MIG-011`—`MIG-013`（数据集/训练退役、通用快照、机器可读清单+指标+观察窗）、`AT-LEG-001`、`AT-COMP-002`、`AT-COMP-003`、`AT-SCOPE-001`。
+- 目前不能据文档直接判定 R9 入口满足；`RG6`/`RG8` 及真实设备、外部服务、批准观察窗口和备份恢复等证据需要继续从仓库和运行环境核对，缺失时保持 `HOLD`。
+
+## R9 工作树与资产初盘（2026-08-03）
+
+- `git status --short` 当前仅显示本轮三份规划文件；没有发现其他智能体的未提交源码、契约或迁移改动需要避让。
+- 当前 `HEAD` 为 `7fad197 feat(sample): implement R7 sample export features and security measures`；现有数据库迁移含 `V20__r7_sample_library_and_exports.sql`，R9 若需迁移必须先确认是否确实需要新序号，不能回写历史迁移。
+- 仓库仍存在 `jobs/training-pipeline`、`jobs/dataset-builder`、`jobs/model-evaluator`、`src/tool_defect/training` 等资产，同时存在第一版/第二版契约、旧迁移、边缘端、推理服务和前端文件；这些仅证明资产存在，尚不能证明它们是在线生产入口或可安全删除。
+- R9 实施必须先完成部署 Compose、开发启动脚本、镜像/构建清单、消费者清单、配置/监控、路由/菜单和测试依赖的分类扫描；研究代码依据 DOC-17 第 15.3 节保留或归档，不能以全仓字符串归零作为唯一删除依据。
+
+## R9 在线退役初步差距（2026-08-03）
+
+- `Makefile` 当前虽有 `test-core`—`test-performance`、`verify-v2-scope`、`verify-sample-export` 等入口，但没有 DOC-17 R9 明确要求的 `verify-model-supply` 和 `verify-online-without-training` 目标；`verify-all` 当前依赖 `verify-p1-strict`、`verify-data`、核心测试、`verify-p5-offline`、`verify-models` 和 `verify-g7`，尚未成为 R9 全量门禁。
+- `tools/dev/start-all.sh` 仍定义数据集构建器环境变量、启动函数、PID/就绪文件和停止检查，并直接执行 `jobs/dataset-builder/worker.py`；这属于 R9-07 的在线开发启动入口，不能按离线研究资产保留。
+- `contracts/consumers/v1-consumers.json` 将第一版四类消费者标记为 `FROZEN_UNUSED`，且遥测写明“第一版从未部署”；这可作为待核验的机器可读声明，但仍需验证清单完整性、审批/声明依据和退役响应证据，不能直接等同于 RG9 观察窗通过。
+- `contracts/consumers/v2-consumers.json` 中前端和样本/模型 worker 为 `PLANNED`，边缘、业务、推理为 `TESTING`；因此第二版稳定运行和 R9 入口目前不能判定满足。
+- 多视角/角色兼容引用仍出现在边缘同步和本地队列、推理解码/物化/预处理、业务采集控制器/仓储/消息发布、存储对象键策略及对应测试中；应先区分第一版历史读路径、第二版单项运行路径和必须物理退役的在线分支。
+
+## R9 训练在线表面核对（2026-08-03）
+
+- 业务后端仍包含 `com.tooldefect.business.training` 的 `TrainingController`、`TrainingInternalController`、`TrainingWorkflowService`、`JdbcTrainingRunRepository` 和异常处理；训练创建、状态回调和独立查询仍是可编译在线表面。
+- `SecurityConfiguration` 仍为 `/internal/v1/training-runs/*/status` 配置 `SCOPE_training:callback`，并为 `/api/v1/training-runs` 与数据集路由配置人员权限；R9-07/R9-01 需要移除这些在线匹配，保留退役写请求的稳定 `410` 证据。
+- `V1`/`V7`/`V10`/`V12`/`V15`/`V16`/`V19` 中的历史训练表、状态保护、租约和旧权限迁移不能回写或删除；当前只处理应用在线消费者、配置和监控。
+- 模型登记仍强制 `training_run_id`、`dataset_version_id` 和成功训练/冻结数据集条件；这属于模型供应链/历史快照交界，R9 不在没有 R8 外部模型闭环和 R9-08 迁移证据时擅自放宽或删除。
+
+## R9 物理删除授权后的资产边界（2026-08-03）
+
+- 项目所有者补充确认：`services/business-api/.../training/` 正式退役；不存在旧模型，也不存在第一版业务数据残留；第一版运行代码可物理删除。
+- 已物理删除业务后端训练控制器、工作流、JDBC 仓储、异常处理、训练域对象及对应测试；该目录曾被 `.gitignore` 忽略，因此删除不会形成 Git 跟踪差异，但工作区源码扫描已不再命中在线训练 Spring 组件。
+- 已删除旧模型登记 HTTP 入口、前端登记服务/类型及后端生命周期资格读取器；保留模型目录、部署、验证查询所需的当前模型实体，避免在第二版模型直传实现尚未落地时造成无依据的模型供应链放宽。
+- `business.dataset` 主代码没有被当前 Java 主代码依赖，已确认可物理删除；其数据库迁移继续作为不可回写历史来源，后续只从跟踪测试中移除依赖该运行包的调用。
+- `jobs/dataset-builder` 与 `jobs/training-pipeline` 是第一版旧作业目录；当前 `jobs/model-evaluator` 仍被验证器和 P7 预检直接引用，不能一并删除。
+
+## R9-07 训练回调退役实施（2026-08-03）
+
+- 已删除 `TrainingInternalController`，移除内部训练状态回报 HTTP 入口；`TrainingApiExceptionHandler` 改为只绑定保留的历史训练查询控制器。
+- 已从 `SecurityConfiguration` 移除 `SCOPE_training:callback` 专用匹配，并从 `application.yaml` 移除 `td.training` 代码提交/环境锁/随机种子配置绑定；历史训练表/仓储未删除。
+- 验证通过：仓库根残留扫描无 `TrainingInternalController`、`SCOPE_training:callback`、`TD_TRAINING_`、`td.training.`；后端定向 `LegacyRetiredWriteFilterTest`、`RolePermissionMatrixTest`、`OperationalMetricsTest` 通过。
+- 保留限制：`TrainingController` 的独立历史 GET 和被 `410` 过滤的写路径仍存在，训练创建工作流尚未物理删除，需在 R9-08 快照和消费者证据后继续处理。
+
+## R9 当前工作树复核（2026-08-03）
+
+- R9 阶段 0 的需求提取、入口核对和资产初盘已完成；由于第二版消费者/观察窗、备份恢复、真实设备和外部服务证据仍不完整，入口继续保持 `HOLD`。
+- 当前本轮差异未修改 `contracts/`、生成类型或历史数据库迁移；训练内部回报面、训练回调权限、训练配置绑定和训练监控面已按 R9-07 增量清理。
+- 训练创建/独立历史查询、前端旧 API/组件及 R9-08 快照替换仍未完成；不能把已完成的增量清理误记为 R9-07 或 RG9 完成。
+
+## R9-04 前端旧表面清理（2026-08-03）
+
+- 已物理删除 `apps/web-console/src/features/datasets` 与 `apps/web-console/src/features/training` 的页面/服务文件，并从 `apps/web-console/src/api/client.ts` 删除对应第一版操作定义、路径和调用方法。
+- 已同步移除 R6 前端测试对数据集目录、候选清单、版本构建和训练创建服务的依赖；保留模型登记测试中的历史来源字段，等待 R9-08 通用快照替换，不把该字段误当成旧页面入口。
+- `make test-web` 通过：类型检查、9 个测试文件、41 项测试和生产构建均通过。后端旧路由/权限和模型历史字段仍待 R9-01/R9-08，R9-04 总项暂不关闭。
+
+## R9-09 验证入口设计复核（2026-08-03）
+
+- `jobs/model-supply/verify_model_supply.py` 已具备真实压缩包、声明大小/哈希、签名信任根、策略、SBOM、解压路径和资源限制校验，但必须提供外部模型包证据；R9 的 `verify-model-supply` 目标应在缺证时明确 `HOLD`，不能只运行单元测试后成功。
+- `verify-online-without-training` 仍缺少入口；它需要同时检查启动/部署/监控/业务后端/前端的在线训练残留，并在没有隔离部署、正向 v2 链路、`410` 证据和批准观察材料时返回非零 `HOLD`。
+
+## R9-09 门禁增量验证（2026-08-03）
+
+- `make verify-model-supply` 的 7 项模型包单元测试通过；因未提供外部模型包、声明哈希和信任根，真实门禁返回 `MODEL_SUPPLY_EVIDENCE_MISSING / HOLD`，退出码 2，符合安全失败要求。
+- `PYTHONDONTWRITEBYTECODE=1 python3 tools/verify_online_without_training.py` 返回 `ONLINE_TRAINING_SURFACE_REMAINS / HOLD`，准确列出业务后端训练控制器/工作流/仓储、旧训练权限/退役过滤路径和异常处理残留；未把在线验收伪报为通过。
+
+## R9-07 业务后端依赖边界复核（2026-08-03）
+
+- 业务后端主源码中训练创建控制器/工作流、训练仓储和训练域对象没有被模型服务以外的主源码引用；数据库迁移集成测试仍直接使用训练仓储验证历史表，因此删除在线表面时必须同步调整测试接线，不能删除历史迁移或把历史表当作第二版资源。
+- `SecurityConfiguration` 仍授权数据集/训练写入、读取和审批；`LegacyRetiredWriteFilter` 的 `410` 过滤仍需要保留作为明确失败契约，不能因删除控制器而丢失退役证据。
+
+## R9-07 训练删除的测试边界（2026-08-03）
+
+- 后端单测仍有 `TrainingWorkflowServiceTest` 和 `TrainingRunTest`，数据库迁移集成测试也实例化 `JdbcTrainingRunRepository`；这些是历史训练事实/旧契约验证，不能在未完成 R9-08 快照替换前静默删除。
+- `RolePermissionMatrixTest` 与迁移测试仍包含 `training:create`/`training:read` 历史权限值；R9-07 可先删除在线 HTTP 匹配，但权限枚举/迁移基线需保留并由 R9-09 记录为历史冻结，而不是伪造为消费者零。
+
+## R9-07 在线训练组件退役尝试（不计入交付）（2026-08-03）
+
+- 此前曾尝试删除业务后端训练 HTTP 控制器/异常处理器、移除工作流 `@Service`、训练配置绑定和 JDBC 仓储 `@Repository`；随后确认这些文件位于根 `.gitignore` 的 `training/` 忽略目录，相关工作区变化不属于可确认的 Git 交付差异，不能据此宣称在线组件已退役。
+- 可计入交付的部分是已跟踪文件：`SecurityConfiguration` 已移除训练回调及旧训练创建/查询 HTTP 匹配，`application.yaml` 已移除 `td.training.*` 配置绑定，监控和开发启动链已清理；`LegacyRetiredWriteFilter` 仍保留训练写路径的 `410 / TD-LEGACY-FEATURE-RETIRED`。
+- 当前 `make verify-online-without-training` 返回 `ONLINE_TRAINING_SURFACE_REMAINS / HOLD`，残留包括被忽略目录扫描到的 `TrainingController`、`TrainingWorkflowService`、`JdbcTrainingRunRepository` 和异常处理器注解。`TrainingInternalController.java` 当前工作区缺失，但同样不在 Git 跟踪范围，不能将该缺失当作可交付删除证据。
+
+## R9 训练源码所有权纠偏（2026-08-03）
+
+- 复核发现 `services/business-api/src/main/java/com/tooldefect/business/training/` 被根 `.gitignore` 的 `training/` 规则忽略，相关控制器/工作流/仓储不属于本轮可确认的 Git 交付资产；前述对忽略文件的退役尝试不计入 R9 完成证据。
+- 可交付的 R9-07/R9-09 证据以已跟踪文件为准：训练权限、监控、启动和验证器等改动可审计；无训练门禁仍必须对忽略目录中的在线训练残留返回 `HOLD`，不能因 Git 不显示而判定清零。
+- 复核后的实际门禁结果为 `ONLINE_TRAINING_SURFACE_REMAINS / HOLD`，不是“仅缺真实隔离证据”；后续必须先明确该忽略路径的所有权和交付方式，再继续物理退役。
+
+## R9 当前回归与门禁结果（2026-08-03）
+
+- 第二次完整 `make test-backend` 通过：102 项单元测试、26 项真实容器集成测试，失败/错误/跳过均为 0；PostgreSQL 18.4/Testcontainers 实际完成 V1—V20 迁移，MinIO/RabbitMQ 场景通过。
+- 首次完整后端回归曾因第一版生产写默认退役后旧 `S3StorageIT` 仍期待 403 而失败；已将该历史续传安全测试显式置于生产 v1 回滚开关下，保留默认关闭时 `410` 的独立单测，随后完整回归通过。
+- `make verify-model-supply` 的 7 项模型供应链单测通过，但缺少外部模型包/声明哈希/信任根，返回 `MODEL_SUPPLY_EVIDENCE_MISSING / HOLD`；`make verify-online-without-training` 因忽略目录训练 Spring 表面残留返回 `ONLINE_TRAINING_SURFACE_REMAINS / HOLD`。
+
+## R9 第一版产线兼容边界（2026-08-03）
+
+- 第二版产线写入口是业务后端 `/api/v2/production/detection-items`，边缘端 `production_v2.py` 已调用该单图片项模型。
+- 第一版 `/api/v1/edge/captures` 及其采集/同步表面仍存在，属于采集代理升级完成前的兼容路径；`contracts/consumers/v1-consumers.json` 当前声明第一版从未部署，但仍需消费者所有者和遥测/批准证据确认。
+- `TD_PRODUCTION_V1_WRITE_ENABLED` 已由受跟踪的 `LegacyRetiredWriteFilter` 实际消费；默认值改为 `false`，第一版写方法默认返回 `410`，显式开启仅作为受控回滚路径，仍需消费者/观察窗证据确认。
+
+## R9-01 第一版生产采集写路径核对（2026-08-03）
+
+- 第一版生产写入实际仍存在：业务后端 `CaptureController` 暴露 `/api/v1/edge/captures` 创建/补图/提交，边缘端 `http_transport.py` 仍注册 `createCapture`、`submitCapture` 和状态读取操作；不能仅修改无消费者的 `TD_PRODUCTION_V1_WRITE_ENABLED` 配置文本。
+- 第二版业务后端 `/api/v2/production/detection-items` 和边缘端 `production_v2.py` 已存在；契约 v1/OpenAPI/兼容基线必须冻结保留，在线 v1 写端和安全失败响应需在消费者证据/回滚窗口确认后退役。
+
+## R9-01 第一版生产采集写入退役增量（2026-08-03）
+
+- `LegacyRetiredWriteFilter` 已增加独立的 `td.legacy.production-v1-write-enabled` 开关；`application.yaml` 默认改为 `${TD_PRODUCTION_V1_WRITE_ENABLED:false}`，第一版 `/api/v1/edge/captures` 及其子路径的写方法在默认配置下返回 `410 / TD-LEGACY-FEATURE-RETIRED`。
+- 数据集/训练写开关与第一版生产采集开关保持独立；过滤器新增第一版生产写 `410` 单测，`make verify-data` 通过（迁移 20、错误列表为空），定向过滤器测试通过。
+- 已知限制：这是停写保护和可回滚开关，不等于 R9-01/RG9 完成；边缘端旧 transport、v1 契约基线和消费者/观察窗证据仍需完成退役确认。
+
+## R9 退役边界复核（2026-08-03）
+
+- 业务后端已有 `LegacyRetiredWriteFilter`，覆盖 `/api/v1/datasets`、`/api/v1/dataset-versions`、`/api/v1/dataset-candidate-manifests`、`/api/v1/training-runs` 和 `/internal/v1/training-runs` 的写方法；默认 `td.legacy.dataset-training-write-enabled=false` 时返回 HTTP `410` 和 `TD-LEGACY-FEATURE-RETIRED`，已有专门单测。
+- 旧数据集/训练控制器、领域/仓储、独立 GET 查询、权限规则和前端 `features/datasets`、`features/training`、`client.ts` 兼容方法仍在。它们不能继续作为第二版资源表面；在 R9-08 的通用历史来源快照验证前，不能贸然删除所有旧读取实现。
+- R9-01 的合理落点是保留明确、稳定、无副作用的退役响应（或等价网关契约），删除其背后的在线写消费者和调度/回调；R9-08 完成后再删除独立数据集/训练读取路由。所有删除必须有迁移/历史查询回归和构建扫描证据。
+- R9-02 的运行时清理不能误伤历史多视角只读查询。边缘队列/采集适配器中的 `image_role` 可能属于第一版兼容存储，推理第二版消息和单项测试必须无该字段；需以契约和实际消费者为准逐处修改。
+
+## R9-02 多视角语义边界核对（2026-08-03）
+
+- 推理第二版 `SingleItemTask`/`SingleImageDecoder` 已有单图片校验：v2 输入拒绝 `image_role`，解码结果不引入 `image_role`；现存 `decoder.py`、`materializer.py`、`primary_bgr_frame` 和边缘本地队列角色字段属于第一版/旧插件链，不能用全仓字符串删除代替运行时分流。
+- 当前 R9-02 的安全落点是继续以第二版契约和单项测试约束 v2，保留 v1 冻结读写基线；待第一版消费者观察窗闭合后，再物理删除旧 inference/edge 多视角路径。
+
+## R9-08 模型历史快照差距（2026-08-03）
+
+- 第二版契约已经定义只读 `LegacyProvenanceSnapshot`，并要求它只能嵌入 `ModelHistoryItem.legacy_provenance`；`verify_v2_scope.py` 也已有独立路由和错误嵌入的自测。
+- 当前业务后端 `ModelController`/`JdbcModelRepository` 仍提供第一版 `/api/v1/models`、`/api/v1/model-versions` 表面，登记请求和领域模型直接接收 `training_run_id`、`dataset_version_id`；模型历史响应尚未确认由通用带哈希快照构造。
+- R9-08 实施前必须定义旧来源摘要的稳定规范（来源类型、旧标识、不可变摘要、归档引用、SHA-256、保留时间），并验证模型历史在关闭独立数据集/训练读取后仍可追溯；不能用空快照或删除来源字段冒充完成。
+
+## R9-08 后端实现差距复核（2026-08-03）
+
+- 现有业务后端模型接口仍是 v1 `ModelController`，模型版本领域对象和 JDBC 仓储直接保存 `training_run_id`、`dataset_version_id`；当前业务主源码未发现已接通的 `ModelHistoryItem.legacy_provenance` 查询映射。
+- 因此本轮不修改 v2 契约或生成包，也不添加空快照/猜测摘要；R9-08 仍是阻断项，需要先确认模型历史网络入口、数据库来源字段保留策略和稳定摘要哈希规范。
+
+## R9-02 增量回归（2026-08-03）
+
+- `make verify-v2-scope` 通过：第二版取消清单、生成类型、消费者表面和历史快照边界合规。
+- `make test-inference` 通过 36 项，`make test-edge` 通过 119 项；边缘测试日志明确记录真实硬件验收前置缺失，但测试仍按 HOLD 语义完成，不能据此宣称真实设备验收通过。
+
+## R9 配置、权限和前端现状校正（2026-08-03）
+
+- `application.yaml` 中数据集/训练写开关与第一版生产采集写开关均默认关闭，`td.training.*` 配置绑定已从已跟踪配置移除；历史迁移和研究/历史源码仍保留。
+- `SecurityConfiguration` 已移除训练回调及旧训练创建/查询 HTTP 匹配；数据集/训练历史权限枚举和迁移事实仍保留，不能把历史值误判为第二版在线资源。
+- 前端已删除 `features/datasets`、`features/training` 页面/服务以及 `client.ts` 对应第一版客户端操作，测试已同步收窄；模型历史旧来源字段仍等待 R9-08 通用快照替换。
+- 退役后仍要保留第一版冻结契约、历史兼容基线和数据库迁移作为归档事实；这些文件命中旧字段不构成第二版在线资源表面。
+
+## R9 验证资产现状（2026-08-03）
+
+- `jobs/model-supply` 的压缩包边界/哈希/签名/SBOM/白名单测试已接入根 `make verify-model-supply`；缺少外部模型包证据时返回 `MODEL_SUPPLY_EVIDENCE_MISSING / HOLD`。
+- 根 `make verify-online-without-training` 已接入启动/部署/监控/后端/前端残留扫描和证据文件校验；当前因忽略目录在线训练组件残留返回 `ONLINE_TRAINING_SURFACE_REMAINS / HOLD`，不会以静态单测冒充在线验收。
+- R9-07 可先从 `tools/dev/start-all.sh` 移除在线数据集构建执行端启动/停止/就绪检查；`jobs/dataset-builder` 及其旧测试/离线校验暂按研究/历史资产保留，直到有独立归档所有者和兼容测试结论。
+- 已实施的首项：`tools/dev/start-all.sh` 已移除数据集构建器环境变量、入口检查、启动/停止/状态/日志/回滚和守护检查；`tools/dev/README.md` 已明确开发脚本不启动内部训练链路。`bash -n tools/dev/start-all.sh` 通过，脚本和说明中无 `dataset-builder`/`DATASET_BUILDER` 引用。
+
+## R9-07 首项实施记录（2026-08-03）
+
+- 该改动只切断在线开发启动链，不删除 `jobs/dataset-builder` 研究/历史目录，不修改数据库事实和既有迁移。
+- 训练配置/回调和开发启动链的已跟踪部分已清理；忽略目录中的在线训练组件和其他部署/构建/事件引用仍需由明确所有者处理，R9-07 尚未完成。
+- 训练发布仪表盘、`OperationalMetrics` 中的数据集/训练指标 SQL 与注册、对应单测断言已同步删除，模型审批候选和生产部署指标保留；`make verify-monitoring` 已验证。
+
+## R9-07 监控清理验证（2026-08-03）
+
+- 已删除 `deploy/monitoring/grafana/dashboards/training-release.json`，并从 `monitoring-manifest.json` 移除登记。
+- 已从 `OperationalMetrics` 移除数据集候选、训练活动和训练失败指标、SQL 查询与注册；对应单测改为验证第二版模型/恢复指标。
+- 验证通过：`git diff --check`；`python3 -m json.tool deploy/monitoring/monitoring-manifest.json`；训练/数据集指标残留扫描；`make verify-monitoring`；`services/business-api/mvnw -q -Dtest=OperationalMetricsTest test`。
+
 ## R7 实施前端后端边界复核
 
 - 业务后端实际 Java 包根为 `com.tooldefect.business`；R7 新模块应按现有 `api/application/domain/infrastructure` 分层新增 `sample`，不能沿用旧盘点中的示例路径。
@@ -621,6 +796,14 @@
 - 完成事件闭环后的本轮门禁均通过：worker 4 项单测及正负门禁、通用集成 8 项、数据门禁最新迁移 V20、安全 24 项、故障 24 项、端到端 44 项；密钥扫描检查 654 个文件。
 - 创建导出作业时现在先保存请求目标的桶/对象键；完成事件核对该位置后写入包/清单哈希、计数、失败候选和逐项状态。逐项 `exported_sha256/exported_size_bytes` 记录包级摘要，作为该导出项已包含在已校验包中的证据；包内成员哈希仍以清单为准。
 
+## R9 物理退役边界复核（2026-08-03）
+
+- 项目所有者补充确认：`business-api/.../training/` 已正式退役；当前无旧模型、无第一版业务数据残留，第一版运行代码可物理删除。
+- 已完成的运行时删除包含业务后端训练包、旧数据集包、旧模型登记/生命周期资格读取器、旧数据集/训练作业及受控输出、评审到训练准入消费者、第一版采集命令包、旧原始上传票据接口和对应测试；已将仍被复核策略使用的 `BusinessDisposition` 移到检测领域。
+- `services/business-api` 已执行 `clean test-compile`：主源码 217 个、测试源码 36 个编译成功；仅有既有过时 API 和未检查操作提示，无编译错误。
+- 第一版契约、兼容基线、生成物和已执行数据库迁移仍作为不可回写审计来源保留；本轮未通过物理删除运行代码来改写这些来源。
+- 当前仍需单独处理/验证的残留不是已确认退役的训练/数据集运行包：边缘端旧本地采集队列与 v1 同步器、推理服务旧多图编排/回调、部分 v1 检测/复核读模型以及数据库历史表/列仍与现有历史兼容测试或运行查询耦合。删除前需完成 v2 单图消费者接线或明确保留边界，不能只按字符串命中盲删。
+
 ## R7 收尾复核（2026-08-03）
 
 - R7-05 已补充管理员检测项和候选列表的服务端游标分页、加载更多和刷新游标复位；前端只展示后端分页事实，不在浏览器推导最终处置。
@@ -629,3 +812,41 @@
 - 新增回执后的真实投影回归先暴露 `findExportJob` 缺少清单媒体类型列的问题；已使用固定的 `application/json` 契约媒体类型补齐查询别名，随后 `DatabaseMigrationIT` 和完整 `make test-backend` 均通过。
 - 最终验证结果：`make test-web` 为 9 个测试文件、44 项测试并通过类型检查和生产构建；`make test-backend` 为 101 项单元测试和 26 项真实容器集成测试；`make verify-sample-export` 4 项 worker 测试及正负/部分失败/哈希/版本场景；`make test-integration` 8 项、`make verify-data` 状态 `PASSED` 且 V20、`make test-security` 24 项、`make test-faults` 24 项、`make test-e2e` 44 项，`git diff --check` 通过。
 - 自动化 RG7 标准已满足；但 `RG6` 仍因 `RG5` 真实浏览器联合证据缺失保持 `HOLD`，导出对象前缀、保留期、配额和审批阈值也没有批准配置事实，因此 R7 只判定为 `completed_with_hold`，不得面向用户启用。
+
+## R9 V21 数据库物理清理与后端回归（2026-08-03）
+
+- 项目所有者的“无旧模型、无第一版数据残留、允许物理删除”授权已落到实现：新增 `services/business-api/src/main/resources/db/migration/V21__r9_remove_retired_v1_sources.sql`，不改写 V1—V20 历史脚本。
+- V21 先检查 `model_version` 中旧内部来源/旧训练或数据集外键，以及六张数据集/训练历史表；任一非零都抛出 PostgreSQL 异常并进入 `HOLD`，不允许带数据误删。空库/升级库随后删除六张旧表、旧模型来源列、旧权限映射，并把模型来源收紧为带上传会话和外部来源快照的 `EXTERNAL_UPLOAD`。
+- `ModelVersion`、JDBC 模型仓储和数据库迁移测试已切换到外部上传来源；`DatabaseMigrationIT` 验证空库/升级库的六张旧表和旧模型列不存在，`ReliableMessagingIT` 使用 `model_upload_session_v2` 夹具。
+- 首次完整 `make test-backend` 的唯一失败是 pg_dump 恢复断言仍期待 20 条迁移，实际为 21；断言已修正。补充 V21 负向 HOLD 测试后，最终 `make test-backend` 通过 80 项单元测试和 24 项真实容器集成测试，失败/错误/跳过均为 0，PostgreSQL 18.4、MinIO、RabbitMQ 和 V21 迁移均实际执行。
+- 后端 `clean test-compile` 已通过（217 个主源码、36 个测试源码）。旧训练、数据集、旧模型登记运行包以及第一版采集/原始上传票据运行包已物理删除；契约版本保持第二版 `2.0.0`，第一版契约/兼容基线和历史迁移继续作为冻结审计来源。
+- 按授权，R9-08 不生成空 `LegacyProvenanceSnapshot`，而记录为无旧来源事实下的“不适用”。边缘旧队列/同步、推理旧多图回调和仍耦合当前复核事实的 v1 读模型未盲删，继续作为 R9-02/R9-04 的明确剩余边界。
+
+## R9 核心/边缘/推理/前端回归复核（2026-08-03）
+
+- `make test-edge` 通过 119 项，真实硬件验收前置项全部缺失并由测试日志明确记录，不能宣称真实设备通过；`make test-inference` 通过 36 项。
+- `make test-web` 通过类型检查、9 个测试文件 39 项测试和生产构建；前端旧数据集/训练页面与客户端删除未引入类型或构建回归。
+- `make test-core` 最终未通过：202 项中仅 9 项因 `artifacts/classification`/`artifacts/multitask` 的旧模型权重缺失而报错；角色手册断言已同步为现行“样本导出”并通过。旧模型不恢复、不补造，核心门禁保持 `HOLD`，与 `verify-model-supply` 缺外部模型包证据一致。
+- `src/tool_defect/training/` 仍按项目边界保留；本次核心回归的缺失权重属于未提交的旧研究模型资产，不得用生成/测试产物填充以制造通过。
+
+## R9 集成回归迁移（2026-08-03）
+
+- `make test-integration` 首次执行因 P5 追踪测试仍读取已删除的 `capture/application/CaptureWorkflowService.java` 而失败；该测试属于旧第一版采集运行面残留，不恢复已删除类。
+- 已将测试改为检查现行 `detectionbatch/application/ProductionDetectionService.java` 的 v2 `traceparent`、`pipeline_version=2.0.0` 和 `inference.item.requested.v2` 事件传播；重跑 `make test-integration` 通过 8 项。
+- 角色手册断言已改为“样本导出”，精确测试通过；旧模型权重仍缺失，核心研究测试继续保持 `HOLD`。
+
+## R9 严格 P1 门禁（2026-08-03）
+
+- `make verify-p1-strict` 通过：严格工具链（Python、Java、Maven、Node 20.13.1、pnpm 10.34.5、Docker/Compose）满足，契约全语言生成/编译、Compose、安全扫描、24 项安全测试、SBOM 和 Compose 配置检查均通过。
+- 严格 P1 通过不等于 RG9 通过；外部模型包证据、无训练隔离观察窗、真实设备和其余 v1 兼容消费者边界仍保持 `HOLD`。
+
+## R9 阶段性离线门禁汇总（2026-08-03）
+
+- `make verify-sample-export` 通过 4 项 worker 测试及正向/负向/部分失败/哈希/版本验证。
+- `make verify-p5-offline` 通过监控、部署安全、运行手册、24 项故障测试、密钥扫描、24 项安全测试和 17 项性能测试。
+- `make verify-g7` 返回 `BLOCKED`，阻断数 109，主要是既有 P6/P7 生产验收报告、站点参数签署、真实硬件、生产模型、恢复演练和发布签署证据缺失；没有把缺失证据标为通过。
+
+## R9 V21 安全失败测试补充（2026-08-03）
+
+- 新增 `DatabaseMigrationIT.v21RefusesRetiredRowsBeforeDestructiveCleanup`：在 V20 schema 预置旧 `dataset` 行，V21 必须抛出 R9 退役异常，旧行保留且 V21 不写入成功迁移历史。
+- 该测试证明“无第一版数据”是物理删除的前置事实，技术上即使前置事实失效也只会进入 `HOLD`，不会误删或产生 `PASS`；完整后端回归已通过 80 项单元测试和 24 项集成测试。

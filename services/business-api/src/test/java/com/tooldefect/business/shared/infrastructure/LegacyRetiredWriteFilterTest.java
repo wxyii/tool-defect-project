@@ -14,7 +14,7 @@ class LegacyRetiredWriteFilterTest {
 
     @Test
     void retiredDatasetWriteReturnsGoneWithoutInvokingConsumer() throws Exception {
-        var filter = new LegacyRetiredWriteFilter(objectMapper, false);
+        var filter = new LegacyRetiredWriteFilter(objectMapper, false, false);
         var request = new MockHttpServletRequest("POST", "/api/v1/dataset-versions");
         var response = new MockHttpServletResponse();
         var chain = new MockFilterChain();
@@ -29,8 +29,24 @@ class LegacyRetiredWriteFilterTest {
     }
 
     @Test
+    void retiredProductionV1WriteReturnsGoneWithoutInvokingConsumer() throws Exception {
+        var filter = new LegacyRetiredWriteFilter(objectMapper, false, false);
+        var request = new MockHttpServletRequest("POST", "/api/v1/edge/captures");
+        var response = new MockHttpServletResponse();
+        var chain = new MockFilterChain();
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(410);
+        assertThat(chain.getRequest()).isNull();
+        var body = objectMapper.readTree(response.getContentAsByteArray());
+        assertThat(body.get("code").asText())
+            .isEqualTo("TD-LEGACY-FEATURE-RETIRED");
+    }
+
+    @Test
     void readsAndProductionWritesRemainIndependent() throws Exception {
-        var filter = new LegacyRetiredWriteFilter(objectMapper, false);
+        var filter = new LegacyRetiredWriteFilter(objectMapper, false, false);
 
         var readChain = new MockFilterChain();
         filter.doFilter(
@@ -51,7 +67,7 @@ class LegacyRetiredWriteFilterTest {
 
     @Test
     void rollbackFlagCanTemporarilyReenableLegacyWrite() throws Exception {
-        var filter = new LegacyRetiredWriteFilter(objectMapper, true);
+        var filter = new LegacyRetiredWriteFilter(objectMapper, true, false);
         var chain = new MockFilterChain();
 
         filter.doFilter(

@@ -27,6 +27,7 @@ R2_MIGRATION = (
 R3_MIGRATION = R2_MIGRATION.parent / "V17__r3_manual_detection_batches.sql"
 R4_MIGRATION = R2_MIGRATION.parent / "V18__r4_single_item_inference.sql"
 R7_MIGRATION = R2_MIGRATION.parent / "V20__r7_sample_library_and_exports.sql"
+R9_MIGRATION = R2_MIGRATION.parent / "V21__r9_remove_retired_v1_sources.sql"
 
 
 def validate_r2_sources() -> list[str]:
@@ -87,7 +88,7 @@ def validate_r2_sources() -> list[str]:
     config = config_path.read_text(encoding="utf-8")
     for marker in (
         "dataset-training-write-enabled: ${TD_LEGACY_DATASET_TRAINING_WRITE_ENABLED:false}",
-        "production-v1-write-enabled: ${TD_PRODUCTION_V1_WRITE_ENABLED:true}",
+        "production-v1-write-enabled: ${TD_PRODUCTION_V1_WRITE_ENABLED:false}",
     ):
         if marker not in config:
             errors.append(f"第一版取消写与产线写开关未独立配置：{marker}")
@@ -147,6 +148,20 @@ def validate_r2_sources() -> list[str]:
             errors.append("R7 样本候选/导出迁移不得创建数据集或训练关联")
     else:
         errors.append("缺少 R7 的 V20 数据迁移")
+    if R9_MIGRATION.is_file():
+        r9_sql = R9_MIGRATION.read_text(encoding="utf-8")
+        required_r9 = {
+            "旧训练表物理删除": "DROP TABLE review_training_decision",
+            "旧训练来源列物理删除": "DROP COLUMN training_run_id",
+            "旧数据集来源列物理删除": "DROP COLUMN dataset_version_id",
+            "旧数据存在时安全失败": "进入 HOLD",
+            "外部上传来源约束": "CHECK (source_kind = 'EXTERNAL_UPLOAD')",
+        }
+        for label, marker in required_r9.items():
+            if marker not in r9_sql:
+                errors.append(f"V21 缺少{label}：{marker}")
+    else:
+        errors.append("缺少 R9 的 V21 第一版来源退役迁移")
     return errors
 
 
@@ -176,7 +191,7 @@ def main() -> int:
         ],
         "expected_blocker_count": len(first["blockers"]),
         "r2_migration_version": 16,
-        "latest_migration_version": 20 if R7_MIGRATION.is_file() else (18 if R4_MIGRATION.is_file() else (17 if R3_MIGRATION.is_file() else 16)),
+        "latest_migration_version": 21 if R9_MIGRATION.is_file() else (20 if R7_MIGRATION.is_file() else (18 if R4_MIGRATION.is_file() else (17 if R3_MIGRATION.is_file() else 16))),
         "errors": errors,
     }
     print(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2))

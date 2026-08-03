@@ -3,7 +3,6 @@ package com.tooldefect.business;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
@@ -12,9 +11,6 @@ import java.util.Map;
 import java.util.OptionalDouble;
 import java.util.UUID;
 
-import com.tooldefect.business.capture.domain.BusinessDisposition;
-import com.tooldefect.business.capture.domain.CaptureEvent;
-import com.tooldefect.business.capture.domain.CaptureStatus;
 import com.tooldefect.business.detection.domain.AlgorithmOutcome;
 import com.tooldefect.business.detection.domain.DetectionResult;
 import com.tooldefect.business.shared.application.MessagePublisher;
@@ -24,7 +20,6 @@ import com.tooldefect.business.shared.application.ReliableMessagingService;
 import com.tooldefect.business.shared.domain.DomainViolation;
 import com.tooldefect.business.shared.messaging.OutboxEvent;
 import com.tooldefect.business.shared.messaging.OutboxStatus;
-import com.tooldefect.business.storage.application.ObjectKeyPolicy;
 import com.tooldefect.business.storage.domain.ObjectState;
 import com.tooldefect.business.storage.domain.StoredObject;
 import com.tooldefect.business.storage.domain.UploadSession;
@@ -39,31 +34,11 @@ public final class OfflineDomainTest {
     }
 
     public static void main(String[] args) {
-        captureRequiresAppendOnlyDisposition();
         resultSeparatesAlgorithmFromBusiness();
         objectConfirmationIsSafeAndIdempotent();
         uploadReceiptExpiresAndMatchesExactly();
-        objectKeysDoNotLeakBusinessLabels();
         outboxRetriesOnlyAfterPublisherConfirmation();
         System.out.println("business-api 纯领域检查：通过");
-    }
-
-    private static void captureRequiresAppendOnlyDisposition() {
-        CaptureEvent capture = new CaptureEvent(
-            uuid(1),
-            uuid(2),
-            7,
-            Instant.parse("2026-07-29T01:00:00Z")
-        );
-        capture.transition(CaptureStatus.UPLOADING);
-        capture.transition(CaptureStatus.READY);
-        capture.transition(CaptureStatus.SUBMITTED);
-        capture.transition(CaptureStatus.PROCESSING);
-        expectViolation(() -> capture.transition(CaptureStatus.FINALIZED));
-        capture.projectDisposition(uuid(3), BusinessDisposition.HOLD);
-        capture.transition(CaptureStatus.FINALIZED);
-        require(capture.currentDisposition() == BusinessDisposition.HOLD, "处置投影错误");
-        expectViolation(() -> capture.transition(CaptureStatus.PROCESSING));
     }
 
     private static void resultSeparatesAlgorithmFromBusiness() {
@@ -121,20 +96,6 @@ public final class OfflineDomainTest {
             session.expiredAt(Instant.parse("2026-07-29T01:05:00Z")),
             "到期时刻必须拒绝"
         );
-    }
-
-    private static void objectKeysDoNotLeakBusinessLabels() {
-        String key = new ObjectKeyPolicy().rawKey(
-            LocalDate.of(2026, 7, 29),
-            uuid(22),
-            uuid(21),
-            "PRIMARY",
-            "b".repeat(64),
-            "PNG"
-        );
-        require(key.equals(key.toLowerCase()), "对象键必须小写");
-        require(!key.contains("pass") && !key.contains("fail"), "对象键泄露标签");
-        require(!key.contains("name"), "对象键不应包含姓名");
     }
 
     private static void outboxRetriesOnlyAfterPublisherConfirmation() {

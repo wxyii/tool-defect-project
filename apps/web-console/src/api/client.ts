@@ -18,24 +18,10 @@ type WebConsoleOperation =
   | 'completeReviewAnnotation'
   | 'createImageAccessTicket'
   | 'streamAuthorizedEvents'
-  | 'listDatasets'
-  | 'createDataset'
-  | 'listDatasetVersionCatalog'
-  | 'createDatasetVersion'
-  | 'listDatasetVersions'
-  | 'getDatasetVersion'
-  | 'diffDatasetVersions'
-  | 'listDatasetCandidateManifests'
-  | 'approveDatasetCandidateManifest'
-  | 'approveDatasetVersion'
-  | 'createTrainingRun'
-  | 'listTrainingRuns'
-  | 'getTrainingRun'
   | 'listModels'
   | 'createModel'
   | 'listModelVersions'
   | 'getModelVersion'
-  | 'registerModelVersion'
   | 'submitModelValidationDecision'
   | 'createModelDeployment'
   | 'listModelDeployments'
@@ -181,71 +167,6 @@ const OPERATIONS = {
     path: '/api/v1/events/stream',
     response: 'event-stream',
   },
-  listDatasets: {
-    method: 'GET',
-    path: '/api/v1/datasets',
-    response: 'json',
-  },
-  createDataset: {
-    method: 'POST',
-    path: '/api/v1/datasets',
-    response: 'json',
-  },
-  listDatasetVersionCatalog: {
-    method: 'GET',
-    path: '/api/v1/dataset-versions',
-    response: 'json',
-  },
-  createDatasetVersion: {
-    method: 'POST',
-    path: '/api/v1/dataset-versions',
-    response: 'json',
-  },
-  listDatasetVersions: {
-    method: 'GET',
-    path: '/api/v1/datasets/{dataset_id}/versions',
-    response: 'json',
-  },
-  getDatasetVersion: {
-    method: 'GET',
-    path: '/api/v1/dataset-versions/{dataset_version_id}',
-    response: 'json',
-  },
-  diffDatasetVersions: {
-    method: 'GET',
-    path: '/api/v1/dataset-versions/diff',
-    response: 'json',
-  },
-  listDatasetCandidateManifests: {
-    method: 'GET',
-    path: '/api/v1/dataset-candidate-manifests',
-    response: 'json',
-  },
-  approveDatasetCandidateManifest: {
-    method: 'POST',
-    path: '/api/v1/dataset-candidate-manifests/{candidate_manifest_id}/approval',
-    response: 'json',
-  },
-  approveDatasetVersion: {
-    method: 'POST',
-    path: '/api/v1/dataset-versions/{dataset_version_id}/approval',
-    response: 'json',
-  },
-  createTrainingRun: {
-    method: 'POST',
-    path: '/api/v1/training-runs',
-    response: 'json',
-  },
-  listTrainingRuns: {
-    method: 'GET',
-    path: '/api/v1/training-runs',
-    response: 'json',
-  },
-  getTrainingRun: {
-    method: 'GET',
-    path: '/api/v1/training-runs/{training_run_id}',
-    response: 'json',
-  },
   listModels: {
     method: 'GET',
     path: '/api/v1/models',
@@ -264,11 +185,6 @@ const OPERATIONS = {
   getModelVersion: {
     method: 'GET',
     path: '/api/v1/model-versions/{model_version_id}',
-    response: 'json',
-  },
-  registerModelVersion: {
-    method: 'POST',
-    path: '/api/v1/model-versions',
     response: 'json',
   },
   submitModelValidationDecision: {
@@ -431,58 +347,6 @@ export class ApiClient implements ManualDetectionApiV2 {
     return this.invokeJson('createImageAccessTicket', request)
   }
 
-  listDatasets(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('listDatasets', request)
-  }
-
-  createDataset(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('createDataset', request)
-  }
-
-  listDatasetVersionCatalog(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('listDatasetVersionCatalog', request)
-  }
-
-  createDatasetVersion(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('createDatasetVersion', request)
-  }
-
-  listDatasetVersions(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('listDatasetVersions', request)
-  }
-
-  getDatasetVersion(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('getDatasetVersion', request)
-  }
-
-  diffDatasetVersions(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('diffDatasetVersions', request)
-  }
-
-  listDatasetCandidateManifests(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('listDatasetCandidateManifests', request)
-  }
-
-  approveDatasetCandidateManifest(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('approveDatasetCandidateManifest', request)
-  }
-
-  approveDatasetVersion(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('approveDatasetVersion', request)
-  }
-
-  createTrainingRun(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('createTrainingRun', request)
-  }
-
-  listTrainingRuns(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('listTrainingRuns', request)
-  }
-
-  getTrainingRun(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('getTrainingRun', request)
-  }
-
   listModels(request?: JsonObject): Promise<JsonObject> {
     return this.invokeJson('listModels', request)
   }
@@ -497,10 +361,6 @@ export class ApiClient implements ManualDetectionApiV2 {
 
   getModelVersion(request?: JsonObject): Promise<JsonObject> {
     return this.invokeJson('getModelVersion', request)
-  }
-
-  registerModelVersion(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('registerModelVersion', request)
   }
 
   submitModelValidationDecision(request?: JsonObject): Promise<JsonObject> {

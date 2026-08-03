@@ -200,24 +200,6 @@ public class JdbcStoredObjectRepository implements StoredObjectRepository {
     }
 
     @Override
-    public boolean captureBelongsToStation(UUID captureId, UUID stationId) {
-        Boolean value = jdbc.queryForObject(
-            """
-            SELECT EXISTS (
-                SELECT 1
-                FROM capture_event
-                WHERE capture_id = ?
-                  AND station_id = ?
-            )
-            """,
-            Boolean.class,
-            captureId,
-            stationId
-        );
-        return Boolean.TRUE.equals(value);
-    }
-
-    @Override
     public Optional<ReviewMaskSource> reviewMaskSource(
             UUID reviewTaskId,
             UUID captureId) {

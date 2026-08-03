@@ -10,8 +10,9 @@ public record ModelVersion(
     UUID modelVersionId,
     UUID modelId,
     int version,
-    UUID trainingRunId,
-    UUID datasetVersionId,
+    String sourceKind,
+    UUID modelUploadId,
+    String externalSourceSnapshotJson,
     String registryName,
     String registryVersion,
     String artifactBucket,
@@ -39,7 +40,14 @@ public record ModelVersion(
         if (version <= 0) {
             throw new DomainViolation("模型版本号必须为正整数");
         }
-        Objects.requireNonNull(datasetVersionId);
+        if (!"EXTERNAL_UPLOAD".equals(sourceKind)) {
+            throw new DomainViolation("模型版本只能使用第二版外部上传来源");
+        }
+        Objects.requireNonNull(modelUploadId);
+        Objects.requireNonNull(externalSourceSnapshotJson);
+        if (externalSourceSnapshotJson.isBlank()) {
+            throw new DomainViolation("外部来源快照不能为空");
+        }
         Objects.requireNonNull(artifactSha256);
         if (!artifactSha256.matches("[0-9a-f]{64}")) {
             throw new DomainViolation("artifact_sha256 必须是合法 SHA-256 十六进制");
@@ -112,8 +120,9 @@ public record ModelVersion(
      * 但不能被审批、部署或作为回滚目标。
      */
     public boolean hasCompleteSupplyChainEvidence() {
-        return trainingRunId != null
-                && datasetVersionId != null
+        return "EXTERNAL_UPLOAD".equals(sourceKind)
+                && modelUploadId != null
+                && externalSourceSnapshotJson != null
                 && registryName != null
                 && registryVersion != null
                 && registeredBy != null
@@ -140,8 +149,8 @@ public record ModelVersion(
             throw new DomainViolation("模型登记人与验证审批人不能为同一人");
         }
         return new ModelVersion(
-            modelVersionId, modelId, version, trainingRunId,
-            datasetVersionId, registryName, registryVersion, artifactBucket,
+            modelVersionId, modelId, version, sourceKind, modelUploadId,
+            externalSourceSnapshotJson, registryName, registryVersion, artifactBucket,
             artifactObjectKey, artifactSha256, sbomSha256, signatureKeyId,
             inputSpecJson, outputSpecJson, evaluationSummaryJson,
             evaluationReportSha256, thresholdGateSha256, ModelApprovalState.VALIDATED,
@@ -158,8 +167,8 @@ public record ModelVersion(
             throw new DomainViolation("模型发布审批人必须独立于登记人与验证审批人");
         }
         return new ModelVersion(
-            modelVersionId, modelId, version, trainingRunId,
-            datasetVersionId, registryName, registryVersion, artifactBucket,
+            modelVersionId, modelId, version, sourceKind, modelUploadId,
+            externalSourceSnapshotJson, registryName, registryVersion, artifactBucket,
             artifactObjectKey, artifactSha256, sbomSha256, signatureKeyId,
             inputSpecJson, outputSpecJson, evaluationSummaryJson,
             evaluationReportSha256, thresholdGateSha256, ModelApprovalState.APPROVED,
@@ -174,8 +183,8 @@ public record ModelVersion(
         }
         requireCompleteSupplyChainEvidence();
         return new ModelVersion(
-            modelVersionId, modelId, version, trainingRunId,
-            datasetVersionId, registryName, registryVersion, artifactBucket,
+            modelVersionId, modelId, version, sourceKind, modelUploadId,
+            externalSourceSnapshotJson, registryName, registryVersion, artifactBucket,
             artifactObjectKey, artifactSha256, sbomSha256, signatureKeyId,
             inputSpecJson, outputSpecJson, evaluationSummaryJson,
             evaluationReportSha256, thresholdGateSha256, ModelApprovalState.REJECTED,

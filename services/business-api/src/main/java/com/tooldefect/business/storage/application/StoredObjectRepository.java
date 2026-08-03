@@ -27,8 +27,6 @@ public interface StoredObjectRepository {
         throw new UnsupportedOperationException("派生对象仓储尚未实现");
     }
 
-    boolean captureBelongsToStation(UUID captureId, UUID stationId);
-
     Optional<ReviewMaskSource> reviewMaskSource(
         UUID reviewTaskId,
         UUID captureId

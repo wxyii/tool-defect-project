@@ -47,16 +47,9 @@ ${XDG_CONFIG_HOME:-$HOME/.config}/tool-defect/development.env
 当前 `services/inference-service/` 和 `apps/edge-agent/` 没有可执行主入口，
 因此不能作为独立常驻进程启动。脚本会明确报告该限制。
 
-数据集构建执行端会自动领取 `BUILDING` 版本，校验已批准候选清单对象的
-SHA-256、样本数量、必填字段、重复内容和跨划分泄漏。校验通过后版本进入
-`VALIDATING`，永久性数据错误进入 `REJECTED`，数据库或对象存储临时不可用时
-保留为 `BUILDING/HOLD` 并在租约到期后重试。可以调整开发轮询和租约：
-
-```sh
-export TD_DATASET_BUILDER_POLL_SECONDS=2
-export TD_DATASET_BUILDER_LEASE_SECONDS=30
-./tools/dev/start-all.sh
-```
+第二版开发启动脚本不启动数据集构建器、训练服务或任何内部训练执行端。
+数据集和训练相关代码仅可按独立离线研究/历史校验命令运行，不得使用开发启动脚本
+访问业务数据库或对象存储，也不得作为在线检测、样本导出和模型上传的前置。
 
 首次创建本地管理员时，在仓库外创建权限为 `600` 的密码文件并设置：
 

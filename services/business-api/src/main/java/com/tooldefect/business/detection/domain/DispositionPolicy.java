@@ -4,8 +4,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import com.tooldefect.business.capture.domain.BusinessDisposition;
-
 /** 固定顺序、版本化且安全失败的自动处置规则。 */
 public final class DispositionPolicy {
     private static final List<String> RULE_ORDER = List.of(

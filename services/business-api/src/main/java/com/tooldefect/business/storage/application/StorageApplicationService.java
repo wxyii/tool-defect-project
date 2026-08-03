@@ -28,8 +28,7 @@ import com.tooldefect.business.storage.domain.UploadSession;
 import com.tooldefect.business.storage.domain.UploadSessionStatus;
 
 public class StorageApplicationService
-        implements UploadTicketRenewal,
-            DerivedObjectAcceptance,
+        implements DerivedObjectAcceptance,
             ReviewAnnotationStorage {
     public static final String META_RECEIPT_SHA256 = "td-receipt-sha256";
     public static final String META_CONTENT_SHA256 = "td-content-sha256";
@@ -37,10 +36,6 @@ public class StorageApplicationService
     public static final String META_STATION_ID = "td-station-id";
     public static final String UPLOAD_RECEIPT_HEADER =
         "X-Tool-Defect-Upload-Receipt";
-    private static final Set<String> EDGE_MEDIA_TYPES = Set.of(
-        "image/png", "image/jpeg", "image/tiff"
-    );
-
     private final StoredObjectRepository repository;
     private final UploadSessionRepository sessions;
     private final ObjectStoragePort storage;
@@ -91,101 +86,6 @@ public class StorageApplicationService
         this.maximumObjectBytes = maximumObjectBytes;
         this.maximumPixels = maximumPixels;
         this.maximumDecodedBytes = maximumDecodedBytes;
-    }
-
-    @Transactional
-    public ObjectStoragePort.UploadAuthorization issueRawUpload(
-            UUID imageId,
-            UUID captureId,
-            UUID objectStationId,
-            UUID actorStationId,
-            LocalDate capturedDate,
-            String imageRole,
-            long sizeBytes,
-            String sha256,
-            String mediaType,
-            String extension) {
-        Objects.requireNonNull(imageId);
-        Objects.requireNonNull(captureId);
-        Objects.requireNonNull(objectStationId);
-        Objects.requireNonNull(actorStationId);
-        Objects.requireNonNull(capturedDate);
-        requireEdgeMediaType(mediaType, extension);
-        if (sizeBytes <= 0 || sizeBytes > maximumObjectBytes) {
-            throw new DomainViolation("对象大小超过允许范围");
-        }
-        if (!authorizer.mayWrite(actorStationId, objectStationId)) {
-            throw new StorageAccessDenied("设备无权写入其他工位对象");
-        }
-        if (!repository.captureBelongsToStation(captureId, objectStationId)) {
-            throw new DomainViolation("采集事件不属于声明工位");
-        }
-
-        String key = objectKeyPolicy.rawKey(
-            capturedDate,
-            objectStationId,
-            captureId,
-            imageRole,
-            sha256,
-            extension
-        );
-        StoredObject object = new StoredObject(
-            imageId,
-            captureId,
-            objectStationId,
-            rawBucket,
-            key,
-            sizeBytes,
-            sha256,
-            mediaType
-        );
-        var existing = repository.findById(imageId);
-        if (existing.isEmpty()) {
-            repository.insertStaging(object);
-        } else {
-            requireSameStagingRegistration(existing.get(), object);
-            object = existing.get();
-            sessions.revokeIssued(imageId, "REISSUED");
-        }
-
-        return issueSession(object);
-    }
-
-    /**
-     * 为冻结契约中的续签端点签发新票据。对象位置、媒体类型和工位范围均从
-     * 首次登记恢复，请求方只能重复声明已经登记的大小和 SHA-256。
-     */
-    @Transactional
-    @Override
-    public ObjectStoragePort.UploadAuthorization renewRawUpload(
-            UUID imageId,
-            UUID captureId,
-            UUID actorStationId,
-            long sizeBytes,
-            String sha256) {
-        StoredObject object = repository.findByIdForUpdate(
-                Objects.requireNonNull(imageId))
-            .orElseThrow(() -> new DomainViolation("图片记录不存在"));
-        if (!object.captureId().equals(Objects.requireNonNull(captureId))) {
-            throw new DomainViolation("图片不属于声明的采集事件");
-        }
-        if (object.state() != ObjectState.STAGING) {
-            throw new DomainViolation("只有 STAGING 对象可以续签上传票据");
-        }
-        if (!authorizer.mayWrite(
-                Objects.requireNonNull(actorStationId),
-                object.stationId())) {
-            throw new StorageAccessDenied("设备无权续签其他工位对象");
-        }
-        if (!repository.captureBelongsToStation(captureId, object.stationId())) {
-            throw new DomainViolation("采集事件与对象工位绑定失效");
-        }
-        if (sizeBytes != object.expectedSizeBytes()
-                || !object.expectedSha256().equals(sha256)) {
-            throw new DomainViolation("续签请求与原始对象登记冲突");
-        }
-        sessions.revokeIssued(imageId, "RENEWED");
-        return issueSession(object);
     }
 
     @Override
@@ -311,34 +211,6 @@ public class StorageApplicationService
             Map.copyOf(responseHeaders),
             authorization.expiresAt(),
             receipt
-        );
-    }
-
-    @Transactional(noRollbackFor = {
-        StorageIntegrityViolation.class,
-        StorageTicketExpired.class
-    })
-    public StoredObject confirm(
-            UUID imageId,
-            UUID captureId,
-            UUID actorStationId,
-            long requestSizeBytes,
-            String requestSha256,
-            String uploadReceipt) {
-        StoredObject object = repository.findByIdForUpdate(imageId)
-            .orElseThrow(() -> new DomainViolation("图片记录不存在"));
-        if (!object.captureId().equals(captureId)) {
-            throw new DomainViolation("图片不属于声明的采集事件");
-        }
-        if (!authorizer.mayWrite(actorStationId, object.stationId())) {
-            throw new StorageAccessDenied("设备无权确认其他工位对象");
-        }
-        return confirmStoredObject(
-            object,
-            requestSizeBytes,
-            requestSha256,
-            uploadReceipt,
-            null
         );
     }
 
@@ -629,22 +501,6 @@ public class StorageApplicationService
                 || !existing.expectedSha256().equals(requested.expectedSha256())
                 || !existing.expectedMediaType().equals(requested.expectedMediaType())) {
             throw new DomainViolation("同一 imageId 的上传登记内容冲突");
-        }
-    }
-
-    private static void requireEdgeMediaType(String mediaType, String extension) {
-        if (!EDGE_MEDIA_TYPES.contains(mediaType)) {
-            throw new DomainViolation("采集端媒体类型不在白名单");
-        }
-        String normalized = extension == null ? "" : extension.toLowerCase();
-        boolean matches = switch (mediaType) {
-            case "image/png" -> normalized.equals("png");
-            case "image/jpeg" -> normalized.equals("jpg") || normalized.equals("jpeg");
-            case "image/tiff" -> normalized.equals("tif") || normalized.equals("tiff");
-            default -> false;
-        };
-        if (!matches) {
-            throw new DomainViolation("扩展名与媒体类型不一致");
         }
     }
 

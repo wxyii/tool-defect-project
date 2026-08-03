@@ -5,8 +5,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
-import com.tooldefect.business.capture.domain.BusinessDisposition;
-
 public record DispositionDecision(
         BusinessDisposition disposition,
         boolean requiresReview,

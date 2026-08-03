@@ -8,7 +8,6 @@ import java.util.OptionalDouble;
 
 import org.junit.jupiter.api.Test;
 
-import com.tooldefect.business.capture.domain.BusinessDisposition;
 
 final class DispositionPolicyTest {
     private final DispositionPolicy policy = new DispositionPolicy(
