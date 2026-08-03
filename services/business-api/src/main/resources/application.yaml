@@ -46,7 +46,7 @@ management:
 
 td:
   manual-detection:
-    enabled: ${TD_MANUAL_DETECTION_ENABLED:false}
+    enabled: ${TD_MANUAL_DETECTION_ENABLED:true}
     object-bucket: ${TD_MANUAL_OBJECT_BUCKET:td-raw}
     object-prefix: ${TD_MANUAL_OBJECT_PREFIX:manual-originals}
     maximum-items-per-batch: ${TD_MANUAL_MAX_ITEMS_PER_BATCH:100}

@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import type { DetectionBatchItem, UsageStage } from '@/api/generated'
+import { apiErrorMessage } from '@/api/errors'
 import { useApplicationApiClient } from '@/api/runtime'
 import { ManualDetectionService, prepareImage, type ManualDetectionCapabilities, type PreparedImage, type UploadItemIntent } from './service'
 
@@ -82,7 +83,12 @@ async function submit(): Promise<void> {
     const batch = await service.get(batchId.value)
     await service.submit(batch.batch_id, batch.version)
     await router.push({ name: 'manual-detection-detail', params: { id: batch.batch_id } })
-  } catch { error.value = '批次提交失败；服务端已保存的状态不会由页面伪造' }
+  } catch (caught) {
+    error.value = apiErrorMessage(
+      caught,
+      '批次提交失败；服务端已保存的状态不会由页面伪造',
+    )
+  }
   finally { submitting.value = false }
 }
 
@@ -94,7 +100,10 @@ async function uploadOne(item: SelectedImage): Promise<void> {
     await service.upload(item.intent, item.prepared.file)
     item.item = await service.complete(batchId.value, item.prepared, item.intent, item.completeKey)
     item.state = 'UPLOADED'
-  } catch { item.state = 'FAILED'; item.error = '上传或确认失败' }
+  } catch (caught) {
+    item.state = 'FAILED'
+    item.error = apiErrorMessage(caught, '上传或确认失败')
+  }
 }
 
 async function runWithConcurrency<T>(items: readonly T[], limit: number, action: (item: T) => Promise<void>): Promise<void> {

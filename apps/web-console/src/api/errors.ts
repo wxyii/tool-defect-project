@@ -27,7 +27,9 @@ export async function toApiError(response: Response): Promise<ApiError> {
   }
   const payload = isRecord(raw) ? raw : {}
   return new ApiError(
-    stringField(payload, 'code') ?? `TD-HTTP-${response.status}`,
+    stringField(payload, 'error_code')
+      ?? stringField(payload, 'code')
+      ?? `TD-HTTP-${response.status}`,
     stringField(payload, 'message') ?? '请求失败，请稍后重试',
     stringField(payload, 'request_id'),
     stringField(payload, 'trace_id'),
@@ -35,6 +37,16 @@ export async function toApiError(response: Response): Promise<ApiError> {
     parseDetails(payload.details),
     response.status,
   )
+}
+
+export function apiErrorMessage(error: unknown, fallback: string): string {
+  if (!(error instanceof ApiError)) {
+    return fallback
+  }
+  const evidence = error.requestId === null
+    ? error.code
+    : `${error.code}，请求标识 ${error.requestId}`
+  return `${error.message}（${evidence}）`
 }
 
 function parseDetails(value: unknown): readonly FieldError[] {

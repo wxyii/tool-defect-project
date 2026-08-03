@@ -19,10 +19,12 @@ import com.tooldefect.business.identity.application.LocalIdentity;
 @ConditionalOnProperty(name = "td.storage.enabled", havingValue = "true")
 public final class ManualDetectionController {
     private static final Set<String> CREATE_FIELDS=Set.of("usage_stage","usage_stage_note");
+    private static final Set<String> CREATE_REQUIRED_FIELDS=Set.of("usage_stage");
     private static final Set<String> ITEM_FIELDS=Set.of("file_name","size_bytes","media_type","sha256");
     private static final Set<String> COMPLETE_FIELDS=Set.of("sha256","size_bytes");
     private static final Set<String> SUBMIT_FIELDS=Set.of("expected_version");
     private static final Set<String> QUICK_REVIEW_FIELDS=Set.of("decision","supersedes_record_id");
+    private static final Set<String> QUICK_REVIEW_REQUIRED_FIELDS=Set.of("decision");
     private static final Set<String> QUICK_REVIEW_DECISIONS=Set.of(
         "DEFECT_CONFIRMED","NO_DEFECT_CONFIRMED","UNABLE_TO_DETERMINE");
     private static final Set<String> STAGES=Set.of("NEW_BLADE","AFTER_ONE_WHEEL","AFTER_TWO_WHEELS","AFTER_THREE_WHEELS","OTHER","UNSPECIFIED");
@@ -35,7 +37,7 @@ public final class ManualDetectionController {
     @PostMapping("/detection-batches")
     ResponseEntity<Map<String,Object>> create(@RequestHeader("Idempotency-Key") String key,
             @RequestBody Map<String,Object> body,Authentication authentication,HttpServletRequest servlet){
-        var request=object(body,CREATE_FIELDS,"创建批次请求");
+        var request=objectV2(body,CREATE_FIELDS,CREATE_REQUIRED_FIELDS,"创建批次请求");
         var response=service.create(identity(authentication).userId(),key,oneOf(request,"usage_stage",STAGES),
             request.containsKey("usage_stage_note")?text(request,"usage_stage_note",1,200):null,
             request,requestId(servlet),traceId(servlet));
@@ -101,7 +103,7 @@ public final class ManualDetectionController {
             @RequestHeader("Idempotency-Key") String key,
             @RequestBody Map<String,Object> body, Authentication authentication,
             HttpServletRequest servlet) {
-        var request=object(body,QUICK_REVIEW_FIELDS,"快速反馈请求");
+        var request=objectV2(body,QUICK_REVIEW_FIELDS,QUICK_REVIEW_REQUIRED_FIELDS,"快速反馈请求");
         var user=identity(authentication);
         UUID supersedes=null;
         if(request.containsKey("supersedes_record_id")){
