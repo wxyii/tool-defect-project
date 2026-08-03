@@ -1,5 +1,5 @@
 // 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。
-// 契约主版本: 2；源哈希: b30eca1ebbb6b533902ed4ba897e07c0daebd02a7ecf931154f9d2fb3ae0fc8e
+// 契约主版本: 2；源哈希: ff943178ec32e8d1e936321170d1a28f70eab0edcd15a37884c81f148abb5ad4
 package local.tooldefect.contracts.v2;
 
 import java.util.Map;
@@ -18,6 +18,7 @@ public interface ApiClientV2 {
     Map<String, Object> createSampleCandidateV2(Map<String, Object> request);
     Map<String, Object> createSampleExportDownloadTicketV2(Map<String, Object> request);
     Map<String, Object> createSampleExportV2(Map<String, Object> request);
+    Map<String, Object> createSampleExternalReceiptV2(Map<String, Object> request);
     Map<String, Object> decideSampleCandidateV2(Map<String, Object> request);
     Map<String, Object> deleteDetectionBatchItemV2(Map<String, Object> request);
     Map<String, Object> getDetectionBatchItemV2(Map<String, Object> request);

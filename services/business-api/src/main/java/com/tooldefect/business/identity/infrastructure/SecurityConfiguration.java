@@ -150,6 +150,36 @@ public class SecurityConfiguration {
                     "/api/v2/detection-batches/*/items/*/quick-review"
                 ).hasAuthority("manual-detection:write")
                 .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/v2/admin/detection-items",
+                    "/api/v2/sample-candidates",
+                    "/api/v2/sample-exports/*"
+                ).hasAuthority("sample:read")
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v2/admin/detection-items/*/feedback"
+                ).hasAuthority("sample:feedback")
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v2/sample-candidates"
+                ).hasAuthority("sample:candidate:write")
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v2/sample-candidates/*/decision"
+                ).hasAuthority("sample:candidate:write")
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v2/sample-exports"
+                ).hasAuthority("sample:export")
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v2/sample-exports/*/download-ticket"
+                ).hasAuthority("sample:export:download")
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/v2/sample-exports/*/external-receipts"
+                ).hasAuthority("sample:external-receipt")
+                .requestMatchers(
                     HttpMethod.GET, "/api/v1/auth/csrf"
                 ).permitAll()
                 .requestMatchers(

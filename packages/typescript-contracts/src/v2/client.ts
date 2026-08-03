@@ -1,5 +1,5 @@
 // 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。
-// 契约主版本: 2；源哈希: b30eca1ebbb6b533902ed4ba897e07c0daebd02a7ecf931154f9d2fb3ae0fc8e
+// 契约主版本: 2；源哈希: ff943178ec32e8d1e936321170d1a28f70eab0edcd15a37884c81f148abb5ad4
 export type JsonObject = Readonly<Record<string, unknown>>;
 
 export interface ApiClientV2 {
@@ -16,6 +16,7 @@ export interface ApiClientV2 {
   createSampleCandidateV2(request?: JsonObject): Promise<JsonObject>;
   createSampleExportDownloadTicketV2(request?: JsonObject): Promise<JsonObject>;
   createSampleExportV2(request?: JsonObject): Promise<JsonObject>;
+  createSampleExternalReceiptV2(request?: JsonObject): Promise<JsonObject>;
   decideSampleCandidateV2(request?: JsonObject): Promise<JsonObject>;
   deleteDetectionBatchItemV2(request?: JsonObject): Promise<JsonObject>;
   getDetectionBatchItemV2(request?: JsonObject): Promise<JsonObject>;

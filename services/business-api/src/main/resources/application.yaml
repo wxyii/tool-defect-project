@@ -57,6 +57,16 @@ td:
     orphan-retention: ${TD_MANUAL_ORPHAN_RETENTION:PT24H}
     cleanup-batch-size: ${TD_MANUAL_CLEANUP_BATCH_SIZE:100}
     cleanup-fixed-delay: ${TD_MANUAL_CLEANUP_FIXED_DELAY_MS:60000}
+  sample-export:
+    # R7 默认关闭；没有 RG6/RG7 证据时不得面向用户启用。
+    enabled: ${TD_SAMPLE_EXPORT_ENABLED:false}
+    object-bucket: ${TD_SAMPLE_EXPORT_BUCKET:td-exports}
+    object-prefix: ${TD_SAMPLE_EXPORT_PREFIX:sample-exports}
+    maximum-candidates: ${TD_SAMPLE_EXPORT_MAX_CANDIDATES:10000}
+    maximum-package-bytes: ${TD_SAMPLE_EXPORT_MAX_PACKAGE_BYTES:1073741824}
+    package-retention: ${TD_SAMPLE_EXPORT_PACKAGE_RETENTION:P30D}
+    ticket-ttl: ${TD_SAMPLE_EXPORT_TICKET_TTL:PT10M}
+    cleanup-fixed-delay: ${TD_SAMPLE_EXPORT_CLEANUP_FIXED_DELAY_MS:3600000}
   legacy:
     dataset-training-write-enabled: ${TD_LEGACY_DATASET_TRAINING_WRITE_ENABLED:false}
     production-v1-write-enabled: ${TD_PRODUCTION_V1_WRITE_ENABLED:true}

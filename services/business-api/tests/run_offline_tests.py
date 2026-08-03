@@ -31,6 +31,7 @@ REQUIRED_MODULES = {
     "identity",
     "audit",
     "shared",
+    "sample",
 }
 
 def verify_architecture() -> list[str]:

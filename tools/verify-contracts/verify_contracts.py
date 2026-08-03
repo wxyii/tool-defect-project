@@ -434,6 +434,7 @@ V2_EXPECTED_PATHS = {
     "/api/v2/sample-exports",
     "/api/v2/sample-exports/{export_job_id}",
     "/api/v2/sample-exports/{export_job_id}/download-ticket",
+    "/api/v2/sample-exports/{export_job_id}/external-receipts",
     "/api/v2/model-upload-sessions",
     "/api/v2/model-upload-sessions/{upload_id}",
     "/api/v2/model-upload-sessions/{upload_id}/complete",

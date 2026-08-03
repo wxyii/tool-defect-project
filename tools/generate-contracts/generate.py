@@ -815,6 +815,17 @@ class AdminFeedbackRecord:
     note: str | None = None
     annotation_reference: ObjectReference | None = None
     source_review_record_id: str | None = None
+    supersedes_feedback_id: str | None = None
+    revision: int | None = None
+
+@dataclass(frozen=True, slots=True)
+class SampleExportTarget:
+    bucket: str
+    object_key: str
+    media_type: str
+    sha256: str | None = None
+    size_bytes: int | None = None
+    object_version: str | None = None
 
 @dataclass(frozen=True, slots=True)
 class SampleCandidate:
@@ -825,6 +836,18 @@ class SampleCandidate:
     created_at: str
     decision_note: str | None = None
     export_job_id: str | None = None
+    source_snapshot: Mapping[str, object] | None = None
+    latest_decision_id: str | None = None
+
+@dataclass(frozen=True, slots=True)
+class SampleExternalReceipt:
+    receipt_id: str
+    sample_export_job_id: str
+    receiver_name: str
+    recorded_by: str
+    recorded_at: str
+    external_reference: str | None = None
+    receipt_note: str | None = None
 
 @dataclass(frozen=True, slots=True)
 class SampleExportJob:
@@ -834,8 +857,18 @@ class SampleExportJob:
     status: ExportJobStatus
     created_at: str
     package: ObjectReference | None = None
+    manifest: ObjectReference | None = None
     failed_candidate_ids: tuple[str, ...] = ()
+    exported_count: int | None = None
+    failed_count: int | None = None
     expires_at: str | None = None
+    external_receipts: tuple[SampleExternalReceipt, ...] = ()
+
+@dataclass(frozen=True, slots=True)
+class SampleDownloadTicket:
+    ticket_id: str
+    download_url: str
+    expires_at: str
 
 @dataclass(frozen=True, slots=True)
 class ModelUploadSession:
@@ -940,9 +973,12 @@ public final class ContractModelsV2 {
     public record DetectionBatch(String batchId, String batchNo, ContractEnumsV2.BatchSource source, String createdBy, ContractEnumsV2.UsageStage usageStage, String usageStageNote, ContractEnumsV2.BatchStatus status, BatchAggregateCounts counts, String createdAt, String updatedAt, long version) {}
     public record DetectionBatchItem(String batchItemId, String batchId, String captureId, ObjectReference image, ContractEnumsV2.BatchItemStatus status, ImageQualityResult quality, ContractEnumsV2.AlgorithmOutcome algorithmOutcome, ContractEnumsV2.QuickReviewDecision quickReviewDecision, String createdAt, String updatedAt) {}
     public record QuickReviewRecord(String reviewRecordId, String batchItemId, ContractEnumsV2.QuickReviewDecision decision, String submittedBy, String submittedAt, String idempotencyKey, String supersedesRecordId, String dispositionReference) {}
-    public record AdminFeedbackRecord(String feedbackId, String batchItemId, ContractEnumsV2.AdminFeedbackLabel label, String note, ObjectReference annotationReference, String sourceReviewRecordId, String submittedBy, String submittedAt) {}
-    public record SampleCandidate(String sampleCandidateId, String batchItemId, String feedbackId, ContractEnumsV2.SampleCandidateStatus status, String decisionNote, String exportJobId, String createdAt) {}
-    public record SampleExportJob(String sampleExportJobId, Map<String, String> filterSnapshot, long candidateCount, ContractEnumsV2.ExportJobStatus status, ObjectReference packageReference, List<String> failedCandidateIds, String createdAt, String expiresAt) {}
+    public record AdminFeedbackRecord(String feedbackId, String batchItemId, ContractEnumsV2.AdminFeedbackLabel label, String note, ObjectReference annotationReference, String sourceReviewRecordId, String supersedesFeedbackId, Integer revision, String submittedBy, String submittedAt) {}
+    public record SampleExportTarget(String bucket, String objectKey, String mediaType, String sha256, Long sizeBytes, String objectVersion) {}
+    public record SampleCandidate(String sampleCandidateId, String batchItemId, String feedbackId, ContractEnumsV2.SampleCandidateStatus status, String decisionNote, Map<String, Object> sourceSnapshot, String latestDecisionId, String exportJobId, String createdAt) {}
+    public record SampleExternalReceipt(String receiptId, String sampleExportJobId, String receiverName, String externalReference, String receiptNote, String recordedBy, String recordedAt) {}
+    public record SampleExportJob(String sampleExportJobId, Map<String, String> filterSnapshot, long candidateCount, Integer exportedCount, Integer failedCount, ContractEnumsV2.ExportJobStatus status, ObjectReference packageReference, ObjectReference manifestReference, List<String> failedCandidateIds, String createdAt, String expiresAt, List<SampleExternalReceipt> externalReceipts) {}
+    public record SampleDownloadTicket(String ticketId, String downloadUrl, String expiresAt) {}
     public record ModelUploadSession(String modelUploadId, ObjectReference quarantineObject, String declaredSha256, String modelVersion, String description, ContractEnumsV2.ModelUploadStatus status, String createdAt, String expiresAt) {}
     public record ModelValidationResult(String modelUploadId, ContractEnumsV2.ModelValidationStatus status, String packageCheck, String securityScan, String loadTest, String warmupTest, String fixedSampleTest, ObjectReference evidence, String externalSourceNote, String safeError) {}
     public record LegacyProvenanceSnapshot(String sourceType, String legacyId, String immutableSummary, String archiveReference, String sha256, String retainedUntil) {}
@@ -958,6 +994,7 @@ public final class ContractModelsV2 {
         ts_header,
         f'export const CONTRACT_SOURCE_SHA256 = "{digest}" as const;\n',
         "export const CONTRACT_MAJOR_VERSION = 2 as const;\n\n",
+        "export type JsonObject = Readonly<Record<string, unknown>>;\n\n",
     ]
     for name, values in sorted(enums.items()):
         rendered = " | ".join(json_literal(value) for value in values)
@@ -970,9 +1007,12 @@ export type ImageQualityResult = Readonly<{ overall: ImageQualityOverall; checke
 export type DetectionBatch = Readonly<{ batch_id: string; batch_no: string; source: BatchSource; created_by: string; usage_stage: UsageStage; usage_stage_note?: string; status: BatchStatus; counts: BatchAggregateCounts; created_at: string; updated_at: string; version: number }>;
 export type DetectionBatchItem = Readonly<{ batch_item_id: string; batch_id: string; capture_id?: string; image: ObjectReference; status: BatchItemStatus; quality?: ImageQualityResult; algorithm_outcome?: AlgorithmOutcome; quick_review_decision?: QuickReviewDecision; created_at: string; updated_at: string }>;
 export type QuickReviewRecord = Readonly<{ review_record_id: string; batch_item_id: string; decision: QuickReviewDecision; submitted_by: string; submitted_at: string; idempotency_key: string; supersedes_record_id?: string; disposition_reference?: string }>;
-export type AdminFeedbackRecord = Readonly<{ feedback_id: string; batch_item_id: string; label: AdminFeedbackLabel; note?: string; annotation_reference?: ObjectReference; source_review_record_id?: string; submitted_by: string; submitted_at: string }>;
-export type SampleCandidate = Readonly<{ sample_candidate_id: string; batch_item_id: string; feedback_id: string; status: SampleCandidateStatus; decision_note?: string; export_job_id?: string; created_at: string }>;
-export type SampleExportJob = Readonly<{ sample_export_job_id: string; filter_snapshot: Readonly<Record<string, string>>; candidate_count: number; status: ExportJobStatus; package?: ObjectReference; failed_candidate_ids?: ReadonlyArray<string>; created_at: string; expires_at?: string }>;
+export type AdminFeedbackRecord = Readonly<{ feedback_id: string; batch_item_id: string; label: AdminFeedbackLabel; note?: string; annotation_reference?: ObjectReference; source_review_record_id?: string; supersedes_feedback_id?: string; revision?: number; submitted_by: string; submitted_at: string }>;
+export type SampleExportTarget = Readonly<{ bucket: string; object_key: string; media_type: string; sha256?: string; size_bytes?: number; object_version?: string }>;
+export type SampleCandidate = Readonly<{ sample_candidate_id: string; batch_item_id: string; feedback_id: string; status: SampleCandidateStatus; decision_note?: string; source_snapshot?: JsonObject; latest_decision_id?: string; export_job_id?: string; created_at: string }>;
+export type SampleExternalReceipt = Readonly<{ receipt_id: string; sample_export_job_id: string; receiver_name: string; external_reference?: string; receipt_note?: string; recorded_by: string; recorded_at: string }>;
+export type SampleExportJob = Readonly<{ sample_export_job_id: string; filter_snapshot: Readonly<Record<string, string>>; candidate_count: number; exported_count?: number; failed_count?: number; status: ExportJobStatus; package?: ObjectReference; manifest?: ObjectReference; failed_candidate_ids?: ReadonlyArray<string>; external_receipts?: ReadonlyArray<SampleExternalReceipt>; created_at: string; expires_at?: string }>;
+export type SampleDownloadTicket = Readonly<{ ticket_id: string; download_url: string; expires_at: string }>;
 export type ModelUploadSession = Readonly<{ model_upload_id: string; quarantine_object: ObjectReference; declared_sha256: string; model_version?: string; description?: string; status: ModelUploadStatus; created_at: string; expires_at: string }>;
 export type ModelValidationResult = Readonly<{ model_upload_id: string; status: ModelValidationStatus; package_check: string; security_scan: string; load_test: string; warmup_test: string; fixed_sample_test: string; evidence: ObjectReference; external_source_note?: string; safe_error?: string }>;
 export type LegacyProvenanceSnapshot = Readonly<{ source_type: "LEGACY_DATASET" | "LEGACY_TRAINING"; legacy_id: string; immutable_summary: string; archive_reference: string; sha256: string; retained_until: string }>;

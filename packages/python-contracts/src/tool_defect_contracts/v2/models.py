@@ -1,10 +1,10 @@
 # 由 tools/generate-contracts/generate.py 生成；禁止手工编辑。
-# 契约主版本: 2；源哈希: b30eca1ebbb6b533902ed4ba897e07c0daebd02a7ecf931154f9d2fb3ae0fc8e
+# 契约主版本: 2；源哈希: ff943178ec32e8d1e936321170d1a28f70eab0edcd15a37884c81f148abb5ad4
 from dataclasses import dataclass
 from enum import Enum
 from typing import Mapping
 
-CONTRACT_SOURCE_SHA256 = "b30eca1ebbb6b533902ed4ba897e07c0daebd02a7ecf931154f9d2fb3ae0fc8e"
+CONTRACT_SOURCE_SHA256 = "ff943178ec32e8d1e936321170d1a28f70eab0edcd15a37884c81f148abb5ad4"
 CONTRACT_MAJOR_VERSION = 2
 
 class AdminFeedbackLabel(str, Enum):
@@ -189,6 +189,17 @@ class AdminFeedbackRecord:
     note: str | None = None
     annotation_reference: ObjectReference | None = None
     source_review_record_id: str | None = None
+    supersedes_feedback_id: str | None = None
+    revision: int | None = None
+
+@dataclass(frozen=True, slots=True)
+class SampleExportTarget:
+    bucket: str
+    object_key: str
+    media_type: str
+    sha256: str | None = None
+    size_bytes: int | None = None
+    object_version: str | None = None
 
 @dataclass(frozen=True, slots=True)
 class SampleCandidate:
@@ -199,6 +210,18 @@ class SampleCandidate:
     created_at: str
     decision_note: str | None = None
     export_job_id: str | None = None
+    source_snapshot: Mapping[str, object] | None = None
+    latest_decision_id: str | None = None
+
+@dataclass(frozen=True, slots=True)
+class SampleExternalReceipt:
+    receipt_id: str
+    sample_export_job_id: str
+    receiver_name: str
+    recorded_by: str
+    recorded_at: str
+    external_reference: str | None = None
+    receipt_note: str | None = None
 
 @dataclass(frozen=True, slots=True)
 class SampleExportJob:
@@ -208,8 +231,18 @@ class SampleExportJob:
     status: ExportJobStatus
     created_at: str
     package: ObjectReference | None = None
+    manifest: ObjectReference | None = None
     failed_candidate_ids: tuple[str, ...] = ()
+    exported_count: int | None = None
+    failed_count: int | None = None
     expires_at: str | None = None
+    external_receipts: tuple[SampleExternalReceipt, ...] = ()
+
+@dataclass(frozen=True, slots=True)
+class SampleDownloadTicket:
+    ticket_id: str
+    download_url: str
+    expires_at: str
 
 @dataclass(frozen=True, slots=True)
 class ModelUploadSession:

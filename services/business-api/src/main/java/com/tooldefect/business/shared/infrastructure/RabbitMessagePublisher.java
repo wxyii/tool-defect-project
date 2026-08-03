@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -34,9 +35,19 @@ public final class RabbitMessagePublisher implements MessagePublisher {
         "tool_defect.inference.task.v1";
     private static final String SINGLE_ITEM_EVENT_TYPE =
         "tool_defect.inference.item.requested.v2";
+    private static final String SAMPLE_EXPORT_EVENT_TYPE =
+        "tool_defect.sample.export.requested.v2";
     private static final Set<String> SINGLE_ITEM_FIELDS = Set.of(
         "message_id", "occurred_at", "idempotency_key", "traceparent",
         "batch_item_id", "detection_task_id", "image", "pipeline_version"
+    );
+    private static final Set<String> SAMPLE_EXPORT_FIELDS = Set.of(
+        "message_id", "occurred_at", "idempotency_key", "traceparent",
+        "sample_export_job_id", "candidate_ids", "target_object"
+    );
+    private static final Set<String> SAMPLE_EXPORT_TARGET_FIELDS = Set.of(
+        "bucket", "object_key", "media_type", "sha256", "size_bytes",
+        "object_version"
     );
     private static final Set<String> OUTBOX_FIELDS = Set.of(
         "event_id",
@@ -206,6 +217,9 @@ public final class RabbitMessagePublisher implements MessagePublisher {
         if (SINGLE_ITEM_EVENT_TYPE.equals(event.eventType())) {
             return singleItemIdentity(event);
         }
+        if (SAMPLE_EXPORT_EVENT_TYPE.equals(event.eventType())) {
+            return sampleExportIdentity(event);
+        }
         try {
             JsonNode envelope = json.readTree(event.payloadJson());
             requireObjectFields(
@@ -322,6 +336,100 @@ public final class RabbitMessagePublisher implements MessagePublisher {
         } catch (RuntimeException error) {
             throw new NonRetryableMessageException(
                 "发件箱 payload 不符合第二版单图片项事件", error);
+        }
+    }
+
+    private MessageIdentity sampleExportIdentity(OutboxEvent event) {
+        try {
+            JsonNode payload = json.readTree(event.payloadJson());
+            requireObjectFields(
+                payload,
+                SAMPLE_EXPORT_FIELDS,
+                SAMPLE_EXPORT_FIELDS,
+                "第二版样本导出请求"
+            );
+            String messageId = requiredText(payload, "message_id");
+            requireUuid(payload, "message_id");
+            UUID jobId = UUID.fromString(requiredText(payload, "sample_export_job_id"));
+            if (!event.aggregateId().equals(jobId)
+                    || !"sample_export_job".equals(event.aggregateType())) {
+                throw new DomainViolation("样本导出请求聚合标识不一致");
+            }
+            if (!SAMPLE_EXPORT_EVENT_TYPE.equals(event.eventType())) {
+                throw new DomainViolation("样本导出事件类型不一致");
+            }
+            String key = requiredText(payload, "idempotency_key");
+            if (key.length() < 8 || key.length() > 128) {
+                throw new DomainViolation("样本导出幂等键长度非法");
+            }
+            Instant occurredAt = requiredUtcInstant(payload, "occurred_at");
+            if (Duration.between(event.createdAt(), occurredAt).abs()
+                    .compareTo(Duration.ofMillis(1)) > 0) {
+                throw new DomainViolation("样本导出事件时间与发件箱记录不一致");
+            }
+            String traceparent = requiredTraceparent(payload, "traceparent");
+            JsonNode candidates = payload.path("candidate_ids");
+            if (!candidates.isArray() || candidates.isEmpty() || candidates.size() > 10_000) {
+                throw new DomainViolation("样本导出候选数量不合法");
+            }
+            Set<String> candidateIds = new HashSet<>();
+            for (JsonNode candidate : candidates) {
+                if (!candidate.isTextual()) {
+                    throw new DomainViolation("样本导出候选标识必须是字符串");
+                }
+                requireUuidValue(candidate.stringValue(), "candidate_ids");
+                if (!candidateIds.add(candidate.stringValue())) {
+                    throw new DomainViolation("样本导出候选标识不能重复");
+                }
+            }
+            JsonNode target = payload.path("target_object");
+            requireObjectFields(
+                target,
+                Set.of("bucket", "object_key", "media_type"),
+                SAMPLE_EXPORT_TARGET_FIELDS,
+                "样本导出目标对象"
+            );
+            String bucket = requiredText(target, "bucket");
+            if (bucket.length() > 128 || !bucket.matches("^[a-z0-9][a-z0-9.-]*$")) {
+                throw new DomainViolation("样本导出目标桶不合法");
+            }
+            String objectKey = requiredText(target, "object_key");
+            if (objectKey.length() > 1_024 || !objectKey.startsWith("sample-exports/")) {
+                throw new DomainViolation("样本导出目标对象前缀不合法");
+            }
+            if (!"application/zip".equals(requiredText(target, "media_type"))) {
+                throw new DomainViolation("样本导出包必须是 ZIP");
+            }
+            JsonNode sha256 = target.path("sha256");
+            if (!sha256.isMissingNode() && !sha256.isNull()) {
+                requireSha256(target, "sha256");
+            }
+            JsonNode size = target.path("size_bytes");
+            if (!size.isMissingNode() && !size.isNull()) {
+                requirePositiveInteger(target, "size_bytes", Long.MAX_VALUE);
+            }
+            JsonNode version = target.path("object_version");
+            if (!version.isMissingNode() && !version.isNull()) {
+                String value = requiredText(target, "object_version");
+                if (value.length() > 256) {
+                    throw new DomainViolation("样本导出对象版本过长");
+                }
+            }
+            return new MessageIdentity(
+                messageId,
+                SAMPLE_EXPORT_EVENT_TYPE,
+                jobId.toString(),
+                traceparent,
+                json.writeValueAsString(payload),
+                "2.0"
+            );
+        } catch (NonRetryableMessageException error) {
+            throw error;
+        } catch (RuntimeException error) {
+            throw new NonRetryableMessageException(
+                "发件箱 payload 不符合第二版样本导出事件",
+                error
+            );
         }
     }
 
@@ -460,6 +568,14 @@ public final class RabbitMessagePublisher implements MessagePublisher {
 
     private static void requireUuid(JsonNode root, String field) {
         java.util.UUID.fromString(requiredText(root, field));
+    }
+
+    private static void requireUuidValue(String value, String field) {
+        try {
+            java.util.UUID.fromString(value);
+        } catch (IllegalArgumentException invalid) {
+            throw new DomainViolation(field + " 不是合法 UUID", invalid);
+        }
     }
 
     private static void requireSha256(JsonNode root, String field) {

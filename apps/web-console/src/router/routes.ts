@@ -17,6 +17,7 @@ const AuditTrailView = () => import('@/features/audit/AuditTrailView.vue')
 const ManualDetectionUploadView = () => import('@/features/manual-detection/ManualDetectionUploadView.vue')
 const ManualDetectionHistoryView = () => import('@/features/manual-detection/ManualDetectionHistoryView.vue')
 const ManualDetectionDetailView = () => import('@/features/manual-detection/ManualDetectionDetailView.vue')
+const SampleLibraryView = () => import('@/features/sample-library/SampleLibraryView.vue')
 
 export const applicationRoutes: readonly RouteRecordRaw[] = [
   {
@@ -145,6 +146,17 @@ function featureRoutes(): RouteRecordRaw[] {
         permissions: ['manual-detection:write'],
         menuLabel: '手工检测',
         menuIcon: '＋',
+      },
+    },
+    {
+      path: '/sample-library',
+      name: 'sample-library',
+      component: SampleLibraryView,
+      meta: {
+        requiresAuth: true,
+        permissions: ['sample:read'],
+        menuLabel: '样本整理',
+        menuIcon: '▤',
       },
     },
     {

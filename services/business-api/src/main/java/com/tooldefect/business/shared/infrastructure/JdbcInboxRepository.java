@@ -81,7 +81,7 @@ public class JdbcInboxRepository implements InboxRepository {
             throw new DomainViolation("message_id 与 detection_task_id 映射冲突");
         }
         InboxReceipt current = matching.getFirst();
-        if (!current.detectionTaskId().equals(detectionTaskId)
+        if (!Objects.equals(current.detectionTaskId(), detectionTaskId)
                 || !Objects.equals(current.resultSha256(), resultSha256)) {
             throw new DomainViolation("重复消息的任务或结果哈希不一致");
         }

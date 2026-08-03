@@ -36,8 +36,9 @@ public record OutboxEvent(
         }
         routingKey = requireText(routingKey, "routingKey");
         if (!routingKey.matches("(production|shadow|batch)\\.(cpu|gpu)\\.(multitask|polar)")
-                && !routingKey.equals("inference.item.requested.v2")) {
-            throw new DomainViolation("推理路由键不在冻结契约范围");
+                && !routingKey.equals("inference.item.requested.v2")
+                && !routingKey.equals("sample.export.requested.v2")) {
+            throw new DomainViolation("路由键不在冻结契约范围");
         }
         payloadJson = requireText(payloadJson, "payload");
         rejectBinaryPayload(payloadJson);

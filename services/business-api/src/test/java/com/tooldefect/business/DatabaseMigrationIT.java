@@ -34,6 +34,8 @@ import com.tooldefect.business.detectionbatch.infrastructure.JdbcManualDetection
 import com.tooldefect.business.detectionbatch.infrastructure.JdbcProductionDetectionRepository;
 import com.tooldefect.business.detectionbatch.infrastructure.R4InferenceResultHandler;
 import com.tooldefect.business.detectionbatch.application.ProductionDetectionRepository;
+import com.tooldefect.business.sample.infrastructure.JdbcSampleLibraryRepository;
+import com.tooldefect.business.sample.infrastructure.SampleExportCompletedHandler;
 import com.tooldefect.business.dataset.infrastructure.JdbcDatasetRepository;
 import com.tooldefect.business.deployment.infrastructure.JdbcDeploymentRepository;
 import com.tooldefect.business.model.infrastructure.JdbcModelRepository;
@@ -381,7 +383,7 @@ class DatabaseMigrationIT {
 
         var result = flyway.migrate();
 
-        assertThat(result.migrationsExecuted).isEqualTo(19);
+        assertThat(result.migrationsExecuted).isEqualTo(20);
         flyway.validate();
         JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
         assertThat(jdbc.queryForObject(
@@ -391,7 +393,7 @@ class DatabaseMigrationIT {
             WHERE success AND version IS NOT NULL
             """,
             Integer.class
-        )).isEqualTo(19);
+        )).isEqualTo(20);
         assertThat(jdbc.queryForObject(
             """
             SELECT COUNT(*)
@@ -633,7 +635,7 @@ class DatabaseMigrationIT {
         );
 
         Flyway latest = flyway(POSTGRES.getJdbcUrl(), schema, null);
-        assertThat(latest.migrate().migrationsExecuted).isEqualTo(17);
+        assertThat(latest.migrate().migrationsExecuted).isEqualTo(18);
 
         assertThat(jdbc.queryForObject(
             "SELECT organization_id FROM production_line WHERE line_id = ?",
@@ -1510,6 +1512,126 @@ class DatabaseMigrationIT {
     }
 
     @Test
+    void r7SampleExportCompletionProjectsTerminalStateIdempotently() {
+        String schema = uniqueName("r7_sample_completed");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+        UUID owner = seedUser(jdbc, "r7-sample-owner-" + UUID.randomUUID());
+        UUID batchId = r4Batch(jdbc, 2);
+        List<UUID> itemIds = jdbc.query(
+            "SELECT batch_item_id FROM detection_batch_item_v2 WHERE batch_id=? ORDER BY batch_item_id",
+            (row, number) -> row.getObject("batch_item_id", UUID.class), batchId);
+        UUID feedbackOne = UUID.randomUUID();
+        UUID feedbackTwo = UUID.randomUUID();
+        UUID candidateOne = UUID.randomUUID();
+        UUID candidateTwo = UUID.randomUUID();
+        insertR7IncludedCandidate(jdbc, owner, itemIds.get(0), feedbackOne, candidateOne);
+        insertR7IncludedCandidate(jdbc, owner, itemIds.get(1), feedbackTwo, candidateTwo);
+        UUID jobId = UUID.randomUUID();
+        jdbc.update("""
+            INSERT INTO sample_export_job_v2(
+              sample_export_job_id,candidate_count,status,package_bucket,
+              package_object_key,package_media_type,requested_by,expires_at)
+            VALUES (?,2,'QUEUED','sample-exports',?,'application/zip',?,now()+interval '1 hour')
+            """, jobId, "sample-exports/" + jobId + "/package.zip", owner);
+        jdbc.update("""
+            INSERT INTO sample_export_item_v2(
+              sample_export_job_id,sample_candidate_id,status,source_snapshot)
+            VALUES (?,?,'QUEUED','{}'::jsonb),(?,?, 'QUEUED','{}'::jsonb)
+            """, jobId, candidateOne, jobId, candidateTwo);
+
+        String packageSha = "c".repeat(64);
+        String manifestSha = "d".repeat(64);
+        String payload = """
+            {"message_id":"10000000-0000-4000-8000-000000000005",
+             "occurred_at":"2026-08-03T00:04:00Z",
+             "idempotency_key":"idem-sample-completed-1",
+             "traceparent":"00-0123456789abcdef0123456789abcdef-0123456789abcdef-01",
+             "sample_export_job_id":"%s",
+             "package":{"bucket":"sample-exports","object_key":"sample-exports/%s/package.zip",
+               "object_version":"v-1","sha256":"%s","size_bytes":2048,"media_type":"application/zip"},
+             "manifest":{"bucket":"sample-exports","object_key":"sample-exports/%s/manifest.json",
+               "object_version":"v-1","sha256":"%s","size_bytes":256,"media_type":"application/json"},
+             "exported_count":1,"failed_candidate_ids":["%s"]}
+            """.formatted(jobId, jobId, packageSha, jobId, manifestSha, candidateTwo);
+        var repository = new JdbcSampleLibraryRepository(jdbc, new ObjectMapper());
+        var handler = new SampleExportCompletedHandler(repository, new ObjectMapper());
+
+        handler.handle(payload);
+        handler.handle(payload);
+
+        assertThat(jdbc.queryForMap("""
+            SELECT status,exported_count,failure_count,package_sha256,package_size_bytes,
+              manifest_sha256,manifest_size_bytes
+            FROM sample_export_job_v2 WHERE sample_export_job_id=?
+            """, jobId))
+            .containsEntry("status", "FAILED")
+            .containsEntry("exported_count", 1)
+            .containsEntry("failure_count", 1)
+            .containsEntry("package_sha256", packageSha)
+            .containsEntry("package_size_bytes", 2048L)
+            .containsEntry("manifest_sha256", manifestSha)
+            .containsEntry("manifest_size_bytes", 256L);
+        assertThat(jdbc.queryForMap("""
+            SELECT status,exported_sha256,exported_size_bytes
+            FROM sample_export_item_v2 WHERE sample_export_job_id=? AND sample_candidate_id=?
+            """, jobId, candidateOne))
+            .containsEntry("status", "EXPORTED")
+            .containsEntry("exported_sha256", packageSha)
+            .containsEntry("exported_size_bytes", 2048L);
+        assertThat(jdbc.queryForMap("""
+            SELECT status,error_code FROM sample_export_item_v2
+            WHERE sample_export_job_id=? AND sample_candidate_id=?
+            """, jobId, candidateTwo))
+            .containsEntry("status", "FAILED")
+            .containsEntry("error_code", "EXPORT_ITEM_FAILED");
+        assertThat(jdbc.queryForObject(
+            "SELECT status FROM sample_candidate_v2 WHERE sample_candidate_id=?",
+            String.class, candidateOne)).isEqualTo("EXPORTED");
+        assertThat(jdbc.queryForObject(
+            "SELECT status FROM sample_candidate_v2 WHERE sample_candidate_id=?",
+            String.class, candidateTwo)).isEqualTo("INCLUDED");
+
+        UUID receiptId = UUID.randomUUID();
+        var receipt = repository.appendExternalReceipt(
+            receiptId, jobId, "外部人工复核组", "handoff-2026-08-03", "失败项待复核", owner);
+        assertThat(receipt.receiptId()).isEqualTo(receiptId);
+        assertThat(repository.findExportJob(jobId).orElseThrow().externalReceipts())
+            .singleElement()
+            .satisfies(value -> {
+                assertThat(value.receiverName()).isEqualTo("外部人工复核组");
+                assertThat(value.externalReference()).isEqualTo("handoff-2026-08-03");
+            });
+        assertThatThrownBy(() -> jdbc.update(
+            "UPDATE sample_external_receipt_v2 SET receiver_name='被改写' WHERE receipt_id=?",
+            receiptId)).isInstanceOf(DataAccessException.class);
+    }
+
+    private static void insertR7IncludedCandidate(
+            JdbcTemplate jdbc, UUID owner, UUID itemId, UUID feedbackId, UUID candidateId) {
+        jdbc.update("""
+            INSERT INTO admin_feedback_v2(
+              feedback_id,batch_item_id,label,submitted_by,idempotency_key)
+            VALUES (?,?,'FALSE_POSITIVE',?,?)
+            """, feedbackId, itemId, owner, "r7-feedback-" + feedbackId);
+        jdbc.update("""
+            INSERT INTO sample_candidate_v2(
+              sample_candidate_id,batch_item_id,feedback_id,status,decided_by,decided_at,
+              source_snapshot,source_snapshot_sha256)
+            VALUES (?, ?, ?, 'INCLUDED', ?, now(), '{}'::jsonb, ?)
+            """, candidateId, itemId, feedbackId, owner, "e".repeat(64));
+        UUID decisionId = UUID.randomUUID();
+        jdbc.update("""
+            INSERT INTO sample_candidate_decision_v2(
+              decision_id,sample_candidate_id,decision,decided_by)
+            VALUES (?,?,'INCLUDE',?)
+            """, decisionId, candidateId, owner);
+        jdbc.update("""
+            UPDATE sample_candidate_v2 SET latest_decision_id=? WHERE sample_candidate_id=?
+            """, decisionId, candidateId);
+    }
+
+    @Test
     void pgDumpRestoresSchemaHistoryAndBusinessRows() throws Exception {
         String sourceDatabase = uniqueName("backup_source");
         String restoredDatabase = uniqueName("backup_restored");
@@ -1555,7 +1677,7 @@ class DatabaseMigrationIT {
         assertThat(restored.queryForObject(
             "SELECT COUNT(*) FROM flyway_schema_history WHERE success",
             Integer.class
-        )).isEqualTo(19);
+        )).isEqualTo(20);
         flyway(databaseUrl(restoredDatabase), "public", null).validate();
     }
 

@@ -46,7 +46,7 @@
       "properties": {
         "message_id": {"type": "string", "format": "uuid"}, "occurred_at": {"type": "string", "format": "date-time"}, "idempotency_key": {"type": "string", "minLength": 8, "maxLength": 128}, "traceparent": {"type": "string", "pattern": "^00-[a-f0-9]{32}-[a-f0-9]{16}-[a-f0-9]{2}$"},
         "sample_export_job_id": {"type": "string", "format": "uuid"}, "candidate_ids": {"type": "array", "minItems": 1, "maxItems": 10000, "uniqueItems": true, "items": {"type": "string", "format": "uuid"}},
-        "target_object": {"$ref": "common-v2.schema.json#/$defs/ObjectReference"}
+        "target_object": {"$ref": "common-v2.schema.json#/$defs/SampleExportTarget"}
       }
     },
     "SampleExportCompleted": {
@@ -54,7 +54,7 @@
       "required": ["message_id", "occurred_at", "idempotency_key", "traceparent", "sample_export_job_id", "manifest", "exported_count", "failed_candidate_ids"],
       "properties": {
         "message_id": {"type": "string", "format": "uuid"}, "occurred_at": {"type": "string", "format": "date-time"}, "idempotency_key": {"type": "string", "minLength": 8, "maxLength": 128}, "traceparent": {"type": "string", "pattern": "^00-[a-f0-9]{32}-[a-f0-9]{16}-[a-f0-9]{2}$"},
-        "sample_export_job_id": {"type": "string", "format": "uuid"}, "manifest": {"$ref": "common-v2.schema.json#/$defs/ObjectReference"},
+        "sample_export_job_id": {"type": "string", "format": "uuid"}, "package": {"$ref": "common-v2.schema.json#/$defs/ObjectReference"}, "manifest": {"$ref": "common-v2.schema.json#/$defs/ObjectReference"},
         "exported_count": {"type": "integer", "minimum": 0}, "failed_candidate_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "format": "uuid"}}
       }
     },

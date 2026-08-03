@@ -3,6 +3,7 @@ PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 .PHONY: verify-layout verify-contracts verify-monitoring verify-production-security verify-runbooks verify-p5-offline test-core test-edge test-inference \
 	test-backend test-web test-integration test-e2e test-faults test-security \
 	test-performance verify-data verify-models verify-all \
+	verify-sample-export \
 	check-environment check-environment-source generate-contracts \
 	verify-contracts-source verify-v2-scope test-contract-packages-offline verify-compose \
 	verify-sbom sbom verify-p1-offline verify-p1-strict verify-p6-01 verify-p6-02 verify-p6-03 verify-p6-04 verify-p6-05 verify-p6-06 verify-p6-07 verify-p6-08 verify-g6 \
@@ -58,6 +59,10 @@ test-security:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/security/scan_secrets.py
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/security/verify_deployment_security.py
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/verify-layout/run_target.py test-security
+
+verify-sample-export:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s jobs/sample-export-worker/tests -p 'test_*.py'
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) jobs/sample-export-worker/verify_sample_export.py
 
 test-performance:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) tools/verify-layout/run_target.py test-performance

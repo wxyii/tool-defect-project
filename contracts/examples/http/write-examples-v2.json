@@ -23,6 +23,7 @@
     {"operation_id": "decideSampleCandidateV2", "success_status": 200},
     {"operation_id": "createSampleExportV2", "success_status": 202},
     {"operation_id": "createSampleExportDownloadTicketV2", "success_status": 200},
+    {"operation_id": "createSampleExternalReceiptV2", "success_status": 201},
     {"operation_id": "createModelUploadSessionV2", "success_status": 201},
     {"operation_id": "completeModelUploadSessionV2", "success_status": 202},
     {"operation_id": "createModelActivationRequestV2", "success_status": 202},

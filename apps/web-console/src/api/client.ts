@@ -54,6 +54,15 @@ type WebConsoleOperation =
   | 'renewDetectionBatchItemUploadV2'
   | 'submitDetectionBatchV2'
   | 'putQuickReviewV2'
+  | 'listAdminDetectionItemsV2'
+  | 'createAdminFeedbackV2'
+  | 'listSampleCandidatesV2'
+  | 'createSampleCandidateV2'
+  | 'decideSampleCandidateV2'
+  | 'createSampleExportV2'
+  | 'getSampleExportV2'
+  | 'createSampleExportDownloadTicketV2'
+  | 'createSampleExternalReceiptV2'
 
 type ManualDetectionApiV2 = Pick<ApiClientV2,
   | 'getManualDetectionCapabilitiesV2'
@@ -330,6 +339,33 @@ const OPERATIONS = {
   putQuickReviewV2: {
     method: 'PUT', path: '/api/v2/detection-batches/{batch_id}/items/{item_id}/quick-review', response: 'json',
   },
+  listAdminDetectionItemsV2: {
+    method: 'GET', path: '/api/v2/admin/detection-items', response: 'json',
+  },
+  createAdminFeedbackV2: {
+    method: 'POST', path: '/api/v2/admin/detection-items/{item_id}/feedback', response: 'json',
+  },
+  listSampleCandidatesV2: {
+    method: 'GET', path: '/api/v2/sample-candidates', response: 'json',
+  },
+  createSampleCandidateV2: {
+    method: 'POST', path: '/api/v2/sample-candidates', response: 'json',
+  },
+  decideSampleCandidateV2: {
+    method: 'POST', path: '/api/v2/sample-candidates/{candidate_id}/decision', response: 'json',
+  },
+  createSampleExportV2: {
+    method: 'POST', path: '/api/v2/sample-exports', response: 'json',
+  },
+  getSampleExportV2: {
+    method: 'GET', path: '/api/v2/sample-exports/{export_job_id}', response: 'json',
+  },
+  createSampleExportDownloadTicketV2: {
+    method: 'POST', path: '/api/v2/sample-exports/{export_job_id}/download-ticket', response: 'json',
+  },
+  createSampleExternalReceiptV2: {
+    method: 'POST', path: '/api/v2/sample-exports/{export_job_id}/external-receipts', response: 'json',
+  },
 } as const satisfies Record<WebConsoleOperation, OperationDefinition>
 
 export class ApiClient implements ManualDetectionApiV2 {
@@ -537,6 +573,42 @@ export class ApiClient implements ManualDetectionApiV2 {
 
   putQuickReviewV2(request?: JsonObject): Promise<JsonObject> {
     return this.invokeJson('putQuickReviewV2', request)
+  }
+
+  listAdminDetectionItemsV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('listAdminDetectionItemsV2', request)
+  }
+
+  createAdminFeedbackV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('createAdminFeedbackV2', request)
+  }
+
+  listSampleCandidatesV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('listSampleCandidatesV2', request)
+  }
+
+  createSampleCandidateV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('createSampleCandidateV2', request)
+  }
+
+  decideSampleCandidateV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('decideSampleCandidateV2', request)
+  }
+
+  createSampleExportV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('createSampleExportV2', request)
+  }
+
+  getSampleExportV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('getSampleExportV2', request)
+  }
+
+  createSampleExportDownloadTicketV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('createSampleExportDownloadTicketV2', request)
+  }
+
+  createSampleExternalReceiptV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('createSampleExternalReceiptV2', request)
   }
 
   async streamAuthorizedEvents(request?: JsonObject): Promise<JsonObject> {

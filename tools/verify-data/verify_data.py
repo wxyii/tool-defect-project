@@ -26,6 +26,7 @@ R2_MIGRATION = (
 )
 R3_MIGRATION = R2_MIGRATION.parent / "V17__r3_manual_detection_batches.sql"
 R4_MIGRATION = R2_MIGRATION.parent / "V18__r4_single_item_inference.sql"
+R7_MIGRATION = R2_MIGRATION.parent / "V20__r7_sample_library_and_exports.sql"
 
 
 def validate_r2_sources() -> list[str]:
@@ -126,6 +127,26 @@ def validate_r2_sources() -> list[str]:
         for label, marker in required_r4.items():
             if marker not in r4_sql:
                 errors.append(f"V18 缺少{label}：{marker}")
+    if R7_MIGRATION.is_file():
+        r7_sql = R7_MIGRATION.read_text(encoding="utf-8")
+        required_r7 = {
+            "反馈事实只追加": "trg_admin_feedback_append_only",
+            "反馈修订连续性": "td_guard_admin_feedback_revision",
+            "候选来源快照": "source_snapshot jsonb NOT NULL",
+            "导出对象前缀": "object_key LIKE 'sample-exports/%'",
+            "逐项导出状态": "status IN ('QUEUED', 'EXPORTED', 'FAILED')",
+            "导出清单约束": "ck_sample_export_manifest",
+            "短时下载票据": "CREATE TABLE sample_download_ticket_v2",
+            "下载审计事实": "CREATE TABLE sample_download_event_v2",
+            "外部手工回执": "CREATE TABLE sample_external_receipt_v2",
+        }
+        for label, marker in required_r7.items():
+            if marker not in r7_sql:
+                errors.append(f"V20 缺少{label}：{marker}")
+        if "dataset_version_id" in r7_sql or "training_run_id" in r7_sql:
+            errors.append("R7 样本候选/导出迁移不得创建数据集或训练关联")
+    else:
+        errors.append("缺少 R7 的 V20 数据迁移")
     return errors
 
 
@@ -155,7 +176,7 @@ def main() -> int:
         ],
         "expected_blocker_count": len(first["blockers"]),
         "r2_migration_version": 16,
-        "latest_migration_version": 18 if R4_MIGRATION.is_file() else (17 if R3_MIGRATION.is_file() else 16),
+        "latest_migration_version": 20 if R7_MIGRATION.is_file() else (18 if R4_MIGRATION.is_file() else (17 if R3_MIGRATION.is_file() else 16)),
         "errors": errors,
     }
     print(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2))

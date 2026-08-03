@@ -34,6 +34,19 @@
         "object_version": {"type": "string", "minLength": 1, "maxLength": 200}
       }
     },
+    "SampleExportTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bucket", "object_key", "media_type"],
+      "properties": {
+        "bucket": {"type": "string", "minLength": 1, "maxLength": 63, "pattern": "^[a-z0-9][a-z0-9.-]*$"},
+        "object_key": {"type": "string", "minLength": 1, "maxLength": 1024, "pattern": "^sample-exports/"},
+        "sha256": {"$ref": "#/$defs/Sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "object_version": {"type": "string", "minLength": 1, "maxLength": 200},
+        "media_type": {"type": "string", "enum": ["application/zip"]}
+      }
+    },
     "BatchAggregateCounts": {
       "type": "object", "additionalProperties": false,
       "required": ["total", "completed", "defect_suspected", "normal", "inconclusive", "quality_rejected", "technical_failed"],
@@ -97,7 +110,7 @@
       "properties": {
         "feedback_id": {"$ref": "#/$defs/Uuid"}, "batch_item_id": {"$ref": "#/$defs/Uuid"}, "label": {"$ref": "#/$defs/AdminFeedbackLabel"},
         "note": {"type": "string", "maxLength": 2000}, "annotation_reference": {"$ref": "#/$defs/ObjectReference"},
-        "source_review_record_id": {"$ref": "#/$defs/Uuid"}, "submitted_by": {"$ref": "#/$defs/Uuid"}, "submitted_at": {"$ref": "#/$defs/UtcTimestamp"}
+        "source_review_record_id": {"$ref": "#/$defs/Uuid"}, "supersedes_feedback_id": {"$ref": "#/$defs/Uuid"}, "revision": {"type": "integer", "minimum": 1}, "submitted_by": {"$ref": "#/$defs/Uuid"}, "submitted_at": {"$ref": "#/$defs/UtcTimestamp"}
       }
     },
     "SampleCandidate": {
@@ -105,8 +118,18 @@
       "required": ["sample_candidate_id", "batch_item_id", "feedback_id", "status", "created_at"],
       "properties": {
         "sample_candidate_id": {"$ref": "#/$defs/Uuid"}, "batch_item_id": {"$ref": "#/$defs/Uuid"}, "feedback_id": {"$ref": "#/$defs/Uuid"},
-        "status": {"$ref": "#/$defs/SampleCandidateStatus"}, "decision_note": {"type": "string", "maxLength": 1000},
+        "status": {"$ref": "#/$defs/SampleCandidateStatus"}, "decision_note": {"type": "string", "maxLength": 1000}, "source_snapshot": {"type": "object", "additionalProperties": true}, "latest_decision_id": {"$ref": "#/$defs/Uuid"},
         "export_job_id": {"$ref": "#/$defs/Uuid"}, "created_at": {"$ref": "#/$defs/UtcTimestamp"}
+      }
+    },
+    "SampleExternalReceipt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["receipt_id", "sample_export_job_id", "receiver_name", "recorded_by", "recorded_at"],
+      "properties": {
+        "receipt_id": {"$ref": "#/$defs/Uuid"}, "sample_export_job_id": {"$ref": "#/$defs/Uuid"},
+        "receiver_name": {"type": "string", "minLength": 1, "maxLength": 256},
+        "external_reference": {"type": "string", "maxLength": 512}, "receipt_note": {"type": "string", "maxLength": 2000},
+        "recorded_by": {"$ref": "#/$defs/Uuid"}, "recorded_at": {"$ref": "#/$defs/UtcTimestamp"}
       }
     },
     "SampleExportJob": {
@@ -114,9 +137,17 @@
       "required": ["sample_export_job_id", "filter_snapshot", "candidate_count", "status", "created_at"],
       "properties": {
         "sample_export_job_id": {"$ref": "#/$defs/Uuid"}, "filter_snapshot": {"type": "object", "additionalProperties": {"type": "string"}},
-        "candidate_count": {"type": "integer", "minimum": 1}, "status": {"$ref": "#/$defs/ExportJobStatus"}, "package": {"$ref": "#/$defs/ObjectReference"},
+        "candidate_count": {"type": "integer", "minimum": 1}, "exported_count": {"type": "integer", "minimum": 0}, "failed_count": {"type": "integer", "minimum": 0}, "status": {"$ref": "#/$defs/ExportJobStatus"}, "package": {"$ref": "#/$defs/ObjectReference"}, "manifest": {"$ref": "#/$defs/ObjectReference"},
         "failed_candidate_ids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/Uuid"}},
+        "external_receipts": {"type": "array", "items": {"$ref": "#/$defs/SampleExternalReceipt"}},
         "created_at": {"$ref": "#/$defs/UtcTimestamp"}, "expires_at": {"$ref": "#/$defs/UtcTimestamp"}
+      }
+    },
+    "SampleDownloadTicket": {
+      "type": "object", "additionalProperties": false,
+      "required": ["ticket_id", "download_url", "expires_at"],
+      "properties": {
+        "ticket_id": {"$ref": "#/$defs/Uuid"}, "download_url": {"type": "string", "format": "uri"}, "expires_at": {"$ref": "#/$defs/UtcTimestamp"}
       }
     },
     "ModelUploadSession": {

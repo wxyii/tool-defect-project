@@ -1,4 +1,36 @@
-# R0—R6 进度日志
+# R0—R8 进度日志
+
+## R8 会话启动：2026-08-03
+
+- **状态：** 阶段 0 入口核对进行中；R7 仍并行运行，R8 尚未宣称完成或启用。
+- 已使用 `planning-with-files` 恢复并追加仓库根目录的 `task_plan.md`、`findings.md`、`progress.md`；保留 R7 未提交改动和交接上下文。
+- 已读取 DOC-16/DOC-17 的 R8 任务 `R8-01`—`R8-10`、模型包安全门禁、`RG8` 标准及规定验证命令。
+- 已确认第二版契约版本为 `v2 / 2.0.0`；R7 当前改动包含契约源/生成包和 `V20__r7_sample_library_and_exports.sql`，R8 不修改同一契约文件、生成包或迁移序列。
+- 已盘点 R8 现状：R2 数据库已有 `model_upload_session_v2`、`model_version.source_kind` 和外部来源互斥约束；Java 模型领域、旧控制器、前端注册器和 P6 验证脚本仍强制训练运行/数据集来源。
+- 已确认 `Makefile` 尚无 `verify-model-supply`、`verify-online-without-training`；应用配置尚无 R8 隔离桶、配额、验证运行身份、固定样例和启用门槛配置。
+- 已记录入口限制：`RG2` 前序记录为通过；`RG6` 因 `RG5` 真实浏览器证据缺失保持 `HOLD`；R8 专属隔离/来源/切换批准事实尚未取得，面向用户启用必须保持 `HOLD`。
+- **验证：** `git diff --check` 通过；`make verify-contracts-source` 通过（契约和离线 Python/Java 包自洽）。
+- **附加基线：** `make verify-models` 通过（3 个候选、0 个阻断、生产声明仍禁止）；`make verify-data` 通过（R2 迁移版本 16、错误列表为空，工具识别的最新已部署迁移为 18）。
+- 已完成 R8-02 的不触碰契约/生成包/迁移序列的安全包验证子项：新增 ZIP 边界检查、清单/哈希/Ed25519 验证、安全解包和 6 个正负测试；未把它扩展为模型加载或生产启用。
+- **验证：** `PYTHONPATH=src .venv/bin/python -m unittest discover -s jobs/model-supply/tests -p 'test_*.py'` 通过，6 项；相关 Python `py_compile` 和 `git diff --check` 通过。
+- **下一步：** 在 R7 交接后串行补齐 R8 外部来源公共字段、数据库迁移、业务 API 和验证作业；当前先继续做不冲突的安全规则测试/隔离运行设计。
+- **并发变化：** 验证期间 R7 工作树继续扩展到样本导出后端、`jobs/sample-export-worker`、Rabbit 拓扑/发件箱、权限安全链和 `application.yaml`；已重新划定边界，R8 不触碰这些路径。
+- **回归：** `make verify-p1-offline` 通过；包含 21 项安全测试、41 个 SBOM 组件、契约离线编译和 Compose 静态检查。既有冻结数据/Git 大小写警告保留。
+- **最终工作树检查：** R7 在回归期间继续修改 `Makefile`、数据库迁移测试、离线测试入口和数据验证器；R8 未覆盖这些并发文件，`git diff --check` 仍通过，R8 安全包单测 6 项通过。
+- **R8-02 补充：** 模型策略加入 SBOM、框架/插件白名单和资源上限；供应链 CLI 正向路径已覆盖，安全包单测最终为 7 项通过。
+- **最终回归：** 策略更新后再次执行 `make verify-p1-offline` 通过；Python `py_compile` 和 `git diff --check` 通过。
+- **交接边界：** 最终状态检查又发现 R7 修改 `apps/web-console/src/api/client.ts`；R8 仅修改自身 `deploy/security/supply-chain-policy.json` 和新增模型供应链验证路径，未覆盖 R7 文件。
+
+## R7 后端实施前复核：2026-08-03
+
+- 已恢复 `planning-with-files` 的 `task_plan.md`、`findings.md`、`progress.md`，确认 R7 入口：`RG2` 通过，`RG6` 因 `RG5` 真实浏览器证据缺失保持 `HOLD`。
+- 已复核契约生成源、V20 迁移、业务后端真实包路径、权限矩阵、对象存储、幂等、审计和 Outbox 边界。
+- 已确认新模块使用 `com.tooldefect.business.sample` 四层结构；旧手工检测模块只提供可复用的存储/反馈读取边界，不承载管理员样本业务。
+- 设计落地：管理员反馈和候选由业务 API 事务追加；导出创建时只保存候选来源快照并追加 `sample.export.requested.v2`；Python worker 逐项读取、校验 SHA-256、构建包和清单；失败项进入清单和 `FAILED`，不得伪装为成功。
+- 设计落地：下载票据只持久化令牌哈希，签发事件追加到 `sample_download_event_v2`，短时 URL 由对象存储授权；外部交接仅保留手工回执表，不生成数据集/训练事实。
+- 当前尚未执行 RG7 命令；下一步先补齐生成器中的 R7 模型字段，再实现 `sample` 模块、权限/config、worker 和 `verify-sample-export`。
+- 已修改 `tools/generate-contracts/generate.py` 的第二版显式模型模板，补齐 `SampleExportTarget`、`SampleDownloadTicket`、反馈修订、候选来源快照、导出清单/计数等字段；重新生成后契约源哈希保持 `f72a5a3390cfe2d9530d4d12b3bb2d572a57fbbb290c10bf886c1479509935fb`。
+- 增量验证 `make generate-contracts && make verify-contracts-source` 通过：模式/示例/状态机/OpenAPI/AsyncAPI、确定性生成、Python 编译、Java `-Xlint -Werror` 均通过。
 
 ## R6 会话恢复：2026-08-03
 
@@ -452,3 +484,75 @@
 - `make test-security` 通过：密钥扫描检查 632 个文件，部署安全基线通过，21 项安全测试通过；`make test-e2e` 通过 42 项端到端静态/契约测试。
 - `make verify-p1-offline` 通过：环境、布局、双版本契约、确定性生成、Python/Java 包编译、Compose、安全、21 项安全测试和 41 个 SBOM 组件检查均通过；仅保留既有冻结数据文件和 `docs` 大小写索引警告。
 - `git diff --check` 通过。契约基线保持 `v1 / 1.0.0` 与 `v2 / 2.0.0`；未执行 `make verify-p1-strict`、真实浏览器联合验收、现场设备和生产外部服务验收，因此 `RG5` 与 `RG6` 继续为 `HOLD`。
+
+## R6 开发账号显式迁移（2026-08-03）
+
+- **任务编号：** `R6-02`、`R6-03`、`R6-04` 的开发环境账号落地操作。
+- **账号事实：** 已核对开发数据库中 `admin` 原绑定 `SYSTEM_OPERATOR`、迁移状态为 `UNCONFIRMED`；未修改其他账号。
+- **变更结果：** `admin.person_role=ADMINISTRATOR`，迁移记录为 `CONFIRMED`、版本递增至 2，保留旧 `SYSTEM_OPERATOR` 作为历史绑定证据；所有旧会话已撤销。
+- **凭据处理：** 使用 Argon2 生成并写入密码哈希，未把明文密码写入仓库、配置或规划文件；沿用现有策略设置 `password_change_required=true`，首次登录后必须修改密码。
+- **验证结果：** 通过本地登录和会话查询确认账号返回 `roles=[ADMINISTRATOR]`、管理员权限集合；数据库查询确认迁移状态、管理员角色和审计记录均已落库。
+- **契约版本：** 未改变，仍为 `v1 / 1.0.0` 与 `v2 / 2.0.0`。
+
+# R7 会话启动（2026-08-03）
+
+- 已按 `planning-with-files` 恢复并继续使用仓库根目录的 `task_plan.md`、`findings.md`、`progress.md`。
+- 已读取 DOC-16 的反馈、样本库、契约、权限、迁移和验收要求，以及 DOC-17 的 R7 入口、`R7-01`—`R7-07`、导出包最小内容和 `RG7` 验证命令。
+- 已确认 `RG2` 已通过；`RG6` 因 `RG5` 真实浏览器证据缺失仍为 `HOLD`。本轮开始 R7 的开发核对和实现，但不把面向用户启用或阶段门禁标为通过。
+- 已建立 R7 阶段计划；当前处于“入口条件与现状核对”，尚未修改生产源码，尚未执行 R7 验证命令。
+
+## R7 入口与设计（2026-08-03）
+
+- 入口判定：`RG2` 已通过；`RG6` 由于 `RG5` 真实浏览器证据缺失保持 `HOLD`。R7 可开发但不可面向用户启用，导出对象前缀、保留期、配额和审批阈值也尚未有批准配置。
+- 已确认 R7 任务为 `R7-01`—`R7-07`，规定门禁为 `make verify-sample-export`、`make test-backend`、`make test-integration`、`make test-security`、`make test-e2e`。
+- 已完成设计边界：追加 `V20`；管理员反馈和样本决策分别形成不可变事实；候选保存来源快照；导出使用队列事实和 outbox 请求事件；worker 逐候选隔离失败；下载票据只保存哈希并审计生命周期；不创建数据集/训练事实。
+- 已识别并纳入设计：第二版推理结果当前未持久化模型/流水线/规则版本，worker 必须从结果对象证据或新增持久化事实取得；无法无歧义取得时该候选进入失败清单。
+- 当前转入契约增量、迁移和业务后端实现；尚未修改生产源码，尚未执行 R7 门禁。
+- 已完成 R7 契约增量：目标对象模式、反馈修订、候选来源快照、导出计数/清单和下载票据字段已进入 `contracts/`，三语言生成物已更新。
+- `make generate-contracts` 和 `make verify-contracts-source` 最终通过；契约版本保持 `v2 / 2.0.0`，第一版生成源未修改。
+
+## R7 实施复核（2026-08-03）
+
+- 已核对上一轮前端 API 客户端补丁：八个 R7 操作均已出现在操作联合类型、操作表和 `ApiClient` 方法中。
+- 已修正样本应用层对 JDBC 游标编码器的反向依赖，新增 `SampleCursor` 并保留非法游标的安全失败语义。
+- 前端管理页、R7-06 外部交接说明、R7 专项静态测试和统一门禁仍待完成。
+
+## R7 前端页面与生成链修正（2026-08-03）
+
+- 新增 `SampleLibraryService`，统一调用八个 R7 API，严格解析管理员检测项、反馈、候选、导出作业和下载票据响应。
+- 新增 `SampleLibraryView.vue` 并注册 `/sample-library` 管理路由；支持筛选、六类反馈、候选纳入/排除、批量选择、异步导出、失败清单和短时下载票据。
+- 修正契约生成器漏生成 `v2/index.ts` 的 `JsonObject` 声明；`make generate-contracts`、`make verify-contracts-source` 通过。
+- `make test-web` 最终通过：类型检查、44 项前端测试、生产构建均通过。首次模板绑定语法错误和第二次类型错误已记录在任务计划。
+- 已核对 worker 实际导出布局，下一步补充 R7-06 格式/用途/手工回执说明和 R7 专项静态测试。
+
+## R7 后端真实容器复验（2026-08-03）
+
+- 首次 `make test-backend` 明确失败于旧迁移计数和 `final` JDBC 仓储事务代理；已分别修正为 V20 计数和可代理仓储类。
+- 第二次 `make test-backend` 通过：101 项单测、25 项真实容器集成测试，失败、错误和跳过均为 0。
+- 下一步执行 `make test-integration`、`make verify-data`，并核对 worker 完成事件到业务导出作业投影的剩余接线。
+
+## R7 完成事件接线核对（2026-08-03）
+
+- 已核对既有 RabbitMQ 拓扑、手动确认消费者、收件箱事务和 R4 推理结果处理器。
+- R7 请求队列/发件箱校验已存在，但 `sample.export.completed.v2` 尚无业务后端监听队列、严格事件处理器或导出作业投影更新；worker 目录也只有纯构建/发布能力，没有数据库访问。
+- 既有收件箱表允许 `detection_task_id` 为空，但仓储重复消息比较使用直接 `.equals`；R7 完成事件复用收件箱前需改为 `Objects.equals` 并覆盖空任务标识测试。
+- 当前任务：实现独立样本完成消费者、严格完成事件处理和幂等投影更新；随后执行 `make test-integration`、`make verify-data` 及 R7 统一门禁。
+
+## R7 完成事件闭环实现（2026-08-03）
+
+- 完成事件契约增加可选 `package` 对象引用；示例同步携带压缩包和清单完整引用，保持 v2 兼容表面不删除、不新增既有必填字段。
+- worker 新增确定性完成事件构造器，要求终态、压缩包/清单 SHA-256、大小、媒体类型和 `sample-exports/` 前缀；不把二进制、令牌或签名地址放入消息。
+- 业务后端新增完成队列/绑定、独立手动确认消费者和严格处理器；消息收件箱使用空任务标识并已修正空值安全比较。
+- `JdbcSampleLibraryRepository` 新增完成投影事务：核对请求目标、候选集合和计数，写入包/清单引用、作业 `SUCCEEDED/FAILED`、失败候选、逐项状态及成功候选的导出关联；冲突、缺失或状态未知进入非重试失败。
+- 尚未运行本轮编译和门禁；下一步先执行 worker/契约验证，再执行真实后端测试。
+- 已补充 `DatabaseMigrationIT` 的 R7 完成投影回归，覆盖部分失败和重复完成事件；等待 Maven 编译及真实容器测试结果。
+- 强制清理增量缓存后，`make test-backend` 通过：101 项单元测试、26 项真实容器集成测试，失败/错误/跳过均为 0；PostgreSQL 18.4、MinIO、RabbitMQ 均实际启动。
+- `make verify-sample-export` 通过 4 项 worker 单测及正负/部分失败/哈希/版本门禁；`make test-integration` 8 项、`make verify-data`（最新 V20）、`make test-security` 24 项、`make test-faults` 24 项、`make test-e2e` 44 项均通过。
+
+## R7 阶段性交付（2026-08-03）
+
+- **任务编号：** `R7-01`—`R7-07`；**契约版本：** `v1 / 1.0.0` 与 `v2 / 2.0.0`；**数据库迁移：** `V20__r7_sample_library_and_exports.sql`。
+- R7 后端已形成管理员反馈、候选去重/决策、异步导出请求、完成事件消费与幂等投影、短时下载票据、清理和审计闭环；完成事件要求包与清单的完整引用，任何缺失、冲突或状态未知均失败或进入收件箱死信，不产生 `PASS`。
+- R7 前端已形成筛选、六类反馈、候选加入/纳入/排除、游标分页、异步导出状态、失败项、短时票据和手工外部接收回执页面；回执登记只面向管理员和终态导出，不增加外部服务调用。
+- **验证命令与结果：** `make generate-contracts`、`make verify-contracts-source`、`make verify-p1-offline`、`make verify-sample-export`、`make test-web`、`make test-backend`、`make test-integration`、`make verify-data`、`make test-security`、`make test-faults`、`make test-e2e`、`git diff --check` 全部通过。后端真实集成使用 PostgreSQL 18.4、MinIO、RabbitMQ；前端为 9 个测试文件、44 项测试；数据门禁为 V20、`PASSED`。
+- **已知限制：** `make verify-p1-strict` 与 `make verify-all` 本轮未执行；真实浏览器/人员会话/现场设备和生产外部服务联合验收未执行；`RG5` 证据缺失使 `RG6` 保持 `HOLD`；导出前缀、保留期、配额和审批阈值尚未取得批准配置。因此 R7 自动化标准通过，但整体状态为 `completed_with_hold`，不面向用户启用。

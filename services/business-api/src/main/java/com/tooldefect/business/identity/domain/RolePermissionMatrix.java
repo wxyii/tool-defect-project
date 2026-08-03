@@ -60,7 +60,13 @@ public final class RolePermissionMatrix {
                 "manual-detection:read",
                 "manual-detection:read:all",
                 "manual-detection:write",
-                "audit:read"
+                "audit:read",
+                "sample:read",
+                "sample:feedback",
+                "sample:candidate:write",
+                "sample:export",
+                "sample:export:download",
+                "sample:external-receipt"
             )
         );
         return Map.copyOf(values);

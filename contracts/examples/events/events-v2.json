@@ -19,7 +19,7 @@
     },
     {
       "message": "SampleExportCompleted", "invalid_field": "training_start",
-      "payload": {"message_id": "10000000-0000-4000-8000-000000000005", "occurred_at": "2026-08-03T00:04:00Z", "idempotency_key": "idem-sample-completed-1", "traceparent": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01", "sample_export_job_id": "50000000-0000-4000-8000-000000000001", "manifest": {"bucket": "sample-exports", "object_key": "sample-exports/2026/08/manifest.json", "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "size_bytes": 256, "media_type": "application/json"}, "exported_count": 1, "failed_candidate_ids": []}
+      "payload": {"message_id": "10000000-0000-4000-8000-000000000005", "occurred_at": "2026-08-03T00:04:00Z", "idempotency_key": "idem-sample-completed-1", "traceparent": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01", "sample_export_job_id": "50000000-0000-4000-8000-000000000001", "package": {"bucket": "sample-exports", "object_key": "sample-exports/2026/08/export.zip", "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "size_bytes": 2048, "media_type": "application/zip"}, "manifest": {"bucket": "sample-exports", "object_key": "sample-exports/2026/08/manifest.json", "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "size_bytes": 256, "media_type": "application/json"}, "exported_count": 1, "failed_candidate_ids": []}
     },
     {
       "message": "ModelValidationRequested", "invalid_field": "model_bytes",
