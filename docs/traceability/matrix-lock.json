@@ -1,92 +1,100 @@
 {
-  "schema_version": "1.0.0",
-  "generator_version": "1.0.0",
-  "requirement_count": 355,
+  "schema_version": "2.0.0",
+  "generator_version": "2.0.0",
+  "requirement_count": 476,
   "documents": {
-    "01": {
-      "path": "Docs/01-核心设计原则.md",
-      "source_sha256": "10720475dd3179a82f456c0035a79e5081e1f23cfcc61e3a2731bd06148d3a94",
-      "requirement_count": 32,
-      "requirement_ids_sha256": "628bc7589eb929af25331d5b2e54415e1238cfd575f1de7507d001177738b377"
-    },
-    "02": {
-      "path": "Docs/02-完整检测业务流程.md",
-      "source_sha256": "a9934ff0becd3e2b3076c270240c1edd04c681cdc3ed2c7c90935eb53f6c705b",
-      "requirement_count": 26,
-      "requirement_ids_sha256": "27f086d2c14aa6b39796ffc9ddc1cf2bf0586f5e8d7855fbb3bed3edc0cbd762"
-    },
-    "03": {
-      "path": "Docs/03-算法与预处理通用接口设计.md",
-      "source_sha256": "f554c9d5dae3d7164988a9e8df398baadf77cc1384aa0e914f9d0d5b0bce5959",
-      "requirement_count": 29,
-      "requirement_ids_sha256": "103a8fcb61cb6400edb0326b37b70b3dff0d4f74e25621ec1c2171c6eafc0da1"
-    },
-    "04": {
-      "path": "Docs/04-人工复核系统.md",
-      "source_sha256": "2fc578ac04e00a455fd4d1b0b380a58bcd55f881553fdf977ad0bd1c90b8bbfc",
-      "requirement_count": 26,
-      "requirement_ids_sha256": "561bb5a77b62a949c112048b60f3fac09eb2a5056cd88488805f32c1dd703dad"
-    },
-    "05": {
-      "path": "Docs/05-数据库设计.md",
-      "source_sha256": "82cce69c4d969399cda5a561edec33f16a2ad2f4a9895cd7f43188cb8c2e838e",
-      "requirement_count": 16,
-      "requirement_ids_sha256": "b6309e0eda46cafa68a8515b67e282458f607a5fc25b2d07ed8950234852c536"
-    },
-    "06": {
-      "path": "Docs/06-接口设计.md",
-      "source_sha256": "e0dd505b407c45ba7aeb55768b83b434da3a4e76a91d14d788079ddeece8d59d",
-      "requirement_count": 18,
-      "requirement_ids_sha256": "fb36be51fa18db8316aa768385234a23736298fee6d695c17ad67a5fe3ef2d55"
-    },
-    "07": {
-      "path": "Docs/07-图片存储方案.md",
-      "source_sha256": "54b9fda889ab0c46892e2b9984cdd2eeae27070bc41acc9c003a5415e45a5643",
-      "requirement_count": 33,
-      "requirement_ids_sha256": "ad39531ec82598d65a7dd4c3838998e7b1b50f7184fbba7ca0af806d9a9684fd"
-    },
-    "08": {
-      "path": "Docs/08-增量训练闭环.md",
-      "source_sha256": "fc00fce6f1c3add0e59985a4c94365f1e0b9ba5332cdc50ef275977bc0241253",
-      "requirement_count": 25,
-      "requirement_ids_sha256": "96e1a5a4fe37d6c972275c91d80e9fc642796b70225c86f67805c6d8da82c63c"
-    },
-    "09": {
-      "path": "Docs/09-前端功能规划.md",
-      "source_sha256": "591ae06a52f25a7c54d2917cc36d68fdb69d886376b549836eef8308ff66784b",
-      "requirement_count": 23,
-      "requirement_ids_sha256": "462842e86acb137239c4045952c92a61750e7c944f763eac6fab4ed46e022408"
-    },
     "10": {
       "path": "Docs/10-异常处理.md",
-      "source_sha256": "50ed6562f22360786a3e998ba8fa423fcacd55806367f75418eb528a0aff24cf",
-      "requirement_count": 36,
-      "requirement_ids_sha256": "a8db9a7a81c33338eb8cf44b087b9917c0c8bcf4934e07409813bafb1dc13736"
+      "requirement_count": 41,
+      "requirement_ids_sha256": "3605fdf3f930e5f171525ad83fd0b90738cc881b82d24e51e30072394fbc98ec",
+      "source_sha256": "e9e8c937adc062e37fb581cfc49fa2120bfb233f06039ff933fe263522ebfe80"
     },
     "11": {
       "path": "Docs/11-日志与监控.md",
-      "source_sha256": "6d0f9012115f92ebdb8512aa7521d005bcb9039262048cdbb08fbf251728bdfd",
-      "requirement_count": 16,
-      "requirement_ids_sha256": "7d5aee408fb8cb7abb53015e968ac574b81a021f48c177523145bff71464feea"
+      "requirement_count": 18,
+      "requirement_ids_sha256": "f97b768aad005a9f1c0e95a08113b9a60ede5ff0f7c673e35522495079f6e355",
+      "source_sha256": "00d06b3230ef6c20d5b88a48f966ca1867b36407bcfcf1f98c4ebeea5ed45dc2"
     },
     "12": {
       "path": "Docs/12-安全权限与角色.md",
-      "source_sha256": "a241b1c1f229880e17d15268be6defa56a19cb36af968c5a68fb1c2a73653064",
-      "requirement_count": 39,
-      "requirement_ids_sha256": "66a99001037952d60e1ab6805e4dd4c62b63e6a4bbaa3c160a21579f4520001b"
+      "requirement_count": 49,
+      "requirement_ids_sha256": "74e43c3e209d3bd4c77a0b3a040bc7dfecc94ffac4ea94ed83aa02a4c2afc236",
+      "source_sha256": "cc82f0048bc80e1ae2ee247c93872034d090d2723804c20d6aa4db5dde828502"
     },
     "13": {
       "path": "Docs/13-推荐项目代码结构.md",
-      "source_sha256": "43aa52ee775226af6cc849b381812839daab472e336e3b00b55086e632daba8a",
-      "requirement_count": 13,
-      "requirement_ids_sha256": "9549dee9c014af21857399299627166172c641cb12bf87f725792763501e8ec6"
+      "requirement_count": 16,
+      "requirement_ids_sha256": "71c939c36248e4faa6aedb82285e4c6241c69f0d30bfe617542d588e7fe29127",
+      "source_sha256": "42ffdf75d7ee6133ebf71924909b2c0d6f99eb78f62388b05c50f1404aa68e36"
     },
     "14": {
       "path": "Docs/14-技术选型.md",
-      "source_sha256": "631721ce331cdf579a8ece8e6428fd13d6daea9e9559b5fe46acc8f1f1109e9c",
-      "requirement_count": 23,
-      "requirement_ids_sha256": "7f1a69a938f0ee0298a190893e7b97974bed886d7c3d369cb69a24650822b2cd"
+      "requirement_count": 26,
+      "requirement_ids_sha256": "8f05c0ac86911f6e2172cf3a431986c5b4bdf3a5809974cd782e6f85a801091f",
+      "source_sha256": "34a297b3ae22a1497e308144a58351f9accfc3b715bf2bafad86084b0a9d2fc3"
+    },
+    "01": {
+      "path": "Docs/01-核心设计原则.md",
+      "requirement_count": 32,
+      "requirement_ids_sha256": "f5288d2af6b34cd473399e25c8dd8b72a1619c952ced1deb209da9caaef3b97e",
+      "source_sha256": "bfe3de89b18fd66dc61bad307f4a8e25706364b3b01eedc50396d49af1bb4657"
+    },
+    "02": {
+      "path": "Docs/02-完整检测业务流程.md",
+      "requirement_count": 35,
+      "requirement_ids_sha256": "649a158a8dd509994f64f3a47a2d7a3cd531e4eb3bcccaf2a54c5bc0beab815d",
+      "source_sha256": "f8198ea215755d5e24d7de88ca7c339a93dab502615902f74bf20132975fe3dd"
+    },
+    "03": {
+      "path": "Docs/03-算法与预处理通用接口设计.md",
+      "requirement_count": 30,
+      "requirement_ids_sha256": "f2c26a2b61fcf88e6911327093422d009bf290b2d549afa267bc869ee877a3e2",
+      "source_sha256": "b47bf5e63558fd982a71b9264c30f43482ad5e838dfbbdd4acaa8310914e73b7"
+    },
+    "04": {
+      "path": "Docs/04-人工复核系统.md",
+      "requirement_count": 29,
+      "requirement_ids_sha256": "06c9b326df158c9930f612cf993b1712b3cc53d6848e90e4b29fa167e4cccb61",
+      "source_sha256": "b5ef75b9c5e439dcaf23823f744131410f7eb7f95b2d3525a0701f05db8827d8"
+    },
+    "05": {
+      "path": "Docs/05-数据库设计.md",
+      "requirement_count": 18,
+      "requirement_ids_sha256": "28d56ac30b661c3ac1caa6476fe0693ad6ed75c1e18171b991471d1bb1b131b6",
+      "source_sha256": "e2ccf255e6b0e06e2d32c967766ef60076ac2d1443f4bd51c4a148dd007737ba"
+    },
+    "06": {
+      "path": "Docs/06-接口设计.md",
+      "requirement_count": 21,
+      "requirement_ids_sha256": "02d7b196f71734a6985ed42d9525cba1600994fdac0d02079e5a246445d8191b",
+      "source_sha256": "5e2232261468aa1d41f79c5639534451cde34574ea6dcc48e6410888889114c3"
+    },
+    "07": {
+      "path": "Docs/07-图片存储方案.md",
+      "requirement_count": 36,
+      "requirement_ids_sha256": "0f33db8b86a9c9bb924c64a0b935ee80671957b9a8a3af62b70ac02828b47204",
+      "source_sha256": "a479d4159d0bced39974fbc717c4ecde6153b9e4b966903e5e7a7dbdd628be1d"
+    },
+    "08": {
+      "path": "Docs/08-增量训练闭环.md",
+      "requirement_count": 63,
+      "requirement_ids_sha256": "86d8997fd7f8de61d8d6b722e5ee91526aa397970012dcd1ad3d09b02a1538ef",
+      "source_sha256": "de35d316c33019ce2b2adacf6ca4454f7bb38d1606f6cd598b3072860e4855c2"
+    },
+    "09": {
+      "path": "Docs/09-前端功能规划.md",
+      "requirement_count": 62,
+      "requirement_ids_sha256": "6de4a6f8f6bfce40720a9bda1493d2c3fcba5dc637316043a78dd15535fcf4d5",
+      "source_sha256": "60c4c05b71b41b415a302fa9aa732b840d3644988e61771e899073aba5b1d985"
     }
   },
-  "stable_requirements_sha256": "dd73a39ef9c6ea413678bc8f8f5c3d451756c840e7fc5577670b42228506c803"
+  "stable_requirements_sha256": "8cf6bc010eb72c9329b83060c2bddd27ca8e0d48509a37961d1888da3ffd34a2",
+  "product_requirement_count": 104,
+  "p0_product_requirement_count": 88,
+  "stable_product_requirements_sha256": "6e5b298e581ea56d1627b66fc33e046f4c6ff5d8db36d406428ba83878720fe9",
+  "acceptance_scenarios_sha256": "d91a285f957fe047bba7de055354ed7ad8e2b134c301f46d9ff9e71e688ff791",
+  "product_document": {
+    "path": "Docs/16-手工批量检测与管理简化需求规格.md",
+    "source_sha256": "c48f85f9c7250d1a74b8bce1ad9752bfd21d078afe63698f3a2abe5204350eaa"
+  }
 }

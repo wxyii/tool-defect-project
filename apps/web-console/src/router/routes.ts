@@ -10,12 +10,14 @@ const DetectionListView = () => import('@/views/DetectionListView.vue')
 const DetectionDetailView = () => import('@/views/DetectionDetailView.vue')
 const ReviewQueueView = () => import('@/views/ReviewQueueView.vue')
 const ReviewWorkbenchView = () => import('@/views/ReviewWorkbenchView.vue')
-const DatasetVersionsView = () => import('@/features/datasets/DatasetVersionsView.vue')
-const TrainingRunsView = () => import('@/features/training/TrainingRunsView.vue')
 const ModelsView = () => import('@/features/models/ModelsView.vue')
 const QualityDashboard = () => import('@/features/quality/QualityDashboard.vue')
 const SystemOverviewView = () => import('@/features/overview/SystemOverviewView.vue')
 const AuditTrailView = () => import('@/features/audit/AuditTrailView.vue')
+const ManualDetectionUploadView = () => import('@/features/manual-detection/ManualDetectionUploadView.vue')
+const ManualDetectionHistoryView = () => import('@/features/manual-detection/ManualDetectionHistoryView.vue')
+const ManualDetectionDetailView = () => import('@/features/manual-detection/ManualDetectionDetailView.vue')
+const SampleLibraryView = () => import('@/features/sample-library/SampleLibraryView.vue')
 
 export const applicationRoutes: readonly RouteRecordRaw[] = [
   {
@@ -136,6 +138,48 @@ function placeholderRoutes(): RouteRecordRaw[] {
 function featureRoutes(): RouteRecordRaw[] {
   return [
     {
+      path: '/manual-detection',
+      name: 'manual-detection-upload',
+      component: ManualDetectionUploadView,
+      meta: {
+        requiresAuth: true,
+        permissions: ['manual-detection:write'],
+        menuLabel: '手工检测',
+        menuIcon: '＋',
+      },
+    },
+    {
+      path: '/sample-library',
+      name: 'sample-library',
+      component: SampleLibraryView,
+      meta: {
+        requiresAuth: true,
+        permissions: ['sample:read'],
+        menuLabel: '样本整理',
+        menuIcon: '▤',
+      },
+    },
+    {
+      path: '/detection-batches',
+      name: 'manual-detection-history',
+      component: ManualDetectionHistoryView,
+      meta: {
+        requiresAuth: true,
+        anyPermissions: ['manual-detection:read', 'manual-detection:read:all'],
+        menuLabel: '批次历史',
+        menuIcon: '▧',
+      },
+    },
+    {
+      path: '/detection-batches/:id',
+      name: 'manual-detection-detail',
+      component: ManualDetectionDetailView,
+      meta: {
+        requiresAuth: true,
+        anyPermissions: ['manual-detection:read', 'manual-detection:read:all'],
+      },
+    },
+    {
       path: '/dashboard',
       name: 'dashboard',
       component: SystemOverviewView,
@@ -158,28 +202,6 @@ function featureRoutes(): RouteRecordRaw[] {
       },
     },
     {
-      path: '/datasets',
-      name: 'datasets',
-      component: DatasetVersionsView,
-      meta: {
-        requiresAuth: true,
-        anyPermissions: ['dataset:create', 'dataset:approve', 'audit:read'],
-        menuLabel: '数据集',
-        menuIcon: '▤',
-      },
-    },
-    {
-      path: '/training-runs',
-      name: 'training-runs',
-      component: TrainingRunsView,
-      meta: {
-        requiresAuth: true,
-        anyPermissions: ['training:read', 'training:create', 'audit:read'],
-        menuLabel: '训练运行',
-        menuIcon: '⚙',
-      },
-    },
-    {
       path: '/models',
       name: 'models',
       component: ModelsView,
@@ -188,6 +210,7 @@ function featureRoutes(): RouteRecordRaw[] {
         anyPermissions: [
           'model:register',
           'model:validate',
+          'model:approve',
           'model:deploy:approve',
           'audit:read',
         ],

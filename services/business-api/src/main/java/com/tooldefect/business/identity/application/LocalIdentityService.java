@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -32,6 +33,13 @@ import com.tooldefect.business.audit.domain.AuditRecord;
 
 @Service
 public class LocalIdentityService implements ApplicationRunner {
+    private static final Set<String> PERSON_ROLES = Set.of(
+        "PRODUCTION_EMPLOYEE", "ADMINISTRATOR"
+    );
+    private static final Set<String> LEGACY_HIGH_PRIVILEGE_ROLES = Set.of(
+        "REVIEWER", "QUALITY_MANAGER", "ALGORITHM_ENGINEER",
+        "MODEL_APPROVER", "SYSTEM_OPERATOR", "SECURITY_ADMIN", "AUDITOR"
+    );
     private static final Duration IDLE = Duration.ofMinutes(30);
     private static final Duration ABSOLUTE = Duration.ofHours(8);
     private static final Duration FAILURE_WINDOW = Duration.ofMinutes(15);
@@ -91,7 +99,7 @@ public class LocalIdentityService implements ApplicationRunner {
             bootstrapUsername,
             bootstrapDisplayName,
             password,
-            List.of("SYSTEM_OPERATOR"),
+            List.of("ADMINISTRATOR"),
             "SYSTEM_BOOTSTRAP");
         audit("SYSTEM", "bootstrap", "AUTH_BOOTSTRAP_CREATED", userId.toString(), "SUCCESS");
     }
@@ -292,16 +300,16 @@ public class LocalIdentityService implements ApplicationRunner {
             """
             INSERT INTO sys_user(
                 user_id, username, display_name, status,
-                password_change_required
-            ) VALUES (?, ?, ?, 'ACTIVE', true)
+                password_change_required, person_role
+            ) VALUES (?, ?, ?, 'ACTIVE', true, ?)
             """,
-            userId, normalized, displayName
+            userId, normalized, displayName, roles.getFirst()
         );
         jdbc.update(
             "INSERT INTO sys_user_credential(user_id, password_hash) VALUES (?, ?)",
             userId, passwords.encode(initialPassword)
         );
-        replaceRoles(userId, roles);
+        replacePersonRole(userId, roles.getFirst());
         audit("USER", actor, "USER_CREATED", userId.toString(), "SUCCESS");
         return userId;
     }
@@ -316,12 +324,11 @@ public class LocalIdentityService implements ApplicationRunner {
             LIMIT 200
             """
         ).stream().map(row -> {
-            Map<String, Object> item = new java.util.LinkedHashMap<>(row);
+            Map<String, Object> item = new LinkedHashMap<>(row);
             item.put("roles", jdbc.queryForList(
                 """
-                SELECT r.role_code FROM sys_role r
-                JOIN sys_user_role ur ON ur.role_id = r.role_id
-                WHERE ur.user_id = ? ORDER BY r.role_code
+                SELECT person_role FROM sys_user
+                WHERE user_id = ? AND person_role IS NOT NULL
                 """,
                 String.class,
                 row.get("user_id")
@@ -364,15 +371,151 @@ public class LocalIdentityService implements ApplicationRunner {
     }
 
     @Transactional
+    public void setDisplayName(UUID userId, String displayName, String actor) {
+        if (displayName == null || displayName.isBlank()
+                || displayName.length() > 256) {
+            throw new IllegalArgumentException("显示名称不合法");
+        }
+        int updated = jdbc.update(
+            "UPDATE sys_user SET display_name = ?, updated_at = now() "
+                + "WHERE user_id = ?",
+            displayName,
+            userId
+        );
+        if (updated != 1) {
+            throw new IllegalArgumentException("用户不存在：" + userId);
+        }
+        audit("USER", actor, "USER_DISPLAY_NAME_CHANGED", userId.toString(), "SUCCESS");
+    }
+
+    @Transactional
     public void setRoles(UUID userId, List<String> roles, String actor) {
         validateRoles(roles);
-        replaceRoles(userId, roles);
+        ensureRoleMigrationRows();
+        List<String> migrationStatuses = jdbc.queryForList(
+            "SELECT status FROM sys_user_role_migration_v2 WHERE user_id = ?",
+            String.class,
+            userId
+        );
+        if (!migrationStatuses.isEmpty()) {
+            if (!"CONFIRMED".equals(migrationStatuses.getFirst())) {
+                throw new IllegalStateException("该账号必须通过角色迁移确认接口完成映射");
+            }
+            confirmRoleMigration(userId, roles.getFirst(), actor, "用户管理角色变更");
+            return;
+        }
+        String currentRole = jdbc.queryForObject(
+            "SELECT person_role FROM sys_user WHERE user_id = ?",
+            String.class,
+            userId
+        );
+        if (currentRole == null) {
+            throw new IllegalStateException("该账号未完成角色迁移确认");
+        }
+        replacePersonRole(userId, roles.getFirst());
         jdbc.update(
             "UPDATE auth_session SET revoked_at = now() "
                 + "WHERE user_id = ? AND revoked_at IS NULL",
             userId
         );
-        audit("USER", actor, "USER_ROLES_CHANGED", userId.toString(), "SUCCESS");
+        audit("USER", actor, "USER_ROLE_CHANGED", userId.toString(), "SUCCESS");
+    }
+
+    /**
+     * 生成旧角色影响预览；该操作只补齐当前快照，不改变用户角色或会话。
+     */
+    @Transactional
+    public List<Map<String, Object>> previewRoleMappings() {
+        ensureRoleMigrationRows();
+        return jdbc.queryForList(
+            """
+            SELECT m.user_id, u.username, u.display_name, u.status,
+                   m.legacy_roles, m.suggested_role, m.selected_role,
+                   m.status AS migration_status, m.decision_reason
+            FROM sys_user_role_migration_v2 m
+            JOIN sys_user u ON u.user_id = m.user_id
+            ORDER BY lower(coalesce(u.username, u.external_subject)), m.user_id
+            """
+        ).stream().map(row -> {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("user_id", row.get("user_id"));
+            item.put("username", row.get("username"));
+            item.put("display_name", row.get("display_name"));
+            item.put("status", row.get("status"));
+            item.put("legacy_roles", roleArray(row.get("legacy_roles")));
+            item.put("suggested_role", row.get("suggested_role"));
+            item.put("selected_role", row.get("selected_role"));
+            item.put("migration_status", row.get("migration_status"));
+            item.put("decision_reason", row.get("decision_reason"));
+            return java.util.Collections.unmodifiableMap(item);
+        }).toList();
+    }
+
+    /**
+     * 逐账号确认角色映射。相同确认重复执行幂等，改变既有决定则明确冲突。
+     */
+    @Transactional
+    public Map<String, Object> confirmRoleMigration(
+            UUID userId,
+            String targetRole,
+            String actor,
+            String reason) {
+        validateRole(targetRole);
+        ensureRoleMigrationRows();
+        Map<String, Object> mapping = jdbc.queryForMap(
+            """
+            SELECT status, selected_role, legacy_roles
+            FROM sys_user_role_migration_v2
+            WHERE user_id = ? FOR UPDATE
+            """,
+            userId
+        );
+        String status = String.valueOf(mapping.get("status"));
+        String selected = mapping.get("selected_role") == null
+            ? null : String.valueOf(mapping.get("selected_role"));
+        if ("CONFIRMED".equals(status)) {
+            if (targetRole.equals(selected)) {
+                return Map.of(
+                    "user_id", userId.toString(),
+                    "role", targetRole,
+                    "status", "CONFIRMED",
+                    "idempotent", true
+                );
+            }
+            throw new IllegalStateException("角色映射已确认且新旧决定冲突");
+        }
+        List<String> legacyRoles = roleArray(mapping.get("legacy_roles"));
+        boolean conflict = "CONFLICT".equals(status);
+        if ((conflict && (reason == null || reason.isBlank()))
+                || ("ADMINISTRATOR".equals(targetRole)
+                    && (legacyRoles.stream().anyMatch(LEGACY_HIGH_PRIVILEGE_ROLES::contains)
+                        && (reason == null || reason.isBlank())))) {
+            throw new IllegalArgumentException("冲突或高权限角色映射必须提供明确确认原因");
+        }
+        replacePersonRole(userId, targetRole);
+        jdbc.update(
+            """
+            UPDATE sys_user_role_migration_v2
+            SET selected_role = ?, status = 'CONFIRMED', decision_reason = ?,
+                decided_by = ?, decided_at = now(), updated_at = now(),
+                record_version = record_version + 1
+            WHERE user_id = ?
+            """,
+            targetRole, reason, actorUuid(actor), userId
+        );
+        jdbc.update(
+            "UPDATE auth_session SET revoked_at = now() "
+                + "WHERE user_id = ? AND revoked_at IS NULL",
+            userId
+        );
+        audit("USER", actor, "USER_ROLE_MIGRATION_CONFIRMED",
+            userId.toString(), "SUCCESS");
+        return Map.of(
+            "user_id", userId.toString(),
+            "role", targetRole,
+            "status", "CONFIRMED",
+            "idempotent", false
+        );
     }
 
     @Transactional
@@ -411,26 +554,20 @@ public class LocalIdentityService implements ApplicationRunner {
         Map<String, Object> user = jdbc.queryForMap(
             """
             SELECT user_id, username, display_name, status,
-                   password_change_required
+                   password_change_required, person_role
             FROM sys_user WHERE user_id = ?
             """,
             userId
         );
-        List<String> roles = jdbc.queryForList(
-            """
-            SELECT r.role_code FROM sys_role r
-            JOIN sys_user_role ur ON ur.role_id = r.role_id
-            WHERE ur.user_id = ? ORDER BY r.role_code
-            """,
-            String.class,
-            userId
-        );
+        String personRole = (String) user.get("person_role");
+        List<String> roles = personRole == null ? List.of() : List.of(personRole);
         List<String> permissions = jdbc.queryForList(
             """
             SELECT DISTINCT p.permission_code FROM sys_permission p
             JOIN sys_role_permission rp ON rp.permission_id = p.permission_id
-            JOIN sys_user_role ur ON ur.role_id = rp.role_id
-            WHERE ur.user_id = ? ORDER BY p.permission_code
+            JOIN sys_role r ON r.role_id = rp.role_id
+            JOIN sys_user u ON u.person_role = r.role_code
+            WHERE u.user_id = ? ORDER BY p.permission_code
             """,
             String.class,
             userId
@@ -446,26 +583,110 @@ public class LocalIdentityService implements ApplicationRunner {
         );
     }
 
-    private void replaceRoles(UUID userId, List<String> roles) {
-        jdbc.update("DELETE FROM sys_user_role WHERE user_id = ?", userId);
-        for (String role : roles) {
-            int inserted = jdbc.update(
-                """
-                INSERT INTO sys_user_role(user_id, role_id)
-                SELECT ?, role_id FROM sys_role WHERE role_code = ?
-                """,
-                userId, role
-            );
-            if (inserted != 1) {
-                throw new IllegalArgumentException("未知角色：" + role);
-            }
+    private void replacePersonRole(UUID userId, String role) {
+        validateRole(role);
+        int updated = jdbc.update(
+            "UPDATE sys_user SET person_role = ?, updated_at = now() WHERE user_id = ?",
+            role, userId
+        );
+        if (updated != 1) {
+            throw new IllegalArgumentException("用户不存在：" + userId);
+        }
+        jdbc.update(
+            """
+            DELETE FROM sys_user_role
+            WHERE user_id = ? AND role_id IN (
+                SELECT role_id FROM sys_role
+                WHERE role_code IN ('PRODUCTION_EMPLOYEE', 'ADMINISTRATOR')
+            )
+            """,
+            userId
+        );
+        int inserted = jdbc.update(
+            """
+            INSERT INTO sys_user_role(user_id, role_id)
+            SELECT ?, role_id FROM sys_role WHERE role_code = ?
+            """,
+            userId, role
+        );
+        if (inserted != 1) {
+            throw new IllegalArgumentException("第二版角色不存在：" + role);
         }
     }
 
     private void validateRoles(List<String> roles) {
-        if (roles == null || roles.isEmpty()
-                || roles.stream().anyMatch(role -> role == null || role.isBlank())) {
-            throw new IllegalArgumentException("至少分配一个角色");
+        if (roles == null || roles.size() != 1) {
+            throw new IllegalArgumentException("第二版账号必须且只能分配一个人员角色");
+        }
+        validateRole(roles.getFirst());
+    }
+
+    private void validateRole(String role) {
+        if (role == null || !PERSON_ROLES.contains(role)) {
+            throw new IllegalArgumentException("第二版人员角色不合法");
+        }
+    }
+
+    private void ensureRoleMigrationRows() {
+        jdbc.update(
+            """
+            INSERT INTO sys_user_role_migration_v2(
+                migration_id, user_id, legacy_roles, suggested_role, status
+            )
+            SELECT gen_random_uuid(), u.user_id,
+                   COALESCE(
+                       array_agg(r.role_code ORDER BY r.role_code)
+                           FILTER (WHERE r.role_code IS NOT NULL),
+                       ARRAY[]::varchar(64)[]
+                   ),
+                   CASE
+                       WHEN count(r.role_code) = 1
+                            AND min(r.role_code) = 'OPERATOR'
+                           THEN 'PRODUCTION_EMPLOYEE'
+                       ELSE NULL
+                   END,
+                   CASE
+                       WHEN count(r.role_code) = 0
+                           THEN 'UNCONFIRMED'
+                       WHEN count(r.role_code) = 1
+                            AND min(r.role_code) = 'OPERATOR'
+                           THEN 'UNCONFIRMED'
+                       ELSE 'CONFLICT'
+                   END
+            FROM sys_user u
+            LEFT JOIN sys_user_role ur ON ur.user_id = u.user_id
+            LEFT JOIN sys_role r ON r.role_id = ur.role_id
+            WHERE u.person_role IS NULL
+            GROUP BY u.user_id
+            ON CONFLICT (user_id) DO NOTHING
+            """);
+    }
+
+    private static List<String> roleArray(Object value) {
+        if (value == null) {
+            return List.of();
+        }
+        if (value instanceof String[] roles) {
+            return List.of(roles);
+        }
+        if (value instanceof java.sql.Array sqlArray) {
+            try {
+                Object array = sqlArray.getArray();
+                if (array instanceof String[] roles) {
+                    return List.of(roles);
+                }
+            } catch (java.sql.SQLException exception) {
+                throw new IllegalStateException("读取旧角色快照失败", exception);
+            }
+        }
+        return List.of(String.valueOf(value));
+    }
+
+    private static UUID actorUuid(String actor) {
+        try {
+            return UUID.fromString(actor);
+        } catch (RuntimeException notUuid) {
+            return null;
         }
     }
 

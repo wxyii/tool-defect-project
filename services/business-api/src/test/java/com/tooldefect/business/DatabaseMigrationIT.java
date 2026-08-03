@@ -2,6 +2,7 @@ package com.tooldefect.business;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -26,13 +27,20 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import com.tooldefect.business.detection.domain.DetectionNotFound;
+import com.tooldefect.business.audit.application.AuditTrail;
+import com.tooldefect.business.identity.application.LocalIdentityService;
 import com.tooldefect.business.detection.infrastructure.JdbcDetectionQueryRepository;
-import com.tooldefect.business.dataset.infrastructure.JdbcDatasetRepository;
+import com.tooldefect.business.detectionbatch.infrastructure.JdbcManualDetectionRepository;
+import com.tooldefect.business.detectionbatch.infrastructure.JdbcProductionDetectionRepository;
+import com.tooldefect.business.detectionbatch.infrastructure.R4InferenceResultHandler;
+import com.tooldefect.business.detectionbatch.application.ProductionDetectionRepository;
+import com.tooldefect.business.sample.infrastructure.JdbcSampleLibraryRepository;
+import com.tooldefect.business.sample.infrastructure.SampleExportCompletedHandler;
 import com.tooldefect.business.deployment.infrastructure.JdbcDeploymentRepository;
 import com.tooldefect.business.model.infrastructure.JdbcModelRepository;
 import com.tooldefect.business.review.domain.ReviewStatus;
 import com.tooldefect.business.review.infrastructure.JdbcReviewRepository;
-import com.tooldefect.business.training.infrastructure.JdbcTrainingRunRepository;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * 真实 PostgreSQL 上验证空库、向前迁移、约束以及备份恢复。Docker 不可用时
@@ -49,13 +57,331 @@ class DatabaseMigrationIT {
         .withPassword("tool-defect-test-only");
 
     @Test
+    void r4ProductionRepositoryPersistsInspectedDimensionsAndIsIdempotent() {
+        String schema = uniqueName("r4_production");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+        var repository = new JdbcProductionDetectionRepository(jdbc);
+        UUID captureId = UUID.randomUUID();
+        var image = new ProductionDetectionRepository.Image(
+            "td-original", "production-originals/station/" + captureId + ".png",
+            "version-1", "f".repeat(64), 1024, "image/png", 640, 480);
+
+        var first = repository.create(captureId, "device:station-1", image, "r4-production-1");
+        var replay = repository.create(captureId, "device:station-1", image, "r4-production-1");
+
+        assertThat(replay).isEqualTo(first);
+        assertThat(jdbc.queryForMap(
+            "SELECT width,height,state FROM image_object WHERE image_id=?",
+            first.batchItemId())).containsEntry("width", 640)
+                .containsEntry("height", 480)
+                .containsEntry("state", "AVAILABLE");
+    }
+
+    @Test
+    void r4SingleItemResultsDriveSafeAggregateStates() {
+        String schema = uniqueName("r4_single_item");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+
+        UUID partial = r4Batch(jdbc, 10);
+        var partialItems = jdbc.queryForList(
+            "SELECT batch_item_id FROM detection_batch_item_v2 WHERE batch_id=? ORDER BY batch_item_id",
+            UUID.class, partial);
+        for (int index = 0; index < partialItems.size(); index++) {
+            jdbc.update("UPDATE detection_batch_item_v2 SET status=?,algorithm_outcome=? WHERE batch_item_id=?",
+                index == 0 ? "QUALITY_REJECTED" : "COMPLETED",
+                index == 0 ? null : "QUALIFIED", partialItems.get(index));
+        }
+        assertThat(jdbc.queryForMap("""
+            SELECT status,completed_count,normal_count,quality_rejected_count
+            FROM detection_batch_v2 WHERE batch_id=?
+            """, partial)).containsEntry("status", "PARTIALLY_COMPLETED")
+                .containsEntry("completed_count", 10)
+                .containsEntry("normal_count", 9)
+                .containsEntry("quality_rejected_count", 1);
+
+        UUID failed = r4Batch(jdbc, 2);
+        jdbc.update("UPDATE detection_batch_item_v2 SET status='QUALITY_REJECTED' WHERE batch_id=?", failed);
+        assertThat(jdbc.queryForObject(
+            "SELECT status FROM detection_batch_v2 WHERE batch_id=?", String.class, failed))
+            .isEqualTo("FAILED");
+
+        UUID completed = r4Batch(jdbc, 1);
+        UUID item = jdbc.queryForObject(
+            "SELECT batch_item_id FROM detection_batch_item_v2 WHERE batch_id=?", UUID.class, completed);
+        UUID task = jdbc.queryForObject(
+            "SELECT detection_task_id FROM detection_task_v2 WHERE batch_item_id=?", UUID.class, item);
+        UUID message = UUID.randomUUID();
+        UUID attempt = UUID.randomUUID();
+        String payload = """
+            {"message_id":"%s","occurred_at":"2026-08-03T00:00:00Z",
+             "idempotency_key":"r4-completed-0001",
+             "traceparent":"00-0123456789abcdef0123456789abcdef-0123456789abcdef-01",
+             "batch_item_id":"%s","detection_task_id":"%s","attempt_id":"%s",
+             "quality":{"overall":"ACCEPTED","checker_version":"quality-2.0.0","checks":[
+               {"check_type":"DECODABLE","status":"PASS","rule_id":"q/decode","reason_code":"OK","user_hint":"可读取"},
+               {"check_type":"BLADE_PRESENT","status":"PASS","rule_id":"q/present","reason_code":"OK","user_hint":"存在"},
+               {"check_type":"BLADE_COMPLETE","status":"PASS","rule_id":"q/complete","reason_code":"OK","user_hint":"完整"},
+               {"check_type":"BLUR","status":"PASS","rule_id":"q/blur","reason_code":"OK","user_hint":"清晰"},
+               {"check_type":"EXPOSURE","status":"PASS","rule_id":"q/exposure","reason_code":"OK","user_hint":"曝光可用"}]},
+             "algorithm_outcome":"INCONCLUSIVE",
+             "result_reference":{"bucket":"model-evidence","object_key":"model-evidence/r4/result.json",
+               "sha256":"%s","size_bytes":512,"media_type":"application/json"}}
+            """.formatted(message, item, task, attempt, "a".repeat(64));
+
+        new R4InferenceResultHandler(jdbc, new ObjectMapper()).handle(payload);
+
+        assertThat(jdbc.queryForMap("""
+            SELECT status,completed_count,inconclusive_count FROM detection_batch_v2 WHERE batch_id=?
+            """, completed)).containsEntry("status", "COMPLETED")
+                .containsEntry("completed_count", 1)
+                .containsEntry("inconclusive_count", 1);
+        assertThat(jdbc.queryForObject(
+            """
+            SELECT count(*) FROM image_quality_check_v2 checks
+            JOIN image_quality_result_v2 result
+              ON result.quality_result_id=checks.quality_result_id
+            WHERE result.batch_item_id=?
+            """,
+            Integer.class, item)).isEqualTo(5);
+        var evidence = new JdbcManualDetectionRepository(jdbc).findItemEvidence(item);
+        assertThat(evidence.quality()).isNotNull();
+        assertThat(evidence.quality().checks()).hasSize(5);
+        assertThat(evidence.result()).isNotNull();
+        assertThat(evidence.result().objectKey()).isEqualTo("model-evidence/r4/result.json");
+    }
+
+    @Test
+    void r3ManualBatchAcceptsTenIndependentItemsAndCreatesOneTaskEach() {
+        String schema = uniqueName("r3_manual");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+        UUID owner = UUID.randomUUID();
+        UUID stranger = UUID.randomUUID();
+        for (UUID user : List.of(owner, stranger)) {
+            jdbc.update("""
+                INSERT INTO sys_user(user_id, external_subject, display_name, status, username)
+                VALUES (?, ?, 'R3 测试用户', 'ACTIVE', ?)
+                """, user, "r3:" + user, "r3-" + user.toString().substring(0, 8));
+        }
+        var repository = new JdbcManualDetectionRepository(jdbc);
+        var batch = repository.createBatch(owner, "NEW_BLADE", null);
+
+        for (int index = 0; index < 10; index++) {
+            String sha256 = "%064x".formatted(index + 1);
+            UUID itemId = UUID.randomUUID();
+            var upload = repository.addItem(
+                batch.batchId(), itemId, owner, "blade-" + index + ".png", 128 + index,
+                "image/png", sha256, "td-raw",
+                "manual-originals/" + owner + "/" + batch.batchId() + "/" + index + ".png",
+                Instant.now().plusSeconds(300), 100
+            );
+            assertThat(upload.item().itemId()).isEqualTo(itemId);
+            repository.confirmUpload(
+                batch.batchId(), upload.item().itemId(), owner, "v" + index, 32, 32
+            );
+        }
+
+        var ready = repository.findBatch(batch.batchId(), owner, false).orElseThrow();
+        assertThat(ready.status()).isEqualTo("READY");
+        assertThat(ready.counts().total()).isEqualTo(10);
+        assertThat(repository.findBatch(batch.batchId(), stranger, false)).isEmpty();
+
+        var submitted = repository.submit(
+            batch.batchId(), owner, ready.version(), "r3-submit-once"
+        );
+        assertThat(submitted.status()).isEqualTo("PROCESSING");
+        assertThat(jdbc.queryForObject(
+            "SELECT count(*) FROM detection_task_v2 task JOIN detection_batch_item_v2 item ON item.batch_item_id=task.batch_item_id WHERE item.batch_id=?",
+            Integer.class, batch.batchId()
+        )).isEqualTo(10);
+        assertThat(jdbc.queryForObject(
+            "SELECT count(DISTINCT batch_item_id) FROM detection_task_v2",
+            Integer.class
+        )).isEqualTo(10);
+    }
+
+    @Test
+    void r5QuickReviewIsAppendOnlyIdempotentAndUpdatesCurrentDecision() {
+        String schema = uniqueName("r5_quick_review");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+        UUID owner = UUID.randomUUID();
+        jdbc.update("""
+            INSERT INTO sys_user(user_id, external_subject, display_name, status, username)
+            VALUES (?, ?, 'R5 反馈用户', 'ACTIVE', ?)
+            """, owner, "r5:" + owner, "r5-" + owner.toString().substring(0, 8));
+        var repository = new JdbcManualDetectionRepository(jdbc);
+        var batch = repository.createBatch(owner, "UNSPECIFIED", null);
+        UUID itemId = UUID.randomUUID();
+        repository.addItem(batch.batchId(), itemId, owner, "blade.png", 256,
+            "image/png", "a".repeat(64), "td-raw",
+            "manual-originals/" + owner + "/" + batch.batchId() + "/blade.png",
+            Instant.now().plusSeconds(300), 10);
+        jdbc.update("""
+            UPDATE detection_batch_item_v2
+            SET status='COMPLETED',algorithm_outcome='INCONCLUSIVE'
+            WHERE batch_item_id=?
+            """, itemId);
+
+        var first = repository.saveQuickReview(batch.batchId(), itemId, owner, false,
+            "UNABLE_TO_DETERMINE", null, "r5-review-first");
+        var revised = repository.saveQuickReview(batch.batchId(), itemId, owner, false,
+            "DEFECT_CONFIRMED", null, "r5-review-revised");
+
+        assertThat(revised.supersedesRecordId()).isEqualTo(first.reviewRecordId());
+        assertThat(jdbc.queryForObject(
+            "SELECT count(*) FROM quick_feedback_v2 WHERE batch_item_id=?",
+            Integer.class, itemId)).isEqualTo(2);
+        assertThat(repository.findItem(batch.batchId(), itemId, owner, false)
+            .orElseThrow().quickReviewDecision()).isEqualTo("DEFECT_CONFIRMED");
+        assertThatThrownBy(() -> jdbc.update(
+            "UPDATE quick_feedback_v2 SET decision='NO_DEFECT_CONFIRMED' WHERE feedback_id=?",
+            first.reviewRecordId())).isInstanceOf(DataAccessException.class);
+    }
+
+    @Test
+    void r6RoleMigrationRequiresExplicitConfirmationAndRevokesSessions() {
+        String schema = uniqueName("r6_roles");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+        UUID operator = UUID.randomUUID();
+        UUID highPrivilege = UUID.randomUUID();
+        insertR6User(jdbc, operator, "r6-operator");
+        insertR6User(jdbc, highPrivilege, "r6-high");
+        UUID operatorRole = roleId(jdbc, "OPERATOR");
+        UUID highRole = roleId(jdbc, "SYSTEM_OPERATOR");
+        jdbc.update(
+            "INSERT INTO sys_user_role(user_id, role_id) VALUES (?, ?), (?, ?)",
+            operator, operatorRole, highPrivilege, highRole
+        );
+        jdbc.update(
+            "INSERT INTO auth_session("
+                + "session_hash, user_id, created_at, last_accessed_at, "
+                + "idle_expires_at, absolute_expires_at) "
+                + "VALUES (?, ?, now(), now(), now() + interval '30 minutes', "
+                + "now() + interval '8 hours')",
+            "r".repeat(64), operator
+        );
+
+        LocalIdentityService identities = new LocalIdentityService(
+            jdbc,
+            mock(AuditTrail.class),
+            "",
+            "",
+            ""
+        );
+        Map<String, Object> operatorPreview = identities.previewRoleMappings()
+            .stream()
+            .filter(item -> operator.equals(item.get("user_id")))
+            .findFirst()
+            .orElseThrow();
+        Map<String, Object> highPreview = identities.previewRoleMappings()
+            .stream()
+            .filter(item -> highPrivilege.equals(item.get("user_id")))
+            .findFirst()
+            .orElseThrow();
+        assertThat(operatorPreview)
+            .containsEntry("suggested_role", "PRODUCTION_EMPLOYEE")
+            .containsEntry("migration_status", "UNCONFIRMED");
+        assertThat(highPreview)
+            .containsEntry("suggested_role", null)
+            .containsEntry("migration_status", "CONFLICT");
+        assertThat(jdbc.queryForObject(
+            "SELECT person_role FROM sys_user WHERE user_id = ?",
+            String.class,
+            operator
+        )).isNull();
+
+        assertThatThrownBy(() -> identities.confirmRoleMigration(
+            highPrivilege,
+            "ADMINISTRATOR",
+            operator.toString(),
+            ""
+        )).isInstanceOf(IllegalArgumentException.class);
+        assertThat(jdbc.queryForObject(
+            "SELECT person_role FROM sys_user WHERE user_id = ?",
+            String.class,
+            highPrivilege
+        )).isNull();
+
+        Map<String, Object> confirmed = identities.confirmRoleMigration(
+            operator,
+            "PRODUCTION_EMPLOYEE",
+            highPrivilege.toString(),
+            "按职责清单确认生产员工"
+        );
+        assertThat(confirmed)
+            .containsEntry("status", "CONFIRMED")
+            .containsEntry("idempotent", false);
+        assertThat(jdbc.queryForObject(
+            "SELECT person_role FROM sys_user WHERE user_id = ?",
+            String.class,
+            operator
+        )).isEqualTo("PRODUCTION_EMPLOYEE");
+        assertThat(jdbc.queryForObject(
+            "SELECT revoked_at IS NOT NULL FROM auth_session WHERE user_id = ?",
+            Boolean.class,
+            operator
+        )).isTrue();
+        identities.setDisplayName(operator, "生产线员工", highPrivilege.toString());
+        assertThat(jdbc.queryForObject(
+            "SELECT display_name FROM sys_user WHERE user_id = ?",
+            String.class,
+            operator
+        )).isEqualTo("生产线员工");
+
+        Map<String, Object> replay = identities.confirmRoleMigration(
+            operator,
+            "PRODUCTION_EMPLOYEE",
+            highPrivilege.toString(),
+            "重复提交"
+        );
+        assertThat(replay).containsEntry("idempotent", true);
+        assertThatThrownBy(() -> identities.confirmRoleMigration(
+            operator,
+            "ADMINISTRATOR",
+            highPrivilege.toString(),
+            "冲突替换"
+        )).isInstanceOf(IllegalStateException.class);
+
+        Map<String, Object> highConfirmed = identities.confirmRoleMigration(
+            highPrivilege,
+            "ADMINISTRATOR",
+            operator.toString(),
+            "双人复核后确认管理员职责"
+        );
+        assertThat(highConfirmed).containsEntry("status", "CONFIRMED");
+    }
+
+    private static void insertR6User(JdbcTemplate jdbc, UUID userId, String username) {
+        jdbc.update(
+            "INSERT INTO sys_user(user_id, external_subject, username, display_name, status) "
+                + "VALUES (?, ?, ?, ?, 'ACTIVE')",
+            userId,
+            userId.toString(),
+            username,
+            username
+        );
+    }
+
+    private static UUID roleId(JdbcTemplate jdbc, String roleCode) {
+        return jdbc.queryForObject(
+            "SELECT role_id FROM sys_role WHERE role_code = ?",
+            UUID.class,
+            roleCode
+        );
+    }
+
+    @Test
     void emptyDatabaseMigratesAndContainsNoBinaryColumns() {
         String schema = uniqueName("empty");
         Flyway flyway = flyway(POSTGRES.getJdbcUrl(), schema, null);
 
         var result = flyway.migrate();
 
-        assertThat(result.migrationsExecuted).isEqualTo(15);
+        assertThat(result.migrationsExecuted).isEqualTo(21);
         flyway.validate();
         JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
         assertThat(jdbc.queryForObject(
@@ -65,7 +391,7 @@ class DatabaseMigrationIT {
             WHERE success AND version IS NOT NULL
             """,
             Integer.class
-        )).isEqualTo(15);
+        )).isEqualTo(21);
         assertThat(jdbc.queryForObject(
             """
             SELECT COUNT(*)
@@ -83,50 +409,103 @@ class DatabaseMigrationIT {
         )).isTrue();
         assertThat(jdbc.queryForList(
             """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = ? AND table_name = 'sample_candidate_v2'
+              AND column_name IN ('dataset_version_id', 'training_run_id')
+            """,
+            String.class,
+            schema
+        )).isEmpty();
+        for (String retiredTable : new String[] {
+            "dataset", "dataset_version", "dataset_sample",
+            "dataset_candidate_manifest", "training_run",
+            "review_training_decision"
+        }) {
+            assertThat(jdbc.queryForObject(
+                "SELECT to_regclass(?) IS NOT NULL",
+                Boolean.class,
+                schema + "." + retiredTable
+            )).as("第一版退役表仍存在: %s", retiredTable).isFalse();
+        }
+        assertThat(jdbc.queryForList(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = ? AND table_name = 'model_version'
+              AND column_name IN ('training_run_id', 'dataset_version_id')
+            """,
+            String.class,
+            schema
+        )).isEmpty();
+        assertThat(jdbc.queryForList(
+            """
             SELECT role.role_code || ':' || permission.permission_code
             FROM sys_role role
             JOIN sys_role_permission mapping ON mapping.role_id = role.role_id
             JOIN sys_permission permission
               ON permission.permission_id = mapping.permission_id
-            WHERE permission.permission_code IN ('quality:read', 'training:read')
+            WHERE permission.permission_code IN (
+                'quality:read', 'training:read', 'dataset:create',
+                'dataset:approve', 'training:create', 'model:approve'
+            )
             ORDER BY role.role_code, permission.permission_code
             """,
             String.class
         )).containsExactly(
-            "ALGORITHM_ENGINEER:training:read",
-            "AUDITOR:quality:read",
-            "AUDITOR:training:read",
-            "MODEL_APPROVER:training:read",
-            "QUALITY_MANAGER:quality:read",
-            "SYSTEM_OPERATOR:quality:read",
-            "SYSTEM_OPERATOR:training:read"
+            "ADMINISTRATOR:model:approve",
+            "ADMINISTRATOR:quality:read"
         );
+        assertThat(jdbc.queryForObject(
+            "SELECT COUNT(*) FROM sys_role WHERE role_code IN "
+                + "('PRODUCTION_EMPLOYEE', 'ADMINISTRATOR')",
+            Integer.class
+        )).isEqualTo(2);
+        assertThat(jdbc.queryForObject(
+            "SELECT COUNT(*) FROM sys_user_role_migration_v2",
+            Integer.class
+        )).isZero();
     }
 
     @Test
-    void managementCatalogsExposeCreatedRootsAndEmptyLifecycleLists() {
-        String schema = uniqueName("management_catalogs");
-        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+    void v21RefusesRetiredRowsBeforeDestructiveCleanup() {
+        String schema = uniqueName("r9_hold");
+        Flyway v20 = flyway(
+            POSTGRES.getJdbcUrl(),
+            schema,
+            MigrationVersion.fromVersion("20")
+        );
+        assertThat(v20.migrate().migrationsExecuted).isEqualTo(20);
         JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
         UUID datasetId = UUID.randomUUID();
+        jdbc.update(
+            "INSERT INTO dataset(dataset_id, dataset_name, purpose) VALUES (?, ?, ?)",
+            datasetId,
+            "r9-retired-dataset-" + datasetId,
+            "R9 HOLD fixture"
+        );
+
+        Flyway latest = flyway(POSTGRES.getJdbcUrl(), schema, null);
+        assertThatThrownBy(latest::migrate)
+            .hasMessageContaining("进入 HOLD");
+        assertThat(jdbc.queryForObject(
+            "SELECT count(*) FROM dataset WHERE dataset_id=?",
+            Integer.class,
+            datasetId
+        )).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+            "SELECT count(*) FROM flyway_schema_history WHERE version='21' AND success",
+            Integer.class
+        )).isZero();
+    }
+
+    @Test
+    void modelCatalogExposesCreatedRootsAndEmptyDeploymentLists() {
+        String schema = uniqueName("model_catalog");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
         UUID modelId = UUID.randomUUID();
         Instant createdAt = Instant.parse("2026-08-01T00:00:00Z");
-
-        var datasets = new JdbcDatasetRepository(jdbc);
-        datasets.insertDataset(
-            datasetId, "生产候选集", "增量训练", createdAt
-        );
-        Map<String, Object> datasetPage = datasets.listDatasets(
-            "auditor", 50, null
-        );
-        assertThat((List<?>) datasetPage.get("items")).singleElement()
-            .isInstanceOfSatisfying(Map.class, item -> assertThat(item)
-                .containsEntry("dataset_id", datasetId.toString())
-                .containsEntry("dataset_name", "生产候选集")
-                .containsEntry("version_count", 0));
-        assertThat(datasets.listVersions(
-            "auditor", null, "FROZEN", 50, null
-        )).containsEntry("items", List.of());
 
         var models = new JdbcModelRepository(jdbc);
         models.insertModel(
@@ -144,59 +523,9 @@ class DatabaseMigrationIT {
             "auditor", null, "APPROVED", 50, null
         )).containsEntry("items", List.of());
 
-        assertThat(new JdbcTrainingRunRepository(jdbc).listRuns(
-            "auditor", null, 50, null
-        )).containsEntry("items", List.of());
         assertThat(new JdbcDeploymentRepository(jdbc).listDeployments(
             "auditor", null, null, 50, null
         )).containsEntry("items", List.of());
-    }
-
-    @Test
-    void datasetBuildClaimsArePairedAndClearedBeforeValidation() {
-        String schema = uniqueName("dataset_build_claim");
-        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
-        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
-        UUID datasetVersionId = seedDatasetVersion(jdbc);
-
-        assertThatThrownBy(() -> jdbc.update(
-            """
-            UPDATE dataset_version
-            SET build_worker_id = 'builder-one',
-                record_version = record_version + 1
-            WHERE dataset_version_id = ?
-            """,
-            datasetVersionId
-        )).isInstanceOf(DataAccessException.class);
-
-        assertThat(jdbc.update(
-            """
-            UPDATE dataset_version
-            SET build_worker_id = 'builder-one', build_claimed_at = now(),
-                record_version = record_version + 1
-            WHERE dataset_version_id = ?
-            """,
-            datasetVersionId
-        )).isEqualTo(1);
-
-        assertThatThrownBy(() -> jdbc.update(
-            """
-            UPDATE dataset_version
-            SET status = 'VALIDATING', record_version = record_version + 1
-            WHERE dataset_version_id = ?
-            """,
-            datasetVersionId
-        )).isInstanceOf(DataAccessException.class);
-
-        assertThat(jdbc.update(
-            """
-            UPDATE dataset_version
-            SET status = 'VALIDATING', build_worker_id = NULL,
-                build_claimed_at = NULL, record_version = record_version + 1
-            WHERE dataset_version_id = ?
-            """,
-            datasetVersionId
-        )).isEqualTo(1);
     }
 
     @Test
@@ -290,7 +619,7 @@ class DatabaseMigrationIT {
         );
 
         Flyway latest = flyway(POSTGRES.getJdbcUrl(), schema, null);
-        assertThat(latest.migrate().migrationsExecuted).isEqualTo(13);
+        assertThat(latest.migrate().migrationsExecuted).isEqualTo(19);
 
         assertThat(jdbc.queryForObject(
             "SELECT organization_id FROM production_line WHERE line_id = ?",
@@ -521,90 +850,6 @@ class DatabaseMigrationIT {
             """,
             "b".repeat(64),
             imageId
-        )).isInstanceOf(DataAccessException.class);
-
-        UUID unavailable = insertImage(
-            jdbc,
-            fixture.captureId(),
-            "staging/not-available.png"
-        );
-        UUID datasetVersionId = seedDatasetVersion(jdbc);
-        assertThatThrownBy(() -> jdbc.update(
-            """
-            INSERT INTO dataset_sample(
-                dataset_sample_id, dataset_version_id, sample_key,
-                capture_id, image_id, label, split, content_sha256, group_key
-            ) VALUES (?, ?, 'sample-1', ?, ?, 'OK', 'TRAIN', ?, 'group-1')
-            """,
-            UUID.randomUUID(),
-            datasetVersionId,
-            fixture.captureId(),
-            unavailable,
-            "c".repeat(64)
-        )).isInstanceOf(DataAccessException.class);
-        UUID datasetSampleId = UUID.randomUUID();
-        assertThat(jdbc.update(
-            """
-            INSERT INTO dataset_sample(
-                dataset_sample_id, dataset_version_id, sample_key,
-                capture_id, image_id, label, split, content_sha256, group_key
-            ) VALUES (?, ?, 'sample-2', ?, ?, 'OK', 'TRAIN', ?, 'group-1')
-            """,
-            datasetSampleId,
-            datasetVersionId,
-            fixture.captureId(),
-            imageId,
-            "d".repeat(64)
-        )).isEqualTo(1);
-        assertThat(jdbc.update(
-            """
-            UPDATE dataset_version
-            SET manifest_bucket = 'td-datasets',
-                manifest_object_key = 'manifests/frozen-v1.json',
-                manifest_sha256 = ?,
-                status = 'VALIDATING',
-                record_version = record_version + 1
-            WHERE dataset_version_id = ?
-            """,
-            "4".repeat(64),
-            datasetVersionId
-        )).isEqualTo(1);
-        UUID datasetApproverId = seedUser(
-            jdbc, "dataset-approval-integrity"
-        );
-        assertThat(jdbc.update(
-            """
-            UPDATE dataset_version
-            SET status = 'FROZEN', approved_by = ?, approved_at = now(),
-                record_version = record_version + 1
-            WHERE dataset_version_id = ?
-            """,
-            datasetApproverId,
-            datasetVersionId
-        )).isEqualTo(1);
-        UUID mutableDatasetVersionId = UUID.randomUUID();
-        assertThat(jdbc.update(
-            """
-            INSERT INTO dataset_version(
-                dataset_version_id, dataset_id, version, status
-            )
-            SELECT ?, dataset_id, '2', 'BUILDING'
-            FROM dataset_version WHERE dataset_version_id = ?
-            """,
-            mutableDatasetVersionId,
-            datasetVersionId
-        )).isEqualTo(1);
-        assertThatThrownBy(() -> jdbc.update(
-            """
-            UPDATE dataset_sample SET dataset_version_id = ?
-            WHERE dataset_sample_id = ?
-            """,
-            mutableDatasetVersionId,
-            datasetSampleId
-        )).isInstanceOf(DataAccessException.class);
-        assertThatThrownBy(() -> jdbc.update(
-            "DELETE FROM dataset_sample WHERE dataset_sample_id = ?",
-            datasetSampleId
         )).isInstanceOf(DataAccessException.class);
 
         UUID firstDispositionId = UUID.randomUUID();
@@ -838,13 +1083,12 @@ class DatabaseMigrationIT {
     }
 
     @Test
-    void humanReviewFactsAndTrainingApprovalAreDatabaseEnforced() {
+    void humanReviewFactsAreDatabaseEnforced() {
         String schema = uniqueName("review_facts");
         flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
         JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
         Fixture fixture = seedCapture(jdbc);
         UUID reviewerId = seedUser(jdbc, "review-record-owner");
-        UUID qualityId = seedUser(jdbc, "quality-approver");
         UUID taskId = UUID.randomUUID();
         jdbc.update(
             """
@@ -881,60 +1125,336 @@ class DatabaseMigrationIT {
             reviewRecordId
         )).isInstanceOf(DataAccessException.class);
 
-        UUID rawImageId = insertImage(
-            jdbc,
-            fixture.captureId(),
-            "review-training/raw.png"
-        );
-        jdbc.update(
-            """
-            UPDATE image_object
-            SET state = 'AVAILABLE', width = 2, height = 3,
-                record_version = record_version + 1
-            WHERE image_id = ?
-            """,
-            rawImageId
-        );
-        UUID datasetVersionId = seedDatasetVersion(jdbc);
-        assertThatThrownBy(() -> insertReviewDatasetSample(
-            jdbc,
-            UUID.randomUUID(),
-            datasetVersionId,
-            fixture.captureId(),
-            rawImageId,
-            reviewRecordId,
-            "before-approval"
-        )).isInstanceOf(DataAccessException.class);
+    }
 
-        UUID trainingDecisionId = UUID.randomUUID();
+    @Test
+    void r2BackfillIsIdempotentAndMultiViewStaysOnHold() {
+        String schema = uniqueName("r2_backfill");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+
+        Fixture single = seedCapture(jdbc);
         jdbc.update(
             """
-            INSERT INTO review_training_decision(
-                training_decision_id, review_record_id,
-                decision, decided_by, reason
-            ) VALUES (?, ?, 'APPROVED', ?, '质量负责人批准进入训练候选')
+            UPDATE capture_event
+            SET status = 'FAILED', record_version = record_version + 1
+            WHERE capture_id = ?
             """,
-            trainingDecisionId,
-            reviewRecordId,
-            qualityId
+            single.captureId()
         );
-        assertThat(insertReviewDatasetSample(
-            jdbc,
+        UUID singleImage = insertImage(
+            jdbc, single.captureId(), "r2/single-" + single.captureId() + ".png"
+        );
+
+        Fixture multi = seedCapture(jdbc);
+        insertImage(jdbc, multi.captureId(), "r2/front-" + multi.captureId() + ".png");
+        insertImage(jdbc, multi.captureId(), "r2/back-" + multi.captureId() + ".png");
+
+        Map<String, Object> first = jdbc.queryForMap(
+            "SELECT * FROM td_backfill_legacy_captures_v2()"
+        );
+        Map<String, Object> second = jdbc.queryForMap(
+            "SELECT * FROM td_backfill_legacy_captures_v2()"
+        );
+
+        assertThat(first)
+            .containsEntry("inserted_batches", 2)
+            .containsEntry("inserted_items", 1)
+            .containsEntry("held_captures", 1);
+        assertThat(second)
+            .containsEntry("inserted_batches", 0)
+            .containsEntry("inserted_items", 0)
+            .containsEntry("held_captures", 1);
+        assertThat(jdbc.queryForObject(
+            "SELECT image_id FROM detection_batch_item_v2 WHERE capture_id = ?",
+            UUID.class,
+            single.captureId()
+        )).isEqualTo(singleImage);
+        assertThat(jdbc.queryForObject(
+            "SELECT count(*) FROM detection_batch_item_v2 WHERE capture_id = ?",
+            Integer.class,
+            multi.captureId()
+        )).isZero();
+        assertThat(jdbc.queryForObject(
+            "SELECT error_code FROM r2_migration_failure WHERE source_id = ?",
+            String.class,
+            multi.captureId()
+        )).isEqualTo("TD-R2-MULTI-VIEW-READ-ONLY");
+        assertThatThrownBy(() -> jdbc.update(
+            "UPDATE r2_migration_failure SET status = 'RESOLVED' WHERE source_id = ?",
+            multi.captureId()
+        )).isInstanceOf(DataAccessException.class);
+        assertThat(jdbc.queryForObject(
+            "SELECT td_capture_shadow_differences_v2()", Integer.class
+        )).isZero();
+    }
+
+    @Test
+    void r2ModelSourceRequiresExactlyOneCompleteProvenance() {
+        String schema = uniqueName("r2_model_source");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+        UUID modelId = UUID.randomUUID();
+        UUID uploadId = UUID.randomUUID();
+        jdbc.update(
+            "INSERT INTO model(model_id, model_name, task_type) VALUES (?, ?, 'MULTITASK')",
+            modelId,
+            "external-model-" + modelId
+        );
+        jdbc.update(
+            """
+            INSERT INTO model_upload_session_v2(
+                model_upload_id, model_version_label,
+                quarantine_bucket, quarantine_object_key,
+                declared_sha256, size_bytes, media_type, status, expires_at
+            ) VALUES (?, 'external-1', 'td-model-quarantine', ?, ?, 1024,
+                'application/zip', 'VALIDATED', now() + interval '1 hour')
+            """,
+            uploadId,
+            "model-quarantine/" + uploadId + "/model.zip",
+            "a".repeat(64)
+        );
+
+        assertThat(jdbc.update(
+            """
+            INSERT INTO model_version(
+                model_version_id, model_id, version, source_kind,
+                model_upload_id, external_source_snapshot,
+                artifact_bucket, artifact_object_key, artifact_sha256,
+                input_spec, output_spec, approval_state
+            ) VALUES (?, ?, '1', 'EXTERNAL_UPLOAD', ?, CAST(? AS jsonb),
+                'td-models', ?, ?, '{}'::jsonb, '{}'::jsonb, 'CANDIDATE')
+            """,
             UUID.randomUUID(),
-            datasetVersionId,
-            fixture.captureId(),
-            rawImageId,
-            reviewRecordId,
-            "after-approval"
+            modelId,
+            uploadId,
+            """
+            {"source_system":"offline-lab","source_version":"run-1",
+             "exported_at":"2026-08-03T00:00:00Z",
+             "sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
+            """,
+            "models/" + modelId + "/external.zip",
+            "b".repeat(64)
         )).isEqualTo(1);
+
         assertThatThrownBy(() -> jdbc.update(
             """
-            UPDATE review_training_decision
-            SET decision = 'REJECTED'
-            WHERE training_decision_id = ?
+            INSERT INTO model_version(
+                model_version_id, model_id, version, source_kind,
+                artifact_bucket, artifact_object_key, artifact_sha256,
+                input_spec, output_spec, approval_state
+            ) VALUES (?, ?, '2', 'EXTERNAL_UPLOAD', 'td-models', ?, ?,
+                '{}'::jsonb, '{}'::jsonb, 'CANDIDATE')
             """,
-            trainingDecisionId
+            UUID.randomUUID(), modelId, "models/" + modelId + "/missing.zip",
+            "c".repeat(64)
         )).isInstanceOf(DataAccessException.class);
+
+    }
+
+    @Test
+    void r2LegacyCompatibleWritesFlowIntoSingleImageCore() {
+        String schema = uniqueName("r2_legacy_write");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+        Fixture fixture = seedCapture(jdbc);
+        UUID imageId = insertImage(
+            jdbc,
+            fixture.captureId(),
+            "r2/compatible-" + fixture.captureId() + ".png"
+        );
+
+        assertThat(jdbc.update(
+            """
+            UPDATE capture_event
+            SET status = 'READY', record_version = record_version + 1
+            WHERE capture_id = ? AND status = 'CREATED'
+            """,
+            fixture.captureId()
+        )).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+            "SELECT image_id FROM detection_batch_item_v2 WHERE capture_id = ?",
+            UUID.class,
+            fixture.captureId()
+        )).isEqualTo(imageId);
+
+        assertThat(jdbc.update(
+            """
+            INSERT INTO detection_result(
+                detection_result_id, detection_task_id, accepted_attempt_id,
+                schema_version, algorithm_outcome, preprocess_quality,
+                standard_result, result_sha256
+            ) VALUES (?, ?, ?, '1.0.0', 'UNQUALIFIED', 'OK',
+                '{}'::jsonb, ?)
+            """,
+            UUID.randomUUID(),
+            fixture.detectionTaskId(),
+            fixture.attemptId(),
+            "e".repeat(64)
+        )).isEqualTo(1);
+        assertThat(jdbc.queryForMap(
+            """
+            SELECT status, algorithm_outcome
+            FROM detection_batch_item_v2 WHERE capture_id = ?
+            """,
+            fixture.captureId()
+        )).containsEntry("status", "COMPLETED")
+            .containsEntry("algorithm_outcome", "UNQUALIFIED");
+        assertThat(jdbc.queryForMap(
+            """
+            SELECT status, completed_count, defect_suspected_count
+            FROM detection_batch_v2 WHERE legacy_capture_id = ?
+            """,
+            fixture.captureId()
+        )).containsEntry("status", "COMPLETED")
+            .containsEntry("completed_count", 1)
+            .containsEntry("defect_suspected_count", 1);
+
+        UUID feedbackId = UUID.randomUUID();
+        UUID candidateId = UUID.randomUUID();
+        assertThat(jdbc.update(
+            """
+            INSERT INTO admin_feedback_v2(
+                feedback_id, batch_item_id, label,
+                idempotency_key, submitted_at
+            ) SELECT ?, batch_item_id, 'UNCONFIRMED', ?, now()
+              FROM detection_batch_item_v2 WHERE capture_id = ?
+            """,
+            feedbackId,
+            "r2-candidate:" + feedbackId,
+            fixture.captureId()
+        )).isEqualTo(1);
+        assertThat(jdbc.update(
+            """
+            INSERT INTO sample_candidate_v2(
+                sample_candidate_id, batch_item_id, feedback_id, status
+            ) SELECT ?, batch_item_id, ?, 'PENDING'
+              FROM detection_batch_item_v2 WHERE capture_id = ?
+            """,
+            candidateId,
+            feedbackId,
+            fixture.captureId()
+        )).isEqualTo(1);
+    }
+
+    @Test
+    void r7SampleExportCompletionProjectsTerminalStateIdempotently() {
+        String schema = uniqueName("r7_sample_completed");
+        flyway(POSTGRES.getJdbcUrl(), schema, null).migrate();
+        JdbcTemplate jdbc = jdbc(POSTGRES.getJdbcUrl(), schema);
+        UUID owner = seedUser(jdbc, "r7-sample-owner-" + UUID.randomUUID());
+        UUID batchId = r4Batch(jdbc, 2);
+        List<UUID> itemIds = jdbc.query(
+            "SELECT batch_item_id FROM detection_batch_item_v2 WHERE batch_id=? ORDER BY batch_item_id",
+            (row, number) -> row.getObject("batch_item_id", UUID.class), batchId);
+        UUID feedbackOne = UUID.randomUUID();
+        UUID feedbackTwo = UUID.randomUUID();
+        UUID candidateOne = UUID.randomUUID();
+        UUID candidateTwo = UUID.randomUUID();
+        insertR7IncludedCandidate(jdbc, owner, itemIds.get(0), feedbackOne, candidateOne);
+        insertR7IncludedCandidate(jdbc, owner, itemIds.get(1), feedbackTwo, candidateTwo);
+        UUID jobId = UUID.randomUUID();
+        jdbc.update("""
+            INSERT INTO sample_export_job_v2(
+              sample_export_job_id,candidate_count,status,package_bucket,
+              package_object_key,package_media_type,requested_by,expires_at)
+            VALUES (?,2,'QUEUED','sample-exports',?,'application/zip',?,now()+interval '1 hour')
+            """, jobId, "sample-exports/" + jobId + "/package.zip", owner);
+        jdbc.update("""
+            INSERT INTO sample_export_item_v2(
+              sample_export_job_id,sample_candidate_id,status,source_snapshot)
+            VALUES (?,?,'QUEUED','{}'::jsonb),(?,?, 'QUEUED','{}'::jsonb)
+            """, jobId, candidateOne, jobId, candidateTwo);
+
+        String packageSha = "c".repeat(64);
+        String manifestSha = "d".repeat(64);
+        String payload = """
+            {"message_id":"10000000-0000-4000-8000-000000000005",
+             "occurred_at":"2026-08-03T00:04:00Z",
+             "idempotency_key":"idem-sample-completed-1",
+             "traceparent":"00-0123456789abcdef0123456789abcdef-0123456789abcdef-01",
+             "sample_export_job_id":"%s",
+             "package":{"bucket":"sample-exports","object_key":"sample-exports/%s/package.zip",
+               "object_version":"v-1","sha256":"%s","size_bytes":2048,"media_type":"application/zip"},
+             "manifest":{"bucket":"sample-exports","object_key":"sample-exports/%s/manifest.json",
+               "object_version":"v-1","sha256":"%s","size_bytes":256,"media_type":"application/json"},
+             "exported_count":1,"failed_candidate_ids":["%s"]}
+            """.formatted(jobId, jobId, packageSha, jobId, manifestSha, candidateTwo);
+        var repository = new JdbcSampleLibraryRepository(jdbc, new ObjectMapper());
+        var handler = new SampleExportCompletedHandler(repository, new ObjectMapper());
+
+        handler.handle(payload);
+        handler.handle(payload);
+
+        assertThat(jdbc.queryForMap("""
+            SELECT status,exported_count,failure_count,package_sha256,package_size_bytes,
+              manifest_sha256,manifest_size_bytes
+            FROM sample_export_job_v2 WHERE sample_export_job_id=?
+            """, jobId))
+            .containsEntry("status", "FAILED")
+            .containsEntry("exported_count", 1)
+            .containsEntry("failure_count", 1)
+            .containsEntry("package_sha256", packageSha)
+            .containsEntry("package_size_bytes", 2048L)
+            .containsEntry("manifest_sha256", manifestSha)
+            .containsEntry("manifest_size_bytes", 256L);
+        assertThat(jdbc.queryForMap("""
+            SELECT status,exported_sha256,exported_size_bytes
+            FROM sample_export_item_v2 WHERE sample_export_job_id=? AND sample_candidate_id=?
+            """, jobId, candidateOne))
+            .containsEntry("status", "EXPORTED")
+            .containsEntry("exported_sha256", packageSha)
+            .containsEntry("exported_size_bytes", 2048L);
+        assertThat(jdbc.queryForMap("""
+            SELECT status,error_code FROM sample_export_item_v2
+            WHERE sample_export_job_id=? AND sample_candidate_id=?
+            """, jobId, candidateTwo))
+            .containsEntry("status", "FAILED")
+            .containsEntry("error_code", "EXPORT_ITEM_FAILED");
+        assertThat(jdbc.queryForObject(
+            "SELECT status FROM sample_candidate_v2 WHERE sample_candidate_id=?",
+            String.class, candidateOne)).isEqualTo("EXPORTED");
+        assertThat(jdbc.queryForObject(
+            "SELECT status FROM sample_candidate_v2 WHERE sample_candidate_id=?",
+            String.class, candidateTwo)).isEqualTo("INCLUDED");
+
+        UUID receiptId = UUID.randomUUID();
+        var receipt = repository.appendExternalReceipt(
+            receiptId, jobId, "外部人工复核组", "handoff-2026-08-03", "失败项待复核", owner);
+        assertThat(receipt.receiptId()).isEqualTo(receiptId);
+        assertThat(repository.findExportJob(jobId).orElseThrow().externalReceipts())
+            .singleElement()
+            .satisfies(value -> {
+                assertThat(value.receiverName()).isEqualTo("外部人工复核组");
+                assertThat(value.externalReference()).isEqualTo("handoff-2026-08-03");
+            });
+        assertThatThrownBy(() -> jdbc.update(
+            "UPDATE sample_external_receipt_v2 SET receiver_name='被改写' WHERE receipt_id=?",
+            receiptId)).isInstanceOf(DataAccessException.class);
+    }
+
+    private static void insertR7IncludedCandidate(
+            JdbcTemplate jdbc, UUID owner, UUID itemId, UUID feedbackId, UUID candidateId) {
+        jdbc.update("""
+            INSERT INTO admin_feedback_v2(
+              feedback_id,batch_item_id,label,submitted_by,idempotency_key)
+            VALUES (?,?,'FALSE_POSITIVE',?,?)
+            """, feedbackId, itemId, owner, "r7-feedback-" + feedbackId);
+        jdbc.update("""
+            INSERT INTO sample_candidate_v2(
+              sample_candidate_id,batch_item_id,feedback_id,status,decided_by,decided_at,
+              source_snapshot,source_snapshot_sha256)
+            VALUES (?, ?, ?, 'INCLUDED', ?, now(), '{}'::jsonb, ?)
+            """, candidateId, itemId, feedbackId, owner, "e".repeat(64));
+        UUID decisionId = UUID.randomUUID();
+        jdbc.update("""
+            INSERT INTO sample_candidate_decision_v2(
+              decision_id,sample_candidate_id,decision,decided_by)
+            VALUES (?,?,'INCLUDE',?)
+            """, decisionId, candidateId, owner);
+        jdbc.update("""
+            UPDATE sample_candidate_v2 SET latest_decision_id=? WHERE sample_candidate_id=?
+            """, decisionId, candidateId);
     }
 
     @Test
@@ -983,7 +1503,7 @@ class DatabaseMigrationIT {
         assertThat(restored.queryForObject(
             "SELECT COUNT(*) FROM flyway_schema_history WHERE success",
             Integer.class
-        )).isEqualTo(15);
+        )).isEqualTo(21);
         flyway(databaseUrl(restoredDatabase), "public", null).validate();
     }
 
@@ -993,10 +1513,9 @@ class DatabaseMigrationIT {
         UUID recipeId = UUID.randomUUID();
         UUID stationId = UUID.randomUUID();
         UUID captureId = UUID.randomUUID();
-        UUID datasetId = UUID.randomUUID();
-        UUID datasetVersionId = UUID.randomUUID();
         UUID modelId = UUID.randomUUID();
         UUID modelVersionId = UUID.randomUUID();
+        UUID modelUploadId = UUID.randomUUID();
         UUID pipelineId = UUID.randomUUID();
         UUID detectionTaskId = UUID.randomUUID();
         UUID attemptId = UUID.randomUUID();
@@ -1057,36 +1576,42 @@ class DatabaseMigrationIT {
             "f".repeat(64)
         );
         jdbc.update(
-            "INSERT INTO dataset(dataset_id, dataset_name, purpose) VALUES (?, ?, '约束测试')",
-            datasetId,
-            "constraint-dataset-" + datasetId
-        );
-        jdbc.update(
-            """
-            INSERT INTO dataset_version(
-                dataset_version_id, dataset_id, version, status
-            ) VALUES (?, ?, '1', 'BUILDING')
-            """,
-            datasetVersionId,
-            datasetId
-        );
-        jdbc.update(
             "INSERT INTO model(model_id, model_name, task_type) VALUES (?, ?, 'MULTITASK')",
             modelId,
             "constraint-model-" + modelId
         );
         jdbc.update(
             """
+            INSERT INTO model_upload_session_v2(
+                model_upload_id, model_version_label, quarantine_bucket,
+                quarantine_object_key, declared_sha256, size_bytes, media_type,
+                status, expires_at
+            ) VALUES (?, 'constraint-model', 'td-model-quarantine', ?, ?, 1024,
+                'application/zip', 'VALIDATED', now() + interval '1 hour')
+            """,
+            modelUploadId,
+            "model-quarantine/" + modelUploadId + "/model.zip",
+            "4".repeat(64)
+        );
+        jdbc.update(
+            """
             INSERT INTO model_version(
-                model_version_id, model_id, version, dataset_version_id,
+                model_version_id, model_id, version, source_kind,
+                model_upload_id, external_source_snapshot,
                 artifact_bucket, artifact_object_key, artifact_sha256,
                 input_spec, output_spec, approval_state
-            ) VALUES (?, ?, '1', ?, 'td-models', ?, ?,
+            ) VALUES (?, ?, '1', 'EXTERNAL_UPLOAD', ?, CAST(? AS jsonb),
+                'td-models', ?, ?,
                 '{}'::jsonb, '{}'::jsonb, 'CANDIDATE')
             """,
             modelVersionId,
             modelId,
-            datasetVersionId,
+            modelUploadId,
+            """
+            {"source_system":"migration-test","source_version":"fixture-1",
+             "exported_at":"2026-08-03T00:00:00Z",
+             "sha256":"5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f"}
+            """,
             "models/" + modelVersionId + "/model.bin",
             "4".repeat(64)
         );
@@ -1159,26 +1684,6 @@ class DatabaseMigrationIT {
             "a".repeat(64)
         );
         return imageId;
-    }
-
-    private static UUID seedDatasetVersion(JdbcTemplate jdbc) {
-        UUID datasetId = UUID.randomUUID();
-        UUID versionId = UUID.randomUUID();
-        jdbc.update(
-            "INSERT INTO dataset(dataset_id, dataset_name, purpose) VALUES (?, ?, '测试')",
-            datasetId,
-            "dataset-" + datasetId
-        );
-        jdbc.update(
-            """
-            INSERT INTO dataset_version(
-                dataset_version_id, dataset_id, version, status
-            ) VALUES (?, ?, '1', 'BUILDING')
-            """,
-            versionId,
-            datasetId
-        );
-        return versionId;
     }
 
     private static void seedDetectionReaderScope(
@@ -1359,30 +1864,30 @@ class DatabaseMigrationIT {
         );
     }
 
-    private static int insertReviewDatasetSample(
-            JdbcTemplate jdbc,
-            UUID sampleId,
-            UUID datasetVersionId,
-            UUID captureId,
-            UUID imageId,
-            UUID reviewRecordId,
-            String sampleKey) {
-        return jdbc.update(
-            """
-            INSERT INTO dataset_sample(
-                dataset_sample_id, dataset_version_id, sample_key,
-                capture_id, image_id, label, split,
-                source_review_record_id, content_sha256, group_key
-            ) VALUES (?, ?, ?, ?, ?, 'PASS', 'TRAIN', ?, ?, 'review-group')
-            """,
-            sampleId,
-            datasetVersionId,
-            sampleKey,
-            captureId,
-            imageId,
-            reviewRecordId,
-            "c".repeat(64)
-        );
+    private static UUID r4Batch(JdbcTemplate jdbc, int itemCount) {
+        UUID batchId = UUID.randomUUID();
+        jdbc.update("""
+            INSERT INTO detection_batch_v2(batch_id,batch_no,source,usage_stage,status)
+            VALUES (?,?,'MANUAL_UPLOAD','UNSPECIFIED','PROCESSING')
+            """, batchId, "R4-" + batchId.toString().substring(0, 20));
+        for (int index = 0; index < itemCount; index++) {
+            UUID itemId = UUID.randomUUID();
+            jdbc.update("""
+                INSERT INTO image_object(image_id,kind,bucket,object_key,sha256,
+                  size_bytes,media_type,width,height,state)
+                VALUES (?,'RAW','td-original',?,? ,128,'image/png',64,64,'AVAILABLE')
+                """, itemId, "manual-originals/r4/" + itemId + ".png",
+                "%064x".formatted(index + 100));
+            jdbc.update("""
+                INSERT INTO detection_batch_item_v2(batch_item_id,batch_id,image_id,status)
+                VALUES (?,?,?,'QUEUED')
+                """, itemId, batchId, itemId);
+            jdbc.update("""
+                INSERT INTO detection_task_v2(detection_task_id,batch_item_id,status,
+                  submit_idempotency_key) VALUES (?,?,'QUEUED',?)
+                """, UUID.randomUUID(), itemId, "r4-test-" + batchId);
+        }
+        return batchId;
     }
 
     private static Flyway flyway(

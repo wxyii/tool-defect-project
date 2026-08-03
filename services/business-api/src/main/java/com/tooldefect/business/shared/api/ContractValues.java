@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-/** 冻结 v1 Map 网络形状的严格读取器；未知字段一律拒绝。 */
+/** 冻结网络形状的严格读取器；未知字段一律拒绝。 */
 public final class ContractValues {
     private ContractValues() {
     }
@@ -30,6 +30,31 @@ public final class ContractValues {
         }
         if (!result.keySet().equals(exactFields)) {
             throw new ContractInputViolation(name + " 字段与 v1 契约不一致");
+        }
+        return result;
+    }
+
+    public static Map<String, Object> objectV2(
+            Object value,
+            Set<String> allowedFields,
+            Set<String> requiredFields,
+            String name) {
+        if (!(value instanceof Map<?, ?> raw)) {
+            throw new ContractInputViolation(name + " 必须是对象");
+        }
+        if (!allowedFields.containsAll(requiredFields)) {
+            throw new IllegalArgumentException("第二版必填字段必须属于允许字段集合");
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        for (var entry : raw.entrySet()) {
+            if (!(entry.getKey() instanceof String key)) {
+                throw new ContractInputViolation(name + " 包含非字符串键");
+            }
+            result.put(key, entry.getValue());
+        }
+        if (!allowedFields.containsAll(result.keySet())
+                || !result.keySet().containsAll(requiredFields)) {
+            throw new ContractInputViolation(name + " 字段与 v2 契约不一致");
         }
         return result;
     }

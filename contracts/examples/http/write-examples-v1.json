@@ -3,12 +3,12 @@
   "operations": [
     {
       "operation_id": "loginLocalUser",
-      "success_request": {"username": "operator", "password": "temporary-password-123"},
+      "success_request": {"username": "production", "password": "temporary-password-123"},
       "success_response": {
         "user_id": "019f0000-0000-7000-8000-000000000201",
-        "username": "operator",
-        "display_name": "操作员",
-        "roles": ["OPERATOR"],
+        "username": "production",
+        "display_name": "生产员工",
+        "roles": ["PRODUCTION_EMPLOYEE"],
         "permissions": ["detection:read"],
         "password_change_required": true
       },
@@ -50,9 +50,9 @@
     {
       "operation_id": "createLocalUser",
       "success_request": {
-        "username": "reviewer", "display_name": "复核员",
+        "username": "administrator", "display_name": "管理员",
         "initial_password": "temporary-password-123",
-        "roles": ["REVIEWER"]
+        "roles": ["ADMINISTRATOR"]
       },
       "success_response": {},
       "cases": {
@@ -77,11 +77,43 @@
     },
     {
       "operation_id": "updateLocalUserRoles",
-      "success_request": {"roles": ["REVIEWER"]},
+      "success_request": {"roles": ["PRODUCTION_EMPLOYEE"]},
       "success_response": {},
       "cases": {
         "success": {"status": 204, "request_ref": "success_request", "response_ref": "success_response"},
         "duplicate": {"status": 204, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "updateLocalUserDisplayName",
+      "success_request": {"display_name": "夜班管理员"},
+      "success_response": {},
+      "cases": {
+        "success": {"status": 204, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 204, "request_ref": "success_request", "response_ref": "success_response"},
+        "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
+        "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
+        "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}
+      }
+    },
+    {
+      "operation_id": "confirmLocalUserRoleMigration",
+      "success_request": {
+        "role": "PRODUCTION_EMPLOYEE",
+        "reason": "按已确认的账号职责清单完成逐项映射"
+      },
+      "success_response": {
+        "user_id": "019f0000-0000-7000-8000-000000000201",
+        "role": "PRODUCTION_EMPLOYEE",
+        "status": "CONFIRMED",
+        "idempotent": false
+      },
+      "cases": {
+        "success": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
+        "duplicate": {"status": 200, "request_ref": "success_request", "response_ref": "success_response"},
         "conflict": {"status": 409, "request_ref": "success_request", "response_ref": "errors.conflict"},
         "unauthorized": {"status": 403, "request_ref": "success_request", "response_ref": "errors.forbidden"},
         "validation_error": {"status": 422, "request_ref": "invalid.unknown_field", "response_ref": "errors.validation"}

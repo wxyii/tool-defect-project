@@ -89,6 +89,27 @@ class ImageDecoder:
         )
 
 
+class SingleImageDecoder:
+    """第二版单图适配器：复用安全解码，但只暴露图片种类。"""
+
+    def __init__(self, *, maximum_pixels: int = 40_000_000):
+        self._decoder = ImageDecoder(maximum_pixels=maximum_pixels)
+
+    def decode(self, materialized: MaterializedObject) -> ImageFrame:
+        decoded = self._decoder.decode(materialized)
+        return ImageFrame(
+            image_id=decoded.image_id,
+            pixels=decoded.pixels,
+            color_space=decoded.color_space,
+            media_type=decoded.media_type,
+            sha256=decoded.sha256,
+            original_height=decoded.original_height,
+            original_width=decoded.original_width,
+            attributes={"image_kind": materialized.reference.kind},
+            encoded_bytes=decoded.encoded_bytes,
+        )
+
+
 def _detect_media_type(encoded: np.ndarray) -> str:
     header = np.asarray(encoded[:12], dtype=np.uint8).tobytes()
     if header.startswith(b"\x89PNG\r\n\x1a\n"):

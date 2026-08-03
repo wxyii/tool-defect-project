@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""从 01—14 号设计文档生成稳定、可反向验证的需求追踪矩阵。
+"""从 01—14 号设计文档和 DOC-16 生成稳定、可反向验证的需求追踪矩阵。
 
 需求编号由“文档编号 + 章节路径 + 规范化要求文本”的 SHA-256 派生。
 未改变的要求即使移动行号也保持同一编号；要求语义被修改时会得到新编号，
@@ -19,8 +19,11 @@ import re
 from typing import Any
 
 
-SCHEMA_VERSION = "1.0.0"
-GENERATOR_VERSION = "1.0.0"
+SCHEMA_VERSION = "2.0.0"
+GENERATOR_VERSION = "2.0.0"
+PRODUCT_DOCUMENT = "Docs/16-手工批量检测与管理简化需求规格.md"
+PRODUCT_ID_PATTERN = re.compile(r"^(?:FR-[A-Z]+|NFR-[A-Z]+|MIG)-\d{3}$")
+ACCEPTANCE_ID_PATTERN = re.compile(r"^AT-[A-Z]+-\d{3}$")
 
 STRONG_MARKERS = (
     "必须",
@@ -305,6 +308,129 @@ def extract_requirements(
     return requirements
 
 
+def _markdown_cells(line: str) -> list[str]:
+    if not line.strip().startswith("|"):
+        return []
+    return [cell.strip().replace("`", "") for cell in line.strip().strip("|").split("|")]
+
+
+def _expand_product_references(value: str) -> list[str]:
+    """展开 `FR-BAT-001—011` 和后续简写 `、013`。"""
+
+    references: list[str] = []
+    current_prefix: str | None = None
+    for part in re.split(r"[、,，]", value.replace("`", "")):
+        token = part.strip()
+        if not token:
+            continue
+        range_match = re.fullmatch(
+            r"((?:FR-[A-Z]+|NFR-[A-Z]+|MIG)-)(\d{3})[—–-](?:(?:FR-[A-Z]+|NFR-[A-Z]+|MIG)-)?(\d{3})",
+            token,
+        )
+        if range_match:
+            current_prefix = range_match.group(1)
+            start = int(range_match.group(2))
+            end = int(range_match.group(3))
+            references.extend(
+                f"{current_prefix}{number:03d}" for number in range(start, end + 1)
+            )
+            continue
+        full_match = re.fullmatch(r"((?:FR-[A-Z]+|NFR-[A-Z]+|MIG)-)(\d{3})", token)
+        if full_match:
+            current_prefix = full_match.group(1)
+            references.append(token)
+            continue
+        if current_prefix and re.fullmatch(r"\d{3}", token):
+            references.append(f"{current_prefix}{token}")
+    return references
+
+
+def _product_tasks(mapping: dict[str, Any], product_id: str) -> list[str]:
+    rule = next(
+        (
+            item
+            for item in mapping["product_requirement_mappings"]
+            if fnmatch.fnmatch(product_id, item["pattern"])
+        ),
+        None,
+    )
+    return sorted(set(rule["tasks"])) if rule else []
+
+
+def extract_product_requirements(
+    root: Path,
+    mapping: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    path = root / PRODUCT_DOCUMENT
+    lines = path.read_text(encoding="utf-8").splitlines()
+    headings: list[tuple[int, str]] = []
+    products: list[dict[str, Any]] = []
+    acceptance_scenarios: list[dict[str, Any]] = []
+
+    for index, raw_line in enumerate(lines):
+        stripped = raw_line.strip()
+        heading_match = re.match(r"^(#{1,6})\s+(.+?)\s*$", stripped)
+        if heading_match:
+            level = len(heading_match.group(1))
+            title = _clean_markdown(heading_match.group(2))
+            while headings and headings[-1][0] >= level:
+                headings.pop()
+            headings.append((level, title))
+            continue
+
+        cells = _markdown_cells(stripped)
+        if not cells:
+            continue
+        identifier = cells[0]
+        section = " > ".join(title for _, title in headings) or "文档正文"
+        if PRODUCT_ID_PATTERN.fullmatch(identifier) and len(cells) == 3:
+            priority = cells[1]
+            text = _clean_markdown(cells[2])
+            digest = hashlib.sha256(
+                f"DOC-16\n{section}\n{text}".encode("utf-8")
+            ).hexdigest()[:12].upper()
+            products.append(
+                {
+                    "product_id": identifier,
+                    "tracking_id": f"REQ-DOC-16-{digest}",
+                    "priority": priority,
+                    "source": {
+                        "document": PRODUCT_DOCUMENT,
+                        "line": index + 1,
+                        "section": section,
+                    },
+                    "text": text,
+                    "tasks": _product_tasks(mapping, identifier),
+                    "acceptance_refs": [],
+                    "automated_tests": [],
+                    "implementation_status": "planned",
+                    "verification_evidence": [],
+                }
+            )
+        elif ACCEPTANCE_ID_PATTERN.fullmatch(identifier) and len(cells) == 3:
+            acceptance_scenarios.append(
+                {
+                    "id": identifier,
+                    "source": {
+                        "document": PRODUCT_DOCUMENT,
+                        "line": index + 1,
+                        "section": section,
+                    },
+                    "requirement_ids": _expand_product_references(cells[1]),
+                    "text": _clean_markdown(cells[2]),
+                }
+            )
+
+    by_id = {item["product_id"]: item for item in products}
+    for scenario in acceptance_scenarios:
+        for product_id in scenario["requirement_ids"]:
+            if product_id in by_id:
+                by_id[product_id]["acceptance_refs"].append(scenario["id"])
+    for product in products:
+        product["acceptance_refs"].sort()
+    return products, acceptance_scenarios
+
+
 def _is_test_source(path: Path) -> bool:
     if path.suffix.lower() not in TEST_FILE_SUFFIXES:
         return False
@@ -459,6 +585,10 @@ def build_matrix(root: Path, include_tests: bool = True) -> dict[str, Any]:
     registry = json.loads(registry_path.read_text(encoding="utf-8"))
     decision_ids = {item["id"] for item in registry["decisions"]}
     requirements = extract_requirements(root, mapping, decision_ids)
+    product_requirements, acceptance_scenarios = extract_product_requirements(
+        root,
+        mapping,
+    )
     test_links = (
         build_test_links(root, mapping, requirements) if include_tests else []
     )
@@ -485,14 +615,36 @@ def build_matrix(root: Path, include_tests: bool = True) -> dict[str, Any]:
         {key: value for key, value in item.items() if key != "automated_tests"}
         for item in requirements
     ]
+    stable_product_requirements = [
+        {
+            key: value
+            for key, value in item.items()
+            if key not in {"automated_tests", "implementation_status", "verification_evidence"}
+        }
+        for item in product_requirements
+    ]
     return {
         "schema_version": SCHEMA_VERSION,
         "generator_version": GENERATOR_VERSION,
         "requirement_count": len(requirements),
         "documents": document_summary,
         "requirements": requirements,
+        "product_requirements": product_requirements,
+        "acceptance_scenarios": acceptance_scenarios,
+        "product_requirement_count": len(product_requirements),
+        "p0_product_requirement_count": sum(
+            item["priority"] == "P0" for item in product_requirements
+        ),
         "test_links": test_links,
         "stable_requirements_sha256": canonical_sha256(stable_requirements),
+        "stable_product_requirements_sha256": canonical_sha256(
+            stable_product_requirements
+        ),
+        "acceptance_scenarios_sha256": canonical_sha256(acceptance_scenarios),
+        "product_document": {
+            "path": PRODUCT_DOCUMENT,
+            "source_sha256": sha256_file(root / PRODUCT_DOCUMENT),
+        },
     }
 
 
@@ -503,6 +655,13 @@ def build_lock(matrix: dict[str, Any]) -> dict[str, Any]:
         "requirement_count": matrix["requirement_count"],
         "documents": matrix["documents"],
         "stable_requirements_sha256": matrix["stable_requirements_sha256"],
+        "product_requirement_count": matrix["product_requirement_count"],
+        "p0_product_requirement_count": matrix["p0_product_requirement_count"],
+        "stable_product_requirements_sha256": matrix[
+            "stable_product_requirements_sha256"
+        ],
+        "acceptance_scenarios_sha256": matrix["acceptance_scenarios_sha256"],
+        "product_document": matrix["product_document"],
     }
 
 
@@ -518,6 +677,27 @@ def validate_matrix(
         errors.append("稳定需求编号存在重复")
     if set(matrix["documents"]) != {f"{number:02d}" for number in range(1, 15)}:
         errors.append("设计文档覆盖不是完整的 01—14")
+
+    products = matrix["product_requirements"]
+    product_ids = [item["product_id"] for item in products]
+    tracking_ids = [item["tracking_id"] for item in products]
+    if len(product_ids) != len(set(product_ids)):
+        errors.append("DOC-16 产品需求编号存在重复")
+    if len(tracking_ids) != len(set(tracking_ids)):
+        errors.append("DOC-16 稳定追踪编号存在重复")
+    known_product_ids = set(product_ids)
+    acceptance_ids = [item["id"] for item in matrix["acceptance_scenarios"]]
+    if len(acceptance_ids) != len(set(acceptance_ids)):
+        errors.append("DOC-16 验收场景编号存在重复")
+    for scenario in matrix["acceptance_scenarios"]:
+        unknown = sorted(set(scenario["requirement_ids"]) - known_product_ids)
+        if unknown:
+            errors.append(f"{scenario['id']} 指向未知产品需求：{', '.join(unknown)}")
+    for product in products:
+        if not product["tasks"]:
+            errors.append(f"{product['product_id']} 没有 R* 任务映射")
+        if product["priority"] == "P0" and not product["acceptance_refs"]:
+            errors.append(f"{product['product_id']} 没有验收场景映射")
 
     for document_number, summary in matrix["documents"].items():
         if summary["requirement_count"] == 0:
@@ -565,9 +745,16 @@ def _summary(matrix: dict[str, Any]) -> dict[str, Any]:
         "schema_version": matrix["schema_version"],
         "generator_version": matrix["generator_version"],
         "requirement_count": matrix["requirement_count"],
+        "product_requirement_count": matrix["product_requirement_count"],
+        "p0_product_requirement_count": matrix["p0_product_requirement_count"],
+        "acceptance_scenario_count": len(matrix["acceptance_scenarios"]),
         "test_count": len(matrix["test_links"]),
         "documents": matrix["documents"],
         "stable_requirements_sha256": matrix["stable_requirements_sha256"],
+        "stable_product_requirements_sha256": matrix[
+            "stable_product_requirements_sha256"
+        ],
+        "acceptance_scenarios_sha256": matrix["acceptance_scenarios_sha256"],
     }
 
 

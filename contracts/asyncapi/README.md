@@ -1,4 +1,4 @@
-# 推理消息契约 v1
+# 异步消息契约 v1 / v2
 
 `inference-events-v1.json` 定义推理任务、事务发件箱和死信通道，明确：
 
@@ -8,3 +8,5 @@
 - `message_id` 和 `detection_task_id` 双重幂等；
 - W3C `traceparent` 跨队列传播；
 - 死信禁止自动无限回灌。
+
+`inference-events-v2.json` 独立定义单图片项推理、样本导出和模型隔离验证的 7 个事件。第二版仍使用至少一次投递、手工确认和收件箱幂等，载荷只能携带标识与受控对象引用。

@@ -1,4 +1,4 @@
-import type { AuthIdentity } from './types'
+import type { AuthIdentity, PersonRole } from './types'
 
 let csrfToken: string | null = null
 
@@ -108,11 +108,18 @@ export function parseIdentity(value: unknown): AuthIdentity {
   ) {
     throw new Error('TD-AUTH-RESPONSE-001')
   }
+  const roles = data.roles.filter(
+    (role): role is PersonRole =>
+      role === 'PRODUCTION_EMPLOYEE' || role === 'ADMINISTRATOR',
+  )
+  if (roles.length !== data.roles.length || roles.length > 1) {
+    throw new Error('TD-AUTH-RESPONSE-001')
+  }
   return Object.freeze({
     userId: data.user_id,
     username: data.username,
     displayName: data.display_name,
-    roles: Object.freeze(data.roles.map(String)),
+    roles: Object.freeze(roles),
     permissions: Object.freeze(data.permissions.map(String)),
     passwordChangeRequired: data.password_change_required,
   })

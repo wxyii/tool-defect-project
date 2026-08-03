@@ -1,0 +1,1242 @@
+{
+  "asyncapi_channels": [
+    "inferenceItemCompleted",
+    "inferenceItemFailed",
+    "inferenceItemRequested",
+    "modelValidationCompleted",
+    "modelValidationRequested",
+    "sampleExportCompleted",
+    "sampleExportRequested"
+  ],
+  "asyncapi_operations": [
+    "consumeInferenceItemCompletedV2",
+    "consumeInferenceItemFailedV2",
+    "consumeInferenceItemRequestedV2",
+    "consumeModelValidationCompletedV2",
+    "consumeModelValidationRequestedV2",
+    "consumeSampleExportCompletedV2",
+    "consumeSampleExportRequestedV2",
+    "publishInferenceItemCompletedV2",
+    "publishInferenceItemFailedV2",
+    "publishInferenceItemRequestedV2",
+    "publishModelValidationCompletedV2",
+    "publishModelValidationRequestedV2",
+    "publishSampleExportCompletedV2",
+    "publishSampleExportRequestedV2"
+  ],
+  "baseline_format": 1,
+  "consumer_operations": {
+    "business-api-v2": {
+      "events": [
+        "consumeInferenceItemCompletedV2",
+        "consumeInferenceItemFailedV2",
+        "consumeModelValidationCompletedV2",
+        "consumeSampleExportCompletedV2",
+        "publishInferenceItemRequestedV2",
+        "publishModelValidationRequestedV2",
+        "publishSampleExportRequestedV2"
+      ],
+      "http": [
+        "addDetectionBatchItemV2",
+        "approveModelActivationRequestV2",
+        "completeDetectionBatchItemUploadV2",
+        "completeModelUploadSessionV2",
+        "createAdminFeedbackV2",
+        "createDetectionBatchV2",
+        "createModelActivationRequestV2",
+        "createModelRollbackRequestV2",
+        "createModelUploadSessionV2",
+        "createProductionDetectionItemV2",
+        "createSampleCandidateV2",
+        "createSampleExportDownloadTicketV2",
+        "createSampleExportV2",
+        "decideSampleCandidateV2",
+        "deleteDetectionBatchItemV2",
+        "getDetectionBatchItemV2",
+        "getDetectionBatchV2",
+        "getManualDetectionCapabilitiesV2",
+        "getModelUploadSessionV2",
+        "getSampleExportV2",
+        "listAdminDetectionItemsV2",
+        "listDetectionBatchesV2",
+        "listModelVersionsV2",
+        "listSampleCandidatesV2",
+        "putQuickReviewV2",
+        "submitDetectionBatchV2"
+      ]
+    },
+    "edge-agent-v2": {
+      "events": [],
+      "http": [
+        "createProductionDetectionItemV2"
+      ]
+    },
+    "inference-service-v2": {
+      "events": [
+        "consumeInferenceItemRequestedV2",
+        "publishInferenceItemCompletedV2",
+        "publishInferenceItemFailedV2"
+      ],
+      "http": []
+    },
+    "model-validation-worker-v2": {
+      "events": [
+        "consumeModelValidationRequestedV2",
+        "publishModelValidationCompletedV2"
+      ],
+      "http": []
+    },
+    "sample-export-worker-v2": {
+      "events": [
+        "consumeSampleExportRequestedV2",
+        "publishSampleExportCompletedV2"
+      ],
+      "http": []
+    },
+    "web-console-v2": {
+      "events": [],
+      "http": [
+        "addDetectionBatchItemV2",
+        "approveModelActivationRequestV2",
+        "completeDetectionBatchItemUploadV2",
+        "completeModelUploadSessionV2",
+        "createAdminFeedbackV2",
+        "createDetectionBatchV2",
+        "createModelActivationRequestV2",
+        "createModelRollbackRequestV2",
+        "createModelUploadSessionV2",
+        "createSampleCandidateV2",
+        "createSampleExportDownloadTicketV2",
+        "createSampleExportV2",
+        "decideSampleCandidateV2",
+        "deleteDetectionBatchItemV2",
+        "getDetectionBatchItemV2",
+        "getDetectionBatchV2",
+        "getManualDetectionCapabilitiesV2",
+        "getModelUploadSessionV2",
+        "getSampleExportV2",
+        "listAdminDetectionItemsV2",
+        "listDetectionBatchesV2",
+        "listModelVersionsV2",
+        "listSampleCandidatesV2",
+        "putQuickReviewV2",
+        "submitDetectionBatchV2"
+      ]
+    }
+  },
+  "contract_major": 2,
+  "json_schema_surfaces": {
+    "common-v2.schema.json": {
+      "/$defs/AdminFeedbackLabel#enum": [
+        "CORRECT_DETECTION",
+        "FALSE_NEGATIVE",
+        "FALSE_POSITIVE",
+        "IMAGE_UNUSABLE",
+        "LOCALIZATION_INACCURATE",
+        "UNCONFIRMED"
+      ],
+      "/$defs/AdminFeedbackLabel#type": "string",
+      "/$defs/AdminFeedbackRecord#required": [
+        "batch_item_id",
+        "feedback_id",
+        "label",
+        "submitted_at",
+        "submitted_by"
+      ],
+      "/$defs/AdminFeedbackRecord#type": "object",
+      "/$defs/AdminFeedbackRecord/annotation_reference#property": true,
+      "/$defs/AdminFeedbackRecord/batch_item_id#property": true,
+      "/$defs/AdminFeedbackRecord/feedback_id#property": true,
+      "/$defs/AdminFeedbackRecord/label#property": true,
+      "/$defs/AdminFeedbackRecord/note#property": true,
+      "/$defs/AdminFeedbackRecord/note#type": "string",
+      "/$defs/AdminFeedbackRecord/source_review_record_id#property": true,
+      "/$defs/AdminFeedbackRecord/submitted_at#property": true,
+      "/$defs/AdminFeedbackRecord/submitted_by#property": true,
+      "/$defs/AlgorithmOutcome#enum": [
+        "INCONCLUSIVE",
+        "QUALIFIED",
+        "UNQUALIFIED"
+      ],
+      "/$defs/AlgorithmOutcome#type": "string",
+      "/$defs/BatchAggregateCounts#required": [
+        "completed",
+        "defect_suspected",
+        "inconclusive",
+        "normal",
+        "quality_rejected",
+        "technical_failed",
+        "total"
+      ],
+      "/$defs/BatchAggregateCounts#type": "object",
+      "/$defs/BatchAggregateCounts/completed#property": true,
+      "/$defs/BatchAggregateCounts/completed#type": "integer",
+      "/$defs/BatchAggregateCounts/defect_suspected#property": true,
+      "/$defs/BatchAggregateCounts/defect_suspected#type": "integer",
+      "/$defs/BatchAggregateCounts/inconclusive#property": true,
+      "/$defs/BatchAggregateCounts/inconclusive#type": "integer",
+      "/$defs/BatchAggregateCounts/normal#property": true,
+      "/$defs/BatchAggregateCounts/normal#type": "integer",
+      "/$defs/BatchAggregateCounts/quality_rejected#property": true,
+      "/$defs/BatchAggregateCounts/quality_rejected#type": "integer",
+      "/$defs/BatchAggregateCounts/technical_failed#property": true,
+      "/$defs/BatchAggregateCounts/technical_failed#type": "integer",
+      "/$defs/BatchAggregateCounts/total#property": true,
+      "/$defs/BatchAggregateCounts/total#type": "integer",
+      "/$defs/BatchItemStatus#enum": [
+        "CANCELLED",
+        "COMPLETED",
+        "FAILED",
+        "PENDING_UPLOAD",
+        "PROCESSING",
+        "QUALITY_REJECTED",
+        "QUEUED",
+        "READY",
+        "UPLOADING"
+      ],
+      "/$defs/BatchItemStatus#type": "string",
+      "/$defs/BatchSource#enum": [
+        "MANUAL_UPLOAD",
+        "PRODUCTION_CAPTURE"
+      ],
+      "/$defs/BatchSource#type": "string",
+      "/$defs/BatchStatus#enum": [
+        "CANCELLED",
+        "COMPLETED",
+        "DRAFT",
+        "FAILED",
+        "PARTIALLY_COMPLETED",
+        "PROCESSING",
+        "READY",
+        "UPLOADING"
+      ],
+      "/$defs/BatchStatus#type": "string",
+      "/$defs/DetectionBatch#required": [
+        "batch_id",
+        "batch_no",
+        "counts",
+        "created_at",
+        "created_by",
+        "source",
+        "status",
+        "updated_at",
+        "usage_stage",
+        "version"
+      ],
+      "/$defs/DetectionBatch#type": "object",
+      "/$defs/DetectionBatch/batch_id#property": true,
+      "/$defs/DetectionBatch/batch_no#property": true,
+      "/$defs/DetectionBatch/batch_no#type": "string",
+      "/$defs/DetectionBatch/counts#property": true,
+      "/$defs/DetectionBatch/created_at#property": true,
+      "/$defs/DetectionBatch/created_by#property": true,
+      "/$defs/DetectionBatch/source#property": true,
+      "/$defs/DetectionBatch/status#property": true,
+      "/$defs/DetectionBatch/updated_at#property": true,
+      "/$defs/DetectionBatch/usage_stage#property": true,
+      "/$defs/DetectionBatch/usage_stage_note#property": true,
+      "/$defs/DetectionBatch/usage_stage_note#type": "string",
+      "/$defs/DetectionBatch/version#property": true,
+      "/$defs/DetectionBatch/version#type": "integer",
+      "/$defs/DetectionBatchItem#required": [
+        "batch_id",
+        "batch_item_id",
+        "created_at",
+        "image",
+        "status",
+        "updated_at"
+      ],
+      "/$defs/DetectionBatchItem#type": "object",
+      "/$defs/DetectionBatchItem/algorithm_outcome#property": true,
+      "/$defs/DetectionBatchItem/batch_id#property": true,
+      "/$defs/DetectionBatchItem/batch_item_id#property": true,
+      "/$defs/DetectionBatchItem/capture_id#property": true,
+      "/$defs/DetectionBatchItem/created_at#property": true,
+      "/$defs/DetectionBatchItem/image#property": true,
+      "/$defs/DetectionBatchItem/quality#property": true,
+      "/$defs/DetectionBatchItem/quick_review_decision#property": true,
+      "/$defs/DetectionBatchItem/status#property": true,
+      "/$defs/DetectionBatchItem/updated_at#property": true,
+      "/$defs/ExportJobStatus#enum": [
+        "EXPIRED",
+        "FAILED",
+        "QUEUED",
+        "RUNNING",
+        "SUCCEEDED"
+      ],
+      "/$defs/ExportJobStatus#type": "string",
+      "/$defs/ImageQualityCheck#required": [
+        "check_type",
+        "reason_code",
+        "rule_id",
+        "status",
+        "user_hint"
+      ],
+      "/$defs/ImageQualityCheck#type": "object",
+      "/$defs/ImageQualityCheck/check_type#property": true,
+      "/$defs/ImageQualityCheck/measurement#property": true,
+      "/$defs/ImageQualityCheck/measurement#type": "number",
+      "/$defs/ImageQualityCheck/reason_code#property": true,
+      "/$defs/ImageQualityCheck/reason_code#type": "string",
+      "/$defs/ImageQualityCheck/rule_id#property": true,
+      "/$defs/ImageQualityCheck/rule_id#type": "string",
+      "/$defs/ImageQualityCheck/status#property": true,
+      "/$defs/ImageQualityCheck/threshold#property": true,
+      "/$defs/ImageQualityCheck/threshold#type": "number",
+      "/$defs/ImageQualityCheck/user_hint#property": true,
+      "/$defs/ImageQualityCheck/user_hint#type": "string",
+      "/$defs/ImageQualityCheckStatus#enum": [
+        "FAIL",
+        "NOT_RUN",
+        "PASS",
+        "WARNING"
+      ],
+      "/$defs/ImageQualityCheckStatus#type": "string",
+      "/$defs/ImageQualityCheckType#enum": [
+        "BLADE_COMPLETE",
+        "BLADE_PRESENT",
+        "BLUR",
+        "DECODABLE",
+        "EXPOSURE"
+      ],
+      "/$defs/ImageQualityCheckType#type": "string",
+      "/$defs/ImageQualityOverall#enum": [
+        "ACCEPTED",
+        "REJECTED",
+        "WARNING"
+      ],
+      "/$defs/ImageQualityOverall#type": "string",
+      "/$defs/ImageQualityResult#required": [
+        "checker_version",
+        "checks",
+        "overall"
+      ],
+      "/$defs/ImageQualityResult#type": "object",
+      "/$defs/ImageQualityResult/checker_version#property": true,
+      "/$defs/ImageQualityResult/checker_version#type": "string",
+      "/$defs/ImageQualityResult/checks#property": true,
+      "/$defs/ImageQualityResult/checks#type": "array",
+      "/$defs/ImageQualityResult/overall#property": true,
+      "/$defs/LegacyProvenanceSnapshot#required": [
+        "archive_reference",
+        "immutable_summary",
+        "legacy_id",
+        "retained_until",
+        "sha256",
+        "source_type"
+      ],
+      "/$defs/LegacyProvenanceSnapshot#type": "object",
+      "/$defs/LegacyProvenanceSnapshot/archive_reference#property": true,
+      "/$defs/LegacyProvenanceSnapshot/archive_reference#type": "string",
+      "/$defs/LegacyProvenanceSnapshot/immutable_summary#property": true,
+      "/$defs/LegacyProvenanceSnapshot/immutable_summary#type": "string",
+      "/$defs/LegacyProvenanceSnapshot/legacy_id#property": true,
+      "/$defs/LegacyProvenanceSnapshot/legacy_id#type": "string",
+      "/$defs/LegacyProvenanceSnapshot/retained_until#property": true,
+      "/$defs/LegacyProvenanceSnapshot/sha256#property": true,
+      "/$defs/LegacyProvenanceSnapshot/source_type#enum": [
+        "LEGACY_DATASET",
+        "LEGACY_TRAINING"
+      ],
+      "/$defs/LegacyProvenanceSnapshot/source_type#property": true,
+      "/$defs/LegacyProvenanceSnapshot/source_type#type": "string",
+      "/$defs/ModelUploadSession#required": [
+        "created_at",
+        "declared_sha256",
+        "expires_at",
+        "model_upload_id",
+        "quarantine_object",
+        "status"
+      ],
+      "/$defs/ModelUploadSession#type": "object",
+      "/$defs/ModelUploadSession/created_at#property": true,
+      "/$defs/ModelUploadSession/declared_sha256#property": true,
+      "/$defs/ModelUploadSession/description#property": true,
+      "/$defs/ModelUploadSession/description#type": "string",
+      "/$defs/ModelUploadSession/expires_at#property": true,
+      "/$defs/ModelUploadSession/model_upload_id#property": true,
+      "/$defs/ModelUploadSession/model_version#property": true,
+      "/$defs/ModelUploadSession/model_version#type": "string",
+      "/$defs/ModelUploadSession/quarantine_object#property": true,
+      "/$defs/ModelUploadSession/status#property": true,
+      "/$defs/ModelUploadStatus#enum": [
+        "AWAITING_UPLOAD",
+        "EXPIRED",
+        "REJECTED",
+        "UPLOADED",
+        "VALIDATED",
+        "VALIDATING"
+      ],
+      "/$defs/ModelUploadStatus#type": "string",
+      "/$defs/ModelValidationResult#required": [
+        "evidence",
+        "fixed_sample_test",
+        "load_test",
+        "model_upload_id",
+        "package_check",
+        "security_scan",
+        "status",
+        "warmup_test"
+      ],
+      "/$defs/ModelValidationResult#type": "object",
+      "/$defs/ModelValidationResult/evidence#property": true,
+      "/$defs/ModelValidationResult/external_source_note#property": true,
+      "/$defs/ModelValidationResult/external_source_note#type": "string",
+      "/$defs/ModelValidationResult/fixed_sample_test#enum": [
+        "FAILED",
+        "NOT_RUN",
+        "PASSED"
+      ],
+      "/$defs/ModelValidationResult/fixed_sample_test#property": true,
+      "/$defs/ModelValidationResult/fixed_sample_test#type": "string",
+      "/$defs/ModelValidationResult/load_test#enum": [
+        "FAILED",
+        "NOT_RUN",
+        "PASSED"
+      ],
+      "/$defs/ModelValidationResult/load_test#property": true,
+      "/$defs/ModelValidationResult/load_test#type": "string",
+      "/$defs/ModelValidationResult/model_upload_id#property": true,
+      "/$defs/ModelValidationResult/package_check#enum": [
+        "FAILED",
+        "NOT_RUN",
+        "PASSED"
+      ],
+      "/$defs/ModelValidationResult/package_check#property": true,
+      "/$defs/ModelValidationResult/package_check#type": "string",
+      "/$defs/ModelValidationResult/safe_error#property": true,
+      "/$defs/ModelValidationResult/safe_error#type": "string",
+      "/$defs/ModelValidationResult/security_scan#enum": [
+        "FAILED",
+        "NOT_RUN",
+        "PASSED"
+      ],
+      "/$defs/ModelValidationResult/security_scan#property": true,
+      "/$defs/ModelValidationResult/security_scan#type": "string",
+      "/$defs/ModelValidationResult/status#property": true,
+      "/$defs/ModelValidationResult/warmup_test#enum": [
+        "FAILED",
+        "NOT_RUN",
+        "PASSED"
+      ],
+      "/$defs/ModelValidationResult/warmup_test#property": true,
+      "/$defs/ModelValidationResult/warmup_test#type": "string",
+      "/$defs/ModelValidationStatus#enum": [
+        "FAILED",
+        "HOLD",
+        "PASSED"
+      ],
+      "/$defs/ModelValidationStatus#type": "string",
+      "/$defs/ObjectReference#required": [
+        "bucket",
+        "media_type",
+        "object_key",
+        "sha256",
+        "size_bytes"
+      ],
+      "/$defs/ObjectReference#type": "object",
+      "/$defs/ObjectReference/bucket#property": true,
+      "/$defs/ObjectReference/bucket#type": "string",
+      "/$defs/ObjectReference/media_type#enum": [
+        "application/json",
+        "application/zip",
+        "image/jpeg",
+        "image/png"
+      ],
+      "/$defs/ObjectReference/media_type#property": true,
+      "/$defs/ObjectReference/media_type#type": "string",
+      "/$defs/ObjectReference/object_key#property": true,
+      "/$defs/ObjectReference/object_key#type": "string",
+      "/$defs/ObjectReference/object_version#property": true,
+      "/$defs/ObjectReference/object_version#type": "string",
+      "/$defs/ObjectReference/sha256#property": true,
+      "/$defs/ObjectReference/size_bytes#property": true,
+      "/$defs/ObjectReference/size_bytes#type": "integer",
+      "/$defs/PersonRole#enum": [
+        "ADMINISTRATOR",
+        "PRODUCTION_EMPLOYEE"
+      ],
+      "/$defs/PersonRole#type": "string",
+      "/$defs/QuickReviewDecision#enum": [
+        "DEFECT_CONFIRMED",
+        "NO_DEFECT_CONFIRMED",
+        "UNABLE_TO_DETERMINE"
+      ],
+      "/$defs/QuickReviewDecision#type": "string",
+      "/$defs/QuickReviewRecord#required": [
+        "batch_item_id",
+        "decision",
+        "idempotency_key",
+        "review_record_id",
+        "submitted_at",
+        "submitted_by"
+      ],
+      "/$defs/QuickReviewRecord#type": "object",
+      "/$defs/QuickReviewRecord/batch_item_id#property": true,
+      "/$defs/QuickReviewRecord/decision#property": true,
+      "/$defs/QuickReviewRecord/disposition_reference#property": true,
+      "/$defs/QuickReviewRecord/disposition_reference#type": "string",
+      "/$defs/QuickReviewRecord/idempotency_key#property": true,
+      "/$defs/QuickReviewRecord/idempotency_key#type": "string",
+      "/$defs/QuickReviewRecord/review_record_id#property": true,
+      "/$defs/QuickReviewRecord/submitted_at#property": true,
+      "/$defs/QuickReviewRecord/submitted_by#property": true,
+      "/$defs/QuickReviewRecord/supersedes_record_id#property": true,
+      "/$defs/SampleCandidate#required": [
+        "batch_item_id",
+        "created_at",
+        "feedback_id",
+        "sample_candidate_id",
+        "status"
+      ],
+      "/$defs/SampleCandidate#type": "object",
+      "/$defs/SampleCandidate/batch_item_id#property": true,
+      "/$defs/SampleCandidate/created_at#property": true,
+      "/$defs/SampleCandidate/decision_note#property": true,
+      "/$defs/SampleCandidate/decision_note#type": "string",
+      "/$defs/SampleCandidate/export_job_id#property": true,
+      "/$defs/SampleCandidate/feedback_id#property": true,
+      "/$defs/SampleCandidate/sample_candidate_id#property": true,
+      "/$defs/SampleCandidate/status#property": true,
+      "/$defs/SampleCandidateStatus#enum": [
+        "EXCLUDED",
+        "EXPORTED",
+        "INCLUDED",
+        "PENDING"
+      ],
+      "/$defs/SampleCandidateStatus#type": "string",
+      "/$defs/SampleExportJob#required": [
+        "candidate_count",
+        "created_at",
+        "filter_snapshot",
+        "sample_export_job_id",
+        "status"
+      ],
+      "/$defs/SampleExportJob#type": "object",
+      "/$defs/SampleExportJob/candidate_count#property": true,
+      "/$defs/SampleExportJob/candidate_count#type": "integer",
+      "/$defs/SampleExportJob/created_at#property": true,
+      "/$defs/SampleExportJob/expires_at#property": true,
+      "/$defs/SampleExportJob/failed_candidate_ids#property": true,
+      "/$defs/SampleExportJob/failed_candidate_ids#type": "array",
+      "/$defs/SampleExportJob/filter_snapshot#property": true,
+      "/$defs/SampleExportJob/filter_snapshot#type": "object",
+      "/$defs/SampleExportJob/package#property": true,
+      "/$defs/SampleExportJob/sample_export_job_id#property": true,
+      "/$defs/SampleExportJob/status#property": true,
+      "/$defs/Sha256#type": "string",
+      "/$defs/StandardError#required": [
+        "error_code",
+        "message",
+        "request_id",
+        "retryable"
+      ],
+      "/$defs/StandardError#type": "object",
+      "/$defs/StandardError/details#property": true,
+      "/$defs/StandardError/details#type": "object",
+      "/$defs/StandardError/error_code#property": true,
+      "/$defs/StandardError/error_code#type": "string",
+      "/$defs/StandardError/message#property": true,
+      "/$defs/StandardError/message#type": "string",
+      "/$defs/StandardError/request_id#property": true,
+      "/$defs/StandardError/retryable#property": true,
+      "/$defs/StandardError/retryable#type": "boolean",
+      "/$defs/UsageStage#enum": [
+        "AFTER_ONE_WHEEL",
+        "AFTER_THREE_WHEELS",
+        "AFTER_TWO_WHEELS",
+        "NEW_BLADE",
+        "OTHER",
+        "UNSPECIFIED"
+      ],
+      "/$defs/UsageStage#type": "string",
+      "/$defs/UtcTimestamp#type": "string",
+      "/$defs/Uuid#type": "string"
+    },
+    "consumer-contract-v2.schema.json": {
+      "/#required": [
+        "consumers",
+        "contract_version",
+        "schema_version"
+      ],
+      "/#type": "object",
+      "/consumers#property": true,
+      "/consumers#type": "array",
+      "/contract_version#const": "2.0.0",
+      "/contract_version#property": true,
+      "/schema_version#const": "2.0",
+      "/schema_version#property": true
+    },
+    "event-payloads-v2.schema.json": {
+      "/$defs/EventMetadata#required": [
+        "idempotency_key",
+        "message_id",
+        "occurred_at",
+        "traceparent"
+      ],
+      "/$defs/EventMetadata#type": "object",
+      "/$defs/EventMetadata/idempotency_key#property": true,
+      "/$defs/EventMetadata/idempotency_key#type": "string",
+      "/$defs/EventMetadata/message_id#property": true,
+      "/$defs/EventMetadata/message_id#type": "string",
+      "/$defs/EventMetadata/occurred_at#property": true,
+      "/$defs/EventMetadata/occurred_at#type": "string",
+      "/$defs/EventMetadata/traceparent#property": true,
+      "/$defs/EventMetadata/traceparent#type": "string",
+      "/$defs/InferenceItemCompleted#required": [
+        "algorithm_outcome",
+        "attempt_id",
+        "batch_item_id",
+        "detection_task_id",
+        "idempotency_key",
+        "message_id",
+        "occurred_at",
+        "quality",
+        "result_reference",
+        "traceparent"
+      ],
+      "/$defs/InferenceItemCompleted#type": "object",
+      "/$defs/InferenceItemCompleted/algorithm_outcome#property": true,
+      "/$defs/InferenceItemCompleted/attempt_id#property": true,
+      "/$defs/InferenceItemCompleted/attempt_id#type": "string",
+      "/$defs/InferenceItemCompleted/batch_item_id#property": true,
+      "/$defs/InferenceItemCompleted/batch_item_id#type": "string",
+      "/$defs/InferenceItemCompleted/detection_task_id#property": true,
+      "/$defs/InferenceItemCompleted/detection_task_id#type": "string",
+      "/$defs/InferenceItemCompleted/idempotency_key#property": true,
+      "/$defs/InferenceItemCompleted/idempotency_key#type": "string",
+      "/$defs/InferenceItemCompleted/message_id#property": true,
+      "/$defs/InferenceItemCompleted/message_id#type": "string",
+      "/$defs/InferenceItemCompleted/occurred_at#property": true,
+      "/$defs/InferenceItemCompleted/occurred_at#type": "string",
+      "/$defs/InferenceItemCompleted/quality#property": true,
+      "/$defs/InferenceItemCompleted/result_reference#property": true,
+      "/$defs/InferenceItemCompleted/traceparent#property": true,
+      "/$defs/InferenceItemCompleted/traceparent#type": "string",
+      "/$defs/InferenceItemFailed#required": [
+        "attempt_id",
+        "batch_item_id",
+        "detection_task_id",
+        "error_code",
+        "idempotency_key",
+        "message_id",
+        "occurred_at",
+        "retryable",
+        "traceparent"
+      ],
+      "/$defs/InferenceItemFailed#type": "object",
+      "/$defs/InferenceItemFailed/attempt_id#property": true,
+      "/$defs/InferenceItemFailed/attempt_id#type": "string",
+      "/$defs/InferenceItemFailed/batch_item_id#property": true,
+      "/$defs/InferenceItemFailed/batch_item_id#type": "string",
+      "/$defs/InferenceItemFailed/detection_task_id#property": true,
+      "/$defs/InferenceItemFailed/detection_task_id#type": "string",
+      "/$defs/InferenceItemFailed/error_code#property": true,
+      "/$defs/InferenceItemFailed/error_code#type": "string",
+      "/$defs/InferenceItemFailed/idempotency_key#property": true,
+      "/$defs/InferenceItemFailed/idempotency_key#type": "string",
+      "/$defs/InferenceItemFailed/message_id#property": true,
+      "/$defs/InferenceItemFailed/message_id#type": "string",
+      "/$defs/InferenceItemFailed/occurred_at#property": true,
+      "/$defs/InferenceItemFailed/occurred_at#type": "string",
+      "/$defs/InferenceItemFailed/retryable#property": true,
+      "/$defs/InferenceItemFailed/retryable#type": "boolean",
+      "/$defs/InferenceItemFailed/safe_detail#property": true,
+      "/$defs/InferenceItemFailed/safe_detail#type": "string",
+      "/$defs/InferenceItemFailed/traceparent#property": true,
+      "/$defs/InferenceItemFailed/traceparent#type": "string",
+      "/$defs/InferenceItemRequested#required": [
+        "batch_item_id",
+        "detection_task_id",
+        "idempotency_key",
+        "image",
+        "message_id",
+        "occurred_at",
+        "pipeline_version",
+        "traceparent"
+      ],
+      "/$defs/InferenceItemRequested#type": "object",
+      "/$defs/InferenceItemRequested/batch_item_id#property": true,
+      "/$defs/InferenceItemRequested/batch_item_id#type": "string",
+      "/$defs/InferenceItemRequested/detection_task_id#property": true,
+      "/$defs/InferenceItemRequested/detection_task_id#type": "string",
+      "/$defs/InferenceItemRequested/idempotency_key#property": true,
+      "/$defs/InferenceItemRequested/idempotency_key#type": "string",
+      "/$defs/InferenceItemRequested/image#property": true,
+      "/$defs/InferenceItemRequested/message_id#property": true,
+      "/$defs/InferenceItemRequested/message_id#type": "string",
+      "/$defs/InferenceItemRequested/occurred_at#property": true,
+      "/$defs/InferenceItemRequested/occurred_at#type": "string",
+      "/$defs/InferenceItemRequested/pipeline_version#property": true,
+      "/$defs/InferenceItemRequested/pipeline_version#type": "string",
+      "/$defs/InferenceItemRequested/traceparent#property": true,
+      "/$defs/InferenceItemRequested/traceparent#type": "string",
+      "/$defs/ModelValidationCompleted#required": [
+        "idempotency_key",
+        "message_id",
+        "model_upload_id",
+        "occurred_at",
+        "traceparent",
+        "validation_result"
+      ],
+      "/$defs/ModelValidationCompleted#type": "object",
+      "/$defs/ModelValidationCompleted/idempotency_key#property": true,
+      "/$defs/ModelValidationCompleted/idempotency_key#type": "string",
+      "/$defs/ModelValidationCompleted/message_id#property": true,
+      "/$defs/ModelValidationCompleted/message_id#type": "string",
+      "/$defs/ModelValidationCompleted/model_upload_id#property": true,
+      "/$defs/ModelValidationCompleted/model_upload_id#type": "string",
+      "/$defs/ModelValidationCompleted/occurred_at#property": true,
+      "/$defs/ModelValidationCompleted/occurred_at#type": "string",
+      "/$defs/ModelValidationCompleted/traceparent#property": true,
+      "/$defs/ModelValidationCompleted/traceparent#type": "string",
+      "/$defs/ModelValidationCompleted/validation_result#property": true,
+      "/$defs/ModelValidationRequested#required": [
+        "idempotency_key",
+        "message_id",
+        "model_upload_id",
+        "occurred_at",
+        "quarantine_object",
+        "traceparent",
+        "validation_profile"
+      ],
+      "/$defs/ModelValidationRequested#type": "object",
+      "/$defs/ModelValidationRequested/idempotency_key#property": true,
+      "/$defs/ModelValidationRequested/idempotency_key#type": "string",
+      "/$defs/ModelValidationRequested/message_id#property": true,
+      "/$defs/ModelValidationRequested/message_id#type": "string",
+      "/$defs/ModelValidationRequested/model_upload_id#property": true,
+      "/$defs/ModelValidationRequested/model_upload_id#type": "string",
+      "/$defs/ModelValidationRequested/occurred_at#property": true,
+      "/$defs/ModelValidationRequested/occurred_at#type": "string",
+      "/$defs/ModelValidationRequested/quarantine_object#property": true,
+      "/$defs/ModelValidationRequested/traceparent#property": true,
+      "/$defs/ModelValidationRequested/traceparent#type": "string",
+      "/$defs/ModelValidationRequested/validation_profile#property": true,
+      "/$defs/ModelValidationRequested/validation_profile#type": "string",
+      "/$defs/SampleExportCompleted#required": [
+        "exported_count",
+        "failed_candidate_ids",
+        "idempotency_key",
+        "manifest",
+        "message_id",
+        "occurred_at",
+        "sample_export_job_id",
+        "traceparent"
+      ],
+      "/$defs/SampleExportCompleted#type": "object",
+      "/$defs/SampleExportCompleted/exported_count#property": true,
+      "/$defs/SampleExportCompleted/exported_count#type": "integer",
+      "/$defs/SampleExportCompleted/failed_candidate_ids#property": true,
+      "/$defs/SampleExportCompleted/failed_candidate_ids#type": "array",
+      "/$defs/SampleExportCompleted/idempotency_key#property": true,
+      "/$defs/SampleExportCompleted/idempotency_key#type": "string",
+      "/$defs/SampleExportCompleted/manifest#property": true,
+      "/$defs/SampleExportCompleted/message_id#property": true,
+      "/$defs/SampleExportCompleted/message_id#type": "string",
+      "/$defs/SampleExportCompleted/occurred_at#property": true,
+      "/$defs/SampleExportCompleted/occurred_at#type": "string",
+      "/$defs/SampleExportCompleted/sample_export_job_id#property": true,
+      "/$defs/SampleExportCompleted/sample_export_job_id#type": "string",
+      "/$defs/SampleExportCompleted/traceparent#property": true,
+      "/$defs/SampleExportCompleted/traceparent#type": "string",
+      "/$defs/SampleExportRequested#required": [
+        "candidate_ids",
+        "idempotency_key",
+        "message_id",
+        "occurred_at",
+        "sample_export_job_id",
+        "target_object",
+        "traceparent"
+      ],
+      "/$defs/SampleExportRequested#type": "object",
+      "/$defs/SampleExportRequested/candidate_ids#property": true,
+      "/$defs/SampleExportRequested/candidate_ids#type": "array",
+      "/$defs/SampleExportRequested/idempotency_key#property": true,
+      "/$defs/SampleExportRequested/idempotency_key#type": "string",
+      "/$defs/SampleExportRequested/message_id#property": true,
+      "/$defs/SampleExportRequested/message_id#type": "string",
+      "/$defs/SampleExportRequested/occurred_at#property": true,
+      "/$defs/SampleExportRequested/occurred_at#type": "string",
+      "/$defs/SampleExportRequested/sample_export_job_id#property": true,
+      "/$defs/SampleExportRequested/sample_export_job_id#type": "string",
+      "/$defs/SampleExportRequested/target_object#property": true,
+      "/$defs/SampleExportRequested/traceparent#property": true,
+      "/$defs/SampleExportRequested/traceparent#type": "string"
+    }
+  },
+  "openapi_operations": {
+    "DELETE /api/v2/detection-batches/{batch_id}/items/{item_id}": {
+      "has_request_body": false,
+      "operation_id": "deleteDetectionBatchItemV2",
+      "responses": [
+        "204",
+        "400",
+        "401",
+        "403",
+        "409",
+        "410",
+        "422"
+      ]
+    },
+    "GET /api/v2/admin/detection-items": {
+      "has_request_body": false,
+      "operation_id": "listAdminDetectionItemsV2",
+      "responses": [
+        "200",
+        "401",
+        "403"
+      ]
+    },
+    "GET /api/v2/capabilities/manual-detection": {
+      "has_request_body": false,
+      "operation_id": "getManualDetectionCapabilitiesV2",
+      "responses": [
+        "200",
+        "401",
+        "403"
+      ]
+    },
+    "GET /api/v2/detection-batches": {
+      "has_request_body": false,
+      "operation_id": "listDetectionBatchesV2",
+      "responses": [
+        "200",
+        "401",
+        "403"
+      ]
+    },
+    "GET /api/v2/detection-batches/{batch_id}": {
+      "has_request_body": false,
+      "operation_id": "getDetectionBatchV2",
+      "responses": [
+        "200",
+        "401",
+        "403",
+        "404"
+      ]
+    },
+    "GET /api/v2/detection-batches/{batch_id}/items/{item_id}": {
+      "has_request_body": false,
+      "operation_id": "getDetectionBatchItemV2",
+      "responses": [
+        "200",
+        "401",
+        "403",
+        "404"
+      ]
+    },
+    "GET /api/v2/model-upload-sessions/{upload_id}": {
+      "has_request_body": false,
+      "operation_id": "getModelUploadSessionV2",
+      "responses": [
+        "200",
+        "401",
+        "403",
+        "404"
+      ]
+    },
+    "GET /api/v2/model-versions": {
+      "has_request_body": false,
+      "operation_id": "listModelVersionsV2",
+      "responses": [
+        "200",
+        "401",
+        "403"
+      ]
+    },
+    "GET /api/v2/sample-candidates": {
+      "has_request_body": false,
+      "operation_id": "listSampleCandidatesV2",
+      "responses": [
+        "200",
+        "401",
+        "403"
+      ]
+    },
+    "GET /api/v2/sample-exports/{export_job_id}": {
+      "has_request_body": false,
+      "operation_id": "getSampleExportV2",
+      "responses": [
+        "200",
+        "401",
+        "403",
+        "404"
+      ]
+    },
+    "POST /api/v2/admin/detection-items/{item_id}/feedback": {
+      "has_request_body": true,
+      "operation_id": "createAdminFeedbackV2",
+      "responses": [
+        "201",
+        "400",
+        "401",
+        "403",
+        "409",
+        "410",
+        "422"
+      ]
+    },
+    "POST /api/v2/detection-batches": {
+      "has_request_body": true,
+      "operation_id": "createDetectionBatchV2",
+      "responses": [
+        "201",
+        "400",
+        "401",
+        "403",
+        "409",
+        "410",
+        "422"
+      ]
+    },
+    "POST /api/v2/detection-batches/{batch_id}/items": {
+      "has_request_body": true,
+      "operation_id": "addDetectionBatchItemV2",
+      "responses": [
+        "201",
+        "400",
+        "401",
+        "403",
+        "409",
+        "410",
+        "422"
+      ]
+    },
+    "POST /api/v2/detection-batches/{batch_id}/items/{item_id}/complete": {
+      "has_request_body": true,
+      "operation_id": "completeDetectionBatchItemUploadV2",
+      "responses": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "409",
+        "410",
+        "422"
+      ]
+    },
+    "POST /api/v2/detection-batches/{batch_id}/submit": {
+      "has_request_body": true,
+      "operation_id": "submitDetectionBatchV2",
+      "responses": [
+        "202",
+        "400",
+        "401",
+        "403",
+        "409",
+        "410",
+        "422"
+      ]
+    },
+    "POST /api/v2/model-activation-requests/{request_id}/approve": {
+      "has_request_body": true,
+      "operation_id": "approveModelActivationRequestV2",
+      "responses": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "409",
+        "410",
+        "422"
+      ]
+    },
+    "POST /api/v2/model-upload-sessions": {
+      "has_request_body": true,
+      "operation_id": "createModelUploadSessionV2",
+      "responses": [
+        "201",
+        "400",
+        "401",
+        "403",
+        "409",
+        "410",
+        "422"
+      ]
+    },
+    "POST /api/v2/model-upload-sessions/{upload_id}/complete": {
+      "has_request_body": true,
+      "operation_id": "completeModelUploadSessionV2",
+      "responses": [
+        "202",
+        "400",
+        "401",
+        "403",
+        "409",
+        "410",
+        "422"
+      ]
+    },
+    "POST /api/v2/model-versions/{model_version_id}/activation-requests": {
+      "has_request_body": true,
+      "operation_id": "createModelActivationRequestV2",
+      "responses": [
+        "202",
+        "400",
+        "401",
+        "403",
+        "409",
+        "410",
+        "422"
+      ]
+    },
+    "POST /api/v2/model-versions/{model_version_id}/rollback-requests": {
+      "has_request_body": true,
+      "operation_id": "createModelRollbackRequestV2",
+      "responses": [
+        "202",
+        "400",
+        "401",
+        "403",
+        "409",
+        "410",
+        "422"
+      ]
+    },
+    "POST /api/v2/production/detection-items": {
+      "has_request_body": true,
+      "operation_id": "createProductionDetectionItemV2",
+      "responses": [
+        "202",
+        "400",
+        "401",
+        "403",
+        "409",
+        "410",
+        "422"
+      ]
+    },
+    "POST /api/v2/sample-candidates": {
+      "has_request_body": true,
+      "operation_id": "createSampleCandidateV2",
+      "responses": [
+        "201",
+        "400",
+        "401",
+        "403",
+        "409",
+        "410",
+        "422"
+      ]
+    },
+    "POST /api/v2/sample-candidates/{candidate_id}/decision": {
+      "has_request_body": true,
+      "operation_id": "decideSampleCandidateV2",
+      "responses": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "409",
+        "410",
+        "422"
+      ]
+    },
+    "POST /api/v2/sample-exports": {
+      "has_request_body": true,
+      "operation_id": "createSampleExportV2",
+      "responses": [
+        "202",
+        "400",
+        "401",
+        "403",
+        "409",
+        "410",
+        "422"
+      ]
+    },
+    "POST /api/v2/sample-exports/{export_job_id}/download-ticket": {
+      "has_request_body": true,
+      "operation_id": "createSampleExportDownloadTicketV2",
+      "responses": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "409",
+        "410",
+        "422"
+      ]
+    },
+    "PUT /api/v2/detection-batches/{batch_id}/items/{item_id}/quick-review": {
+      "has_request_body": true,
+      "operation_id": "putQuickReviewV2",
+      "responses": [
+        "200",
+        "400",
+        "401",
+        "403",
+        "409",
+        "410",
+        "422"
+      ]
+    }
+  },
+  "openapi_schema_surfaces": {
+    "ActivationRequest": {
+      "/#required": [
+        "reason",
+        "rollback_model_version_id"
+      ],
+      "/#type": "object",
+      "/reason#property": true,
+      "/reason#type": "string",
+      "/rollback_model_version_id#property": true,
+      "/rollback_model_version_id#type": "string"
+    },
+    "AddItemRequest": {
+      "/#required": [
+        "file_name",
+        "media_type",
+        "sha256",
+        "size_bytes"
+      ],
+      "/#type": "object",
+      "/file_name#property": true,
+      "/file_name#type": "string",
+      "/media_type#enum": [
+        "image/jpeg",
+        "image/png"
+      ],
+      "/media_type#property": true,
+      "/media_type#type": "string",
+      "/sha256#property": true,
+      "/size_bytes#property": true,
+      "/size_bytes#type": "integer"
+    },
+    "AdminFeedbackRequest": {
+      "/#required": [
+        "label"
+      ],
+      "/#type": "object",
+      "/label#property": true,
+      "/note#property": true,
+      "/note#type": "string",
+      "/source_review_record_id#property": true,
+      "/source_review_record_id#type": "string"
+    },
+    "ApprovalRequest": {
+      "/#required": [
+        "approval_note"
+      ],
+      "/#type": "object",
+      "/approval_note#property": true,
+      "/approval_note#type": "string"
+    },
+    "CompleteUploadRequest": {
+      "/#required": [
+        "sha256",
+        "size_bytes"
+      ],
+      "/#type": "object",
+      "/sha256#property": true,
+      "/size_bytes#property": true,
+      "/size_bytes#type": "integer"
+    },
+    "CreateBatchRequest": {
+      "/#required": [
+        "usage_stage"
+      ],
+      "/#type": "object",
+      "/usage_stage#property": true,
+      "/usage_stage_note#property": true,
+      "/usage_stage_note#type": "string"
+    },
+    "EmptyCommand": {
+      "/#type": "object"
+    },
+    "ModelHistoryItem": {
+      "/#required": [
+        "model_version_id",
+        "validation_status",
+        "version"
+      ],
+      "/#type": "object",
+      "/legacy_provenance#property": true,
+      "/model_version_id#property": true,
+      "/model_version_id#type": "string",
+      "/validation_status#property": true,
+      "/version#property": true,
+      "/version#type": "string"
+    },
+    "ModelUploadRequest": {
+      "/#required": [
+        "model_version",
+        "sha256",
+        "size_bytes"
+      ],
+      "/#type": "object",
+      "/description#property": true,
+      "/description#type": "string",
+      "/model_version#property": true,
+      "/model_version#type": "string",
+      "/sha256#property": true,
+      "/size_bytes#property": true,
+      "/size_bytes#type": "integer"
+    },
+    "ProductionItemRequest": {
+      "/#required": [
+        "capture_id",
+        "image"
+      ],
+      "/#type": "object",
+      "/capture_id#property": true,
+      "/capture_id#type": "string",
+      "/image#property": true
+    },
+    "QuickReviewRequest": {
+      "/#required": [
+        "decision"
+      ],
+      "/#type": "object",
+      "/decision#property": true,
+      "/supersedes_record_id#property": true,
+      "/supersedes_record_id#type": "string"
+    },
+    "SampleCandidateRequest": {
+      "/#required": [
+        "batch_item_id",
+        "feedback_id"
+      ],
+      "/#type": "object",
+      "/batch_item_id#property": true,
+      "/batch_item_id#type": "string",
+      "/feedback_id#property": true,
+      "/feedback_id#type": "string"
+    },
+    "SampleDecisionRequest": {
+      "/#required": [
+        "decision"
+      ],
+      "/#type": "object",
+      "/decision#enum": [
+        "EXCLUDE",
+        "INCLUDE"
+      ],
+      "/decision#property": true,
+      "/decision#type": "string",
+      "/note#property": true,
+      "/note#type": "string"
+    },
+    "SampleExportRequest": {
+      "/#required": [
+        "candidate_ids"
+      ],
+      "/#type": "object",
+      "/candidate_ids#property": true,
+      "/candidate_ids#type": "array",
+      "/filter_snapshot#property": true,
+      "/filter_snapshot#type": "object"
+    },
+    "StandardError": {},
+    "SubmitRequest": {
+      "/#required": [
+        "expected_version"
+      ],
+      "/#type": "object",
+      "/expected_version#property": true,
+      "/expected_version#type": "integer"
+    }
+  }
+}

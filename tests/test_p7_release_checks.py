@@ -182,7 +182,7 @@ class P7ReleaseChecks(unittest.TestCase):
         manuals = {
             "operator-manual.md": ["正常操作", "HOLD", "交班", "禁止操作"],
             "reviewer-manual.md": ["复核工作流", "标注指南", "原因代码", "升级"],
-            "quality-lead-manual.md": ["质量看板", "数据集审批", "推翻调查", "试运行"],
+            "quality-lead-manual.md": ["质量看板", "样本导出", "推翻调查", "试运行"],
             "ops-manual.md": ["系统启停", "健康检查", "备份验证", "告警响应"],
         }
         for filename, keywords in manuals.items():

@@ -28,6 +28,12 @@ public class RabbitTopology {
         "tool-defect.inference.shadow.gpu.multitask";
     public static final String BATCH_QUEUE =
         "tool-defect.inference.batch.v1";
+    public static final String SINGLE_ITEM_V2_QUEUE =
+        "tool-defect.inference.item.requested.v2";
+    public static final String SAMPLE_EXPORT_V2_QUEUE =
+        "tool-defect.sample.export.requested.v2";
+    public static final String SAMPLE_EXPORT_COMPLETED_V2_QUEUE =
+        "tool-defect.sample.export.completed.v2";
     public static final String DEAD_EXCHANGE = "tool-defect.inference.dead";
     public static final String DEAD_QUEUE =
         "tool-defect.inference.dead-letter.v1";
@@ -62,6 +68,21 @@ public class RabbitTopology {
     @Bean
     Queue batchQueue() {
         return inferenceQueue(BATCH_QUEUE);
+    }
+
+    @Bean
+    Queue singleItemV2Queue() {
+        return inferenceQueue(SINGLE_ITEM_V2_QUEUE);
+    }
+
+    @Bean
+    Queue sampleExportV2Queue() {
+        return inferenceQueue(SAMPLE_EXPORT_V2_QUEUE);
+    }
+
+    @Bean
+    Queue sampleExportCompletedV2Queue() {
+        return inferenceQueue(SAMPLE_EXPORT_COMPLETED_V2_QUEUE);
     }
 
     @Bean
@@ -109,6 +130,33 @@ public class RabbitTopology {
         return BindingBuilder.bind(queue)
             .to(exchange)
             .with("batch.#");
+    }
+
+    @Bean
+    Binding singleItemV2Binding(
+            @Qualifier("singleItemV2Queue") Queue queue,
+            TopicExchange exchange) {
+        return BindingBuilder.bind(queue)
+            .to(exchange)
+            .with("inference.item.requested.v2");
+    }
+
+    @Bean
+    Binding sampleExportV2Binding(
+            @Qualifier("sampleExportV2Queue") Queue queue,
+            TopicExchange exchange) {
+        return BindingBuilder.bind(queue)
+            .to(exchange)
+            .with("sample.export.requested.v2");
+    }
+
+    @Bean
+    Binding sampleExportCompletedV2Binding(
+            @Qualifier("sampleExportCompletedV2Queue") Queue queue,
+            TopicExchange exchange) {
+        return BindingBuilder.bind(queue)
+            .to(exchange)
+            .with("sample.export.completed.v2");
     }
 
     @Bean

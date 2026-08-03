@@ -45,6 +45,31 @@ management:
       enabled: ${td.messaging.enabled:false}
 
 td:
+  manual-detection:
+    enabled: ${TD_MANUAL_DETECTION_ENABLED:true}
+    object-bucket: ${TD_MANUAL_OBJECT_BUCKET:td-raw}
+    object-prefix: ${TD_MANUAL_OBJECT_PREFIX:manual-originals}
+    maximum-items-per-batch: ${TD_MANUAL_MAX_ITEMS_PER_BATCH:100}
+    maximum-object-bytes: ${TD_MANUAL_MAX_OBJECT_BYTES:52428800}
+    allowed-media-types: ${TD_MANUAL_ALLOWED_MEDIA_TYPES:image/jpeg,image/png}
+    upload-ttl: ${TD_MANUAL_UPLOAD_TTL:PT5M}
+    read-ttl: ${TD_MANUAL_READ_TTL:PT5M}
+    orphan-retention: ${TD_MANUAL_ORPHAN_RETENTION:PT24H}
+    cleanup-batch-size: ${TD_MANUAL_CLEANUP_BATCH_SIZE:100}
+    cleanup-fixed-delay: ${TD_MANUAL_CLEANUP_FIXED_DELAY_MS:60000}
+  sample-export:
+    # R7 默认关闭；没有 RG6/RG7 证据时不得面向用户启用。
+    enabled: ${TD_SAMPLE_EXPORT_ENABLED:false}
+    object-bucket: ${TD_SAMPLE_EXPORT_BUCKET:td-exports}
+    object-prefix: ${TD_SAMPLE_EXPORT_PREFIX:sample-exports}
+    maximum-candidates: ${TD_SAMPLE_EXPORT_MAX_CANDIDATES:10000}
+    maximum-package-bytes: ${TD_SAMPLE_EXPORT_MAX_PACKAGE_BYTES:1073741824}
+    package-retention: ${TD_SAMPLE_EXPORT_PACKAGE_RETENTION:P30D}
+    ticket-ttl: ${TD_SAMPLE_EXPORT_TICKET_TTL:PT10M}
+    cleanup-fixed-delay: ${TD_SAMPLE_EXPORT_CLEANUP_FIXED_DELAY_MS:3600000}
+  legacy:
+    dataset-training-write-enabled: ${TD_LEGACY_DATASET_TRAINING_WRITE_ENABLED:false}
+    production-v1-write-enabled: ${TD_PRODUCTION_V1_WRITE_ENABLED:false}
   auth:
     secure-cookie: ${TD_AUTH_SECURE_COOKIE:true}
     bootstrap:
@@ -62,10 +87,6 @@ td:
     environment: ${TD_ENVIRONMENT:unknown}
   review:
     claim-lease: ${TD_REVIEW_CLAIM_LEASE:PT5M}
-  training:
-    code-commit: ${TD_TRAINING_CODE_COMMIT:}
-    environment-lock-sha256: ${TD_TRAINING_ENVIRONMENT_LOCK_SHA256:}
-    random-seed: ${TD_TRAINING_RANDOM_SEED:}
   quality:
     default-window-days: ${TD_QUALITY_DEFAULT_WINDOW_DAYS:30}
   detection:

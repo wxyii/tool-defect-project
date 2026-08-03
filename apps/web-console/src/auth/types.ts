@@ -1,3 +1,5 @@
+export type PersonRole = 'PRODUCTION_EMPLOYEE' | 'ADMINISTRATOR'
+
 export interface AuthIdentity {
   readonly userId?: string
   readonly username?: string

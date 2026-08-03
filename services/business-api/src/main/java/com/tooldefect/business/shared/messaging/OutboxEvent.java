@@ -31,12 +31,14 @@ public record OutboxEvent(
         aggregateType = requireText(aggregateType, "aggregateType");
         Objects.requireNonNull(aggregateId);
         eventType = requireText(eventType, "eventType");
-        if (!eventType.endsWith(".v1")) {
-            throw new DomainViolation("事件类型必须携带主版本 v1");
+        if (!eventType.matches("^tool_defect\\.[a-z0-9_.]+\\.v[12]$")) {
+            throw new DomainViolation("事件类型必须携带受支持的主版本");
         }
         routingKey = requireText(routingKey, "routingKey");
-        if (!routingKey.matches("(production|shadow|batch)\\.(cpu|gpu)\\.(multitask|polar)")) {
-            throw new DomainViolation("推理路由键不在冻结契约范围");
+        if (!routingKey.matches("(production|shadow|batch)\\.(cpu|gpu)\\.(multitask|polar)")
+                && !routingKey.equals("inference.item.requested.v2")
+                && !routingKey.equals("sample.export.requested.v2")) {
+            throw new DomainViolation("路由键不在冻结契约范围");
         }
         payloadJson = requireText(payloadJson, "payload");
         rejectBinaryPayload(payloadJson);

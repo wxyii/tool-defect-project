@@ -415,37 +415,6 @@ class ReviewWorkflowServiceTest {
     }
 
     @Test
-    void trainingEligibilityRequiresSeparateDatasetApproval() {
-        UUID reviewRecordId = UUID.randomUUID();
-        when(repository.hasPermission("reviewer-a", "dataset:approve"))
-            .thenReturn(false, true);
-
-        assertThatThrownBy(() -> service.decideTrainingEligibility(
-            reviewRecordId,
-            true,
-            "批准训练候选",
-            REVIEWER_A
-        )).isInstanceOf(ReviewAccessDenied.class);
-
-        service.decideTrainingEligibility(
-            reviewRecordId,
-            true,
-            "批准训练候选",
-            REVIEWER_A
-        );
-
-        verify(repository).appendTrainingDecision(
-            any(),
-            eq(reviewRecordId),
-            eq("reviewer-a"),
-            eq("APPROVED"),
-            eq("批准训练候选"),
-            eq(NOW)
-        );
-        verify(audit).append(any());
-    }
-
-    @Test
     void invalidPriorityIsRejectedBeforeRepositoryMutation() {
         assertThatThrownBy(() -> service.reprioritize(
             TASK_ID,

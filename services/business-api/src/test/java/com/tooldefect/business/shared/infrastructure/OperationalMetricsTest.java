@@ -18,7 +18,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 final class OperationalMetricsTest {
     @Test
-    void exportsDatabaseQueueStorageReviewDatasetModelAndBackupMetrics() {
+    void exportsDatabaseQueueStorageReviewQualityModelAndBackupMetrics() {
         var meters = new SimpleMeterRegistry();
         var jdbc = new FakeJdbc(
             30L,
@@ -28,9 +28,6 @@ final class OperationalMetricsTest {
             40L,
             6L,
             7L,
-            5L,
-            2L,
-            1L,
             3L,
             1L,
             1_722_000_000L
@@ -75,14 +72,6 @@ final class OperationalMetricsTest {
             meters,
             "tool.defect.quality.reviewed.samples.30d"
         )).isEqualTo(7);
-        assertThat(value(meters, "tool.defect.dataset.candidates"))
-            .isEqualTo(5);
-        assertThat(value(meters, "tool.defect.training.active.runs"))
-            .isEqualTo(2);
-        assertThat(value(
-            meters,
-            "tool.defect.training.failed.runs.30d"
-        )).isEqualTo(1);
         assertThat(value(
             meters,
             "tool.defect.model.approval.candidates"

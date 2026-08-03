@@ -78,7 +78,7 @@ def validate_examples(engine: SchemaEngine) -> None:
         "events/trace-headers-v1.json": "trace-headers-v1.schema.json",
         "state-transitions-v1.json": "state-transition-v1.schema.json",
         "http/write-examples-v1.json": "http-write-examples-v1.schema.json",
-        "../consumers/v1-consumers.json": "consumer-contract-v1.schema.json",
+        "../consumers/v1-consumers.json": "consumer-migration-r1.schema.json",
     }
     for example_name, schema_name in mappings.items():
         instance = load(CONTRACTS / "examples" / example_name)
@@ -416,6 +416,195 @@ def validate_consumers() -> None:
             )
 
 
+V2_EXPECTED_PATHS = {
+    "/api/v2/capabilities/manual-detection",
+    "/api/v2/detection-batches",
+    "/api/v2/detection-batches/{batch_id}",
+    "/api/v2/detection-batches/{batch_id}/items",
+    "/api/v2/detection-batches/{batch_id}/items/{item_id}",
+    "/api/v2/detection-batches/{batch_id}/items/{item_id}/complete",
+    "/api/v2/detection-batches/{batch_id}/items/{item_id}/renew",
+    "/api/v2/detection-batches/{batch_id}/submit",
+    "/api/v2/detection-batches/{batch_id}/items/{item_id}/quick-review",
+    "/api/v2/production/detection-items",
+    "/api/v2/admin/detection-items",
+    "/api/v2/admin/detection-items/{item_id}/feedback",
+    "/api/v2/sample-candidates",
+    "/api/v2/sample-candidates/{candidate_id}/decision",
+    "/api/v2/sample-exports",
+    "/api/v2/sample-exports/{export_job_id}",
+    "/api/v2/sample-exports/{export_job_id}/download-ticket",
+    "/api/v2/sample-exports/{export_job_id}/external-receipts",
+    "/api/v2/model-upload-sessions",
+    "/api/v2/model-upload-sessions/{upload_id}",
+    "/api/v2/model-upload-sessions/{upload_id}/complete",
+    "/api/v2/model-versions",
+    "/api/v2/model-versions/{model_version_id}/activation-requests",
+    "/api/v2/model-activation-requests/{request_id}/approve",
+    "/api/v2/model-versions/{model_version_id}/rollback-requests",
+}
+
+
+def validate_openapi_v2() -> tuple[set[str], set[str]]:
+    api_path = CONTRACTS / "openapi" / "tool-defect-api-v2.json"
+    api = load(api_path)
+    validate_references(api, api_path)
+    if api.get("openapi") != "3.1.0" or api.get("info", {}).get("version") != "2.0.0":
+        raise AssertionError("第二版 OpenAPI 版本必须为 3.1.0 / 2.0.0")
+    if set(api.get("paths", {})) != V2_EXPECTED_PATHS:
+        raise AssertionError(
+            f"第二版 OpenAPI 路径不完整：缺少 {sorted(V2_EXPECTED_PATHS-set(api.get('paths', {})))}"
+        )
+    operations: set[str] = set()
+    writes: set[str] = set()
+    for path, path_item in api["paths"].items():
+        if not path.startswith("/api/v2/"):
+            raise AssertionError(f"第二版接口越过 /api/v2：{path}")
+        for method, operation in path_item.items():
+            if method not in HTTP_METHODS:
+                continue
+            operation_id = operation.get("operationId")
+            if not operation_id or operation_id in operations:
+                raise AssertionError(f"第二版 operationId 缺失或重复：{method} {path}")
+            operations.add(operation_id)
+            if method not in WRITE_METHODS:
+                continue
+            writes.add(operation_id)
+            if operation.get("x-write-example-operation") != operation_id:
+                raise AssertionError(f"{operation_id} 未登记写接口示例")
+            if not operation.get("security"):
+                raise AssertionError(f"{operation_id} 缺少安全要求")
+            parameters = [
+                resolve_openapi(value, api)
+                for value in path_item.get("parameters", []) + operation.get("parameters", [])
+            ]
+            headers = {value.get("name") for value in parameters if value.get("in") == "header"}
+            if not ({"Idempotency-Key", "If-Match"} & headers):
+                raise AssertionError(f"{operation_id} 缺少幂等或条件更新头")
+            required_responses = {"400", "401", "403", "409", "410", "422"}
+            missing = required_responses - set(operation.get("responses", {}))
+            if missing:
+                raise AssertionError(f"{operation_id} 缺少响应 {sorted(missing)}")
+            request_body = operation.get("requestBody")
+            if request_body:
+                request_body = resolve_openapi(request_body, api)
+                schema = request_body["content"]["application/json"]["schema"]
+                assert_strict_object(schema, api, operation_id, api_path)
+
+    sidecar = load(CONTRACTS / "examples" / "http" / "write-examples-v2.json")
+    indexed = {item["operation_id"]: item for item in sidecar["operations"]}
+    if set(indexed) != writes:
+        raise AssertionError(
+            f"第二版写示例覆盖不一致：缺少 {sorted(writes-set(indexed))}，多余 {sorted(set(indexed)-writes)}"
+        )
+    required_cases = {"duplicate", "conflict", "unauthorized", "validation_error", "invalid_state", "retired"}
+    if set(sidecar.get("shared_cases", {})) != required_cases:
+        raise AssertionError("第二版写示例必须覆盖重复、冲突、未授权、校验、非法状态和退役")
+    if sidecar["shared_cases"]["retired"] != {
+        "status": 410, "error_code": "TD-LEGACY-FEATURE-RETIRED", "retryable": False, "creates_task": False
+    }:
+        raise AssertionError("退役示例必须为 410 且不得创建任务")
+    for operation_id, example in indexed.items():
+        operation = next(
+            operation
+            for item in api["paths"].values()
+            for method, operation in item.items()
+            if method in HTTP_METHODS and operation["operationId"] == operation_id
+        )
+        if str(example["success_status"]) not in operation["responses"]:
+            raise AssertionError(f"{operation_id} 成功示例状态未在 OpenAPI 声明")
+    return operations, writes
+
+
+V2_TRANSITIONS = {
+    "batch": {("DRAFT", "READY"), ("READY", "PROCESSING"), ("PROCESSING", "PARTIALLY_COMPLETED")},
+    "item": {("READY", "QUEUED"), ("PROCESSING", "QUALITY_REJECTED")},
+    "export": {("RUNNING", "SUCCEEDED")},
+    "model_upload": {("UPLOADED", "VALIDATING")},
+}
+
+
+def validate_transitions_v2() -> None:
+    document = load(CONTRACTS / "examples" / "state-transitions-v2.json")
+    legal_and_illegal: dict[str, set[bool]] = {}
+    for case in document["cases"]:
+        actual = (case["from"], case["to"]) in V2_TRANSITIONS.get(case["domain"], set())
+        if actual != case["legal"]:
+            raise AssertionError(f"第二版非法状态示例标记错误：{case['case_id']}")
+        legal_and_illegal.setdefault(case["domain"], set()).add(case["legal"])
+    if any(values != {True, False} for values in legal_and_illegal.values()):
+        raise AssertionError("每个第二版状态域必须同时包含正例和反例")
+
+
+def validate_asyncapi_v2(engine: SchemaEngine) -> set[str]:
+    api_path = CONTRACTS / "asyncapi" / "inference-events-v2.json"
+    api = load(api_path)
+    validate_references(api, api_path)
+    if api.get("asyncapi") != "3.0.0" or api.get("info", {}).get("version") != "2.0.0":
+        raise AssertionError("第二版 AsyncAPI 版本必须为 3.0.0 / 2.0.0")
+    expected_addresses = {
+        "tool_defect.inference.item.requested.v2", "tool_defect.inference.item.completed.v2",
+        "tool_defect.inference.item.failed.v2", "tool_defect.sample.export.requested.v2",
+        "tool_defect.sample.export.completed.v2", "tool_defect.model.validation.requested.v2",
+        "tool_defect.model.validation.completed.v2",
+    }
+    actual_addresses = {channel["address"] for channel in api["channels"].values()}
+    if actual_addresses != expected_addresses:
+        raise AssertionError("第二版事件集合不完整")
+    semantics = api.get("x-delivery-semantics", {})
+    for key, expected in {
+        "delivery_guarantee": "at-least-once", "consumer_acknowledgement": "manual",
+        "queue_type": "quorum", "business_effect": "at-most-once-by-inbox",
+    }.items():
+        if semantics.get(key) != expected:
+            raise AssertionError(f"第二版事件投递语义 {key} 错误")
+    schema_path = CONTRACTS / "json-schema" / "event-payloads-v2.schema.json"
+    schema_document = load(schema_path)
+    examples = load(CONTRACTS / "examples" / "events" / "events-v2.json")
+    seen_messages: set[str] = set()
+    for item in examples["events"]:
+        name = item["message"]
+        seen_messages.add(name)
+        schema = schema_document["$defs"][name]
+        engine.validate(item["payload"], schema, schema_path, "")
+        invalid = copy.deepcopy(item["payload"])
+        invalid[item["invalid_field"]] = "must-be-rejected"
+        try:
+            engine.validate(invalid, schema, schema_path, "")
+        except ValidationError as exc:
+            if exc.keyword != "additionalProperties":
+                raise
+        else:
+            raise AssertionError(f"第二版事件反例未被拒绝：{name}")
+    if seen_messages != set(api["components"]["messages"]):
+        raise AssertionError("第二版事件正反例未覆盖全部消息")
+    return set(api["operations"])
+
+
+def validate_consumers_v2(http_operations: set[str], event_operations: set[str]) -> None:
+    engine = SchemaEngine()
+    engine.validate_file(
+        load(CONTRACTS / "consumers" / "v1-consumers.json"),
+        CONTRACTS / "json-schema" / "consumer-migration-r1.schema.json",
+    )
+    engine.validate_file(
+        load(CONTRACTS / "consumers" / "v2-consumers.json"),
+        CONTRACTS / "json-schema" / "consumer-contract-v2.schema.json",
+    )
+    manifest = load(CONTRACTS / "consumers" / "v2-consumers.json")
+    registered_http = set()
+    registered_events = set()
+    for consumer in manifest["consumers"]:
+        registered_http.update(consumer["http_operations"])
+        registered_events.update(consumer["event_operations"])
+        if consumer["migration_status"] == "ACTIVE":
+            raise AssertionError("R1 不得把尚未接入的第二版消费者标为 ACTIVE")
+    if registered_http != http_operations:
+        raise AssertionError(f"第二版 HTTP 消费者登记漂移：{sorted(http_operations-registered_http)}")
+    if registered_events != event_operations:
+        raise AssertionError(f"第二版事件消费者登记漂移：{sorted(event_operations-registered_events)}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.parse_args()
@@ -427,7 +616,11 @@ def main() -> int:
     validate_openapi()
     validate_asyncapi(engine)
     validate_consumers()
-    print("契约验证通过：模式、示例、状态机、OpenAPI、AsyncAPI 与消费者清单")
+    http_v2, _writes_v2 = validate_openapi_v2()
+    validate_transitions_v2()
+    events_v2 = validate_asyncapi_v2(engine)
+    validate_consumers_v2(http_v2, events_v2)
+    print("契约验证通过：v1/v2 模式、示例、状态机、OpenAPI、AsyncAPI 与消费者清单")
     return 0
 
 

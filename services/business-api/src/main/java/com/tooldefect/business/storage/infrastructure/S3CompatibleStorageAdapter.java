@@ -16,12 +16,21 @@ import com.tooldefect.business.storage.application.ObjectStoragePort;
 public final class S3CompatibleStorageAdapter implements ObjectStoragePort {
     private final S3ClientFacade client;
     private final Clock clock;
+    private final boolean requireTls;
 
     public S3CompatibleStorageAdapter(
             S3ClientFacade client,
             Clock clock) {
+        this(client, clock, true);
+    }
+
+    public S3CompatibleStorageAdapter(
+            S3ClientFacade client,
+            Clock clock,
+            boolean requireTls) {
         this.client = Objects.requireNonNull(client);
         this.clock = Objects.requireNonNull(clock);
+        this.requireTls = requireTls;
     }
 
     @Override
@@ -80,16 +89,38 @@ public final class S3CompatibleStorageAdapter implements ObjectStoragePort {
         return uri;
     }
 
+    @Override
+    public void delete(String bucket, String objectKey) {
+        requireObjectLocation(bucket, objectKey);
+        client.delete(bucket, objectKey);
+    }
+
     private void requireSafeUri(URI uri) {
         if (uri == null || uri.getHost() == null) {
             throw new DomainViolation("签名地址必须是绝对网络地址");
         }
-        if (!"https".equalsIgnoreCase(uri.getScheme())) {
+        if (!isSafeScheme(uri)) {
             throw new DomainViolation("签名地址必须使用 HTTPS");
         }
         if (uri.getUserInfo() != null) {
             throw new DomainViolation("签名地址不能嵌入用户凭据");
         }
+    }
+
+    private boolean isSafeScheme(URI uri) {
+        if ("https".equalsIgnoreCase(uri.getScheme())) {
+            return true;
+        }
+        return !requireTls
+                && "http".equalsIgnoreCase(uri.getScheme())
+                && isLoopbackHost(uri.getHost());
+    }
+
+    private static boolean isLoopbackHost(String host) {
+        return "localhost".equalsIgnoreCase(host)
+                || "127.0.0.1".equals(host)
+                || "::1".equals(host)
+                || "[::1]".equals(host);
     }
 
     private static void requireObjectLocation(String bucket, String objectKey) {

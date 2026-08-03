@@ -20,6 +20,7 @@ import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -72,7 +73,6 @@ public final class AwsS3ClientFacade implements S3ClientFacade {
         PutObjectRequest put = PutObjectRequest.builder()
             .bucket(bucket)
             .key(objectKey)
-            .contentLength(sizeBytes)
             .contentType(mediaType)
             .checksumSHA256(hexSha256ToBase64(sha256))
             .metadata(Map.copyOf(metadata))
@@ -168,6 +168,15 @@ public final class AwsS3ClientFacade implements S3ClientFacade {
             throw new StorageIntegrityViolation("图片解码尺寸溢出", error);
         } catch (IOException error) {
             throw new StorageIntegrityViolation("对象检查失败", error);
+        }
+    }
+
+    @Override
+    public void delete(String bucket, String objectKey) {
+        try {
+            client.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(objectKey).build());
+        } catch (S3Exception error) {
+            throw new StorageIntegrityViolation("对象存储孤儿清理失败", error);
         }
     }
 

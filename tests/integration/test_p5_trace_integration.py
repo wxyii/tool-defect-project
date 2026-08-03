@@ -24,7 +24,7 @@ REQUEST_ID = "request-p5-cross-component-1"
 
 
 class P5TraceIntegrationTest(unittest.TestCase):
-    def test_capture_trace_crosses_edge_backend_queue_and_inference(self):
+    def test_production_trace_crosses_edge_backend_queue_and_inference(self):
         request = _request(
             path={"capture_id": CAPTURE_ID},
             headers={"X-Request-Id": REQUEST_ID},
@@ -39,19 +39,19 @@ class P5TraceIntegrationTest(unittest.TestCase):
             edge.trace_id,
         )
 
-        capture_source = (
+        production_source = (
             ROOT
             / "services/business-api/src/main/java/com/tooldefect/business"
-            / "capture/application/CaptureWorkflowService.java"
+            / "detectionbatch/application/ProductionDetectionService.java"
         ).read_text(encoding="utf-8")
         publisher_source = (
             ROOT
             / "services/business-api/src/main/java/com/tooldefect/business"
             / "shared/infrastructure/RabbitMessagePublisher.java"
         ).read_text(encoding="utf-8")
-        self.assertIn("requireTraceparent(traceparent)", capture_source)
-        self.assertIn('event.put("traceparent", traceparent)', capture_source)
-        self.assertIn('"traceparent", traceparent', capture_source)
+        self.assertIn('payload.put("traceparent", traceparent)', production_source)
+        self.assertIn('"tool_defect.inference.item.requested.v2"', production_source)
+        self.assertIn('"pipeline_version", "2.0.0"', production_source)
         self.assertIn(
             'builder.setHeader("traceparent", identity.traceparent())',
             publisher_source,

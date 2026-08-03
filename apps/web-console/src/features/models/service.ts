@@ -4,8 +4,6 @@ import type {
   ModelCreateRequest,
   ModelPage,
   ModelSummary,
-  ModelVersionRegisterRequest,
-  ModelVersionRegistrationResponse,
   ValidationDecisionRequest,
 } from '@/api/generated'
 import type { JsonObject } from '@/api/generated'
@@ -45,8 +43,6 @@ export interface ModelVersionPage {
   readonly has_more: boolean
 }
 
-export type RegisterModelVersionRequest = ModelVersionRegisterRequest
-export type ModelRegistrationResponse = ModelVersionRegistrationResponse
 export type ModelValidationDecisionRequest = ValidationDecisionRequest
 
 export interface ModelVersionFilter {
@@ -99,16 +95,6 @@ export class ModelService {
     return modelVersionDetail(
       await this.api.getModelVersion({
         path: { model_version_id: versionId },
-      }),
-    )
-  }
-
-  async registerModelVersion(
-    request: RegisterModelVersionRequest,
-  ): Promise<ModelRegistrationResponse> {
-    return registrationResponse(
-      await this.api.registerModelVersion({
-        body: request as unknown as JsonObject,
       }),
     )
   }
@@ -245,26 +231,6 @@ function modelVersionDetail(value: JsonObject): ModelVersionDetail {
   })
   if (typeof value.artifact_sha256 !== 'string') throw incompatible()
   return Object.freeze({ ...summary, artifact_sha256: value.artifact_sha256 })
-}
-
-function registrationResponse(value: JsonObject): ModelRegistrationResponse {
-  exact(value, ['model_version_id', 'version', 'approval_state', 'created_at'])
-  const state = approvalState(value.approval_state)
-  if (
-    typeof value.model_version_id !== 'string'
-    || typeof value.version !== 'number'
-    || !Number.isInteger(value.version)
-    || state === null
-    || typeof value.created_at !== 'string'
-  ) {
-    throw incompatible()
-  }
-  return Object.freeze({
-    model_version_id: value.model_version_id as ModelRegistrationResponse['model_version_id'],
-    version: value.version,
-    approval_state: state,
-    created_at: value.created_at as ModelRegistrationResponse['created_at'],
-  })
 }
 
 function acknowledgement(value: JsonObject): Acknowledgement {

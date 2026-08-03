@@ -563,46 +563,6 @@ public class ReviewWorkflowService {
         return newTaskId;
     }
 
-    @Transactional
-    public void decideTrainingEligibility(
-            UUID reviewRecordId,
-            boolean approved,
-            String reason,
-            ReviewRequestContext context) {
-        if (!repository.hasPermission(
-                context.actorId(),
-                "dataset:approve")) {
-            throw new ReviewAccessDenied("只有质量负责人可以批准训练候选");
-        }
-        Instant now = Instant.now(clock);
-        repository.appendTrainingDecision(
-            ids.next(),
-            reviewRecordId,
-            context.actorId(),
-            approved ? "APPROVED" : "REJECTED",
-            requireReason(reason),
-            now
-        );
-        audit.append(new AuditRecord(
-            ids.next(),
-            now,
-            "USER",
-            context.actorId(),
-            approved
-                ? "review.training.approve"
-                : "review.training.reject",
-            "review_record",
-            reviewRecordId.toString(),
-            null,
-            null,
-            reason,
-            context.requestId(),
-            context.traceId(),
-            "SUCCESS",
-            null
-        ));
-    }
-
     private static ReviewRepository.ReviewRecordState primary(
             List<ReviewRepository.ReviewRecordState> history) {
         return history.stream()

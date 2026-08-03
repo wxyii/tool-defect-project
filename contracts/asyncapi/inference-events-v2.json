@@ -1,0 +1,48 @@
+{
+  "asyncapi": "3.0.0",
+  "info": {"title": "刀具缺陷第二版业务事件", "version": "2.0.0", "description": "单图片项推理、样本导出和模型隔离验证事件；消息只传标识与受控对象引用。"},
+  "defaultContentType": "application/json",
+  "servers": {"production": {"host": "rabbitmq:5671", "protocol": "amqps", "security": [{"$ref": "#/components/securitySchemes/serviceMtls"}]}},
+  "channels": {
+    "inferenceItemRequested": {"address": "tool_defect.inference.item.requested.v2", "messages": {"message": {"$ref": "#/components/messages/InferenceItemRequested"}}},
+    "inferenceItemCompleted": {"address": "tool_defect.inference.item.completed.v2", "messages": {"message": {"$ref": "#/components/messages/InferenceItemCompleted"}}},
+    "inferenceItemFailed": {"address": "tool_defect.inference.item.failed.v2", "messages": {"message": {"$ref": "#/components/messages/InferenceItemFailed"}}},
+    "sampleExportRequested": {"address": "tool_defect.sample.export.requested.v2", "messages": {"message": {"$ref": "#/components/messages/SampleExportRequested"}}},
+    "sampleExportCompleted": {"address": "tool_defect.sample.export.completed.v2", "messages": {"message": {"$ref": "#/components/messages/SampleExportCompleted"}}},
+    "modelValidationRequested": {"address": "tool_defect.model.validation.requested.v2", "messages": {"message": {"$ref": "#/components/messages/ModelValidationRequested"}}},
+    "modelValidationCompleted": {"address": "tool_defect.model.validation.completed.v2", "messages": {"message": {"$ref": "#/components/messages/ModelValidationCompleted"}}}
+  },
+  "operations": {
+    "publishInferenceItemRequestedV2": {"action": "send", "channel": {"$ref": "#/channels/inferenceItemRequested"}, "messages": [{"$ref": "#/channels/inferenceItemRequested/messages/message"}]},
+    "consumeInferenceItemRequestedV2": {"action": "receive", "channel": {"$ref": "#/channels/inferenceItemRequested"}, "messages": [{"$ref": "#/channels/inferenceItemRequested/messages/message"}]},
+    "publishInferenceItemCompletedV2": {"action": "send", "channel": {"$ref": "#/channels/inferenceItemCompleted"}, "messages": [{"$ref": "#/channels/inferenceItemCompleted/messages/message"}]},
+    "consumeInferenceItemCompletedV2": {"action": "receive", "channel": {"$ref": "#/channels/inferenceItemCompleted"}, "messages": [{"$ref": "#/channels/inferenceItemCompleted/messages/message"}]},
+    "publishInferenceItemFailedV2": {"action": "send", "channel": {"$ref": "#/channels/inferenceItemFailed"}, "messages": [{"$ref": "#/channels/inferenceItemFailed/messages/message"}]},
+    "consumeInferenceItemFailedV2": {"action": "receive", "channel": {"$ref": "#/channels/inferenceItemFailed"}, "messages": [{"$ref": "#/channels/inferenceItemFailed/messages/message"}]},
+    "publishSampleExportRequestedV2": {"action": "send", "channel": {"$ref": "#/channels/sampleExportRequested"}, "messages": [{"$ref": "#/channels/sampleExportRequested/messages/message"}]},
+    "consumeSampleExportRequestedV2": {"action": "receive", "channel": {"$ref": "#/channels/sampleExportRequested"}, "messages": [{"$ref": "#/channels/sampleExportRequested/messages/message"}]},
+    "publishSampleExportCompletedV2": {"action": "send", "channel": {"$ref": "#/channels/sampleExportCompleted"}, "messages": [{"$ref": "#/channels/sampleExportCompleted/messages/message"}]},
+    "consumeSampleExportCompletedV2": {"action": "receive", "channel": {"$ref": "#/channels/sampleExportCompleted"}, "messages": [{"$ref": "#/channels/sampleExportCompleted/messages/message"}]},
+    "publishModelValidationRequestedV2": {"action": "send", "channel": {"$ref": "#/channels/modelValidationRequested"}, "messages": [{"$ref": "#/channels/modelValidationRequested/messages/message"}]},
+    "consumeModelValidationRequestedV2": {"action": "receive", "channel": {"$ref": "#/channels/modelValidationRequested"}, "messages": [{"$ref": "#/channels/modelValidationRequested/messages/message"}]},
+    "publishModelValidationCompletedV2": {"action": "send", "channel": {"$ref": "#/channels/modelValidationCompleted"}, "messages": [{"$ref": "#/channels/modelValidationCompleted/messages/message"}]},
+    "consumeModelValidationCompletedV2": {"action": "receive", "channel": {"$ref": "#/channels/modelValidationCompleted"}, "messages": [{"$ref": "#/channels/modelValidationCompleted/messages/message"}]}
+  },
+  "components": {
+    "messages": {
+      "InferenceItemRequested": {"name": "tool_defect.inference.item.requested.v2", "payload": {"$ref": "../json-schema/event-payloads-v2.schema.json#/$defs/InferenceItemRequested"}},
+      "InferenceItemCompleted": {"name": "tool_defect.inference.item.completed.v2", "payload": {"$ref": "../json-schema/event-payloads-v2.schema.json#/$defs/InferenceItemCompleted"}},
+      "InferenceItemFailed": {"name": "tool_defect.inference.item.failed.v2", "payload": {"$ref": "../json-schema/event-payloads-v2.schema.json#/$defs/InferenceItemFailed"}},
+      "SampleExportRequested": {"name": "tool_defect.sample.export.requested.v2", "payload": {"$ref": "../json-schema/event-payloads-v2.schema.json#/$defs/SampleExportRequested"}},
+      "SampleExportCompleted": {"name": "tool_defect.sample.export.completed.v2", "payload": {"$ref": "../json-schema/event-payloads-v2.schema.json#/$defs/SampleExportCompleted"}},
+      "ModelValidationRequested": {"name": "tool_defect.model.validation.requested.v2", "payload": {"$ref": "../json-schema/event-payloads-v2.schema.json#/$defs/ModelValidationRequested"}},
+      "ModelValidationCompleted": {"name": "tool_defect.model.validation.completed.v2", "payload": {"$ref": "../json-schema/event-payloads-v2.schema.json#/$defs/ModelValidationCompleted"}}
+    },
+    "securitySchemes": {"serviceMtls": {"type": "X509", "description": "服务身份最小权限双向 TLS"}}
+  },
+  "x-delivery-semantics": {
+    "queue_type": "quorum", "queue_durable": true, "message_persistent": true, "publisher_confirms": true,
+    "consumer_acknowledgement": "manual", "delivery_guarantee": "at-least-once", "business_effect": "at-most-once-by-inbox",
+    "deduplication_keys": ["message_id", "idempotency_key"], "dead_letter_auto_replay": false
+  }
+}

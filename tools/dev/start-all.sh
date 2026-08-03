@@ -13,7 +13,6 @@ ENV_FILE="${TOOL_DEFECT_ENV_FILE:-${DEFAULT_CONFIG_ROOT}/tool-defect/development
 ACTION="start"
 DETACH=0
 STARTED_BACKEND=0
-STARTED_DATASET_BUILDER=0
 STARTED_FRONTEND=0
 STARTED_COMPOSE=0
 COMPOSE_WAS_EMPTY=0
@@ -36,8 +35,6 @@ start 默认持续守护服务，按 Ctrl+C 后统一停止。仅在确认终端
   TOOL_DEFECT_ENV_FILE   开发密钥文件路径
   TOOL_DEFECT_NODE       Node.js 20.13.1 可执行文件
   TOOL_DEFECT_PNPM       pnpm 10.34.5 可执行文件或 pnpm.cjs
-  TD_DATASET_BUILDER_POLL_SECONDS   数据集构建任务轮询秒数（默认 2）
-  TD_DATASET_BUILDER_LEASE_SECONDS  数据集构建任务租约秒数（默认 30）
 EOF
 }
 
@@ -213,8 +210,6 @@ check_prerequisites() {
     || die "缺少项目 Python 3.11 虚拟环境：.venv/bin/python"
   [[ -x "${PROJECT_ROOT}/services/business-api/mvnw" ]] \
     || die "缺少业务后端 Maven Wrapper"
-  [[ -f "${PROJECT_ROOT}/jobs/dataset-builder/worker.py" ]] \
-    || die "缺少数据集构建执行端入口"
   [[ "$(java -version 2>&1 | head -n 1)" == *'"25.'* ]] \
     || die "业务后端要求 Java 25"
   docker info >/dev/null 2>&1 || die "Docker 守护进程未运行或不可访问"
@@ -478,58 +473,6 @@ start_backend() {
   fi
 }
 
-start_dataset_builder() {
-  local pid_file="${RUNTIME_DIR}/dataset-builder.pid"
-  local log_file="${RUNTIME_DIR}/dataset-builder.log"
-  local ready_file="${RUNTIME_DIR}/dataset-builder.ready.json"
-
-  if pid_is_running "${pid_file}"; then
-    log "数据集构建执行端已由本脚本启动"
-  else
-    local postgres_container
-    local postgres_password
-    local minio_user
-    local minio_password
-    postgres_container="$(compose ps -q postgres)"
-    postgres_password="$(read_env_value POSTGRES_PASSWORD)"
-    minio_user="$(read_env_value MINIO_ROOT_USER)"
-    minio_password="$(read_env_value MINIO_ROOT_PASSWORD)"
-    [[ -n "${postgres_container}" ]] || die "无法定位数据集构建执行端所需的 PostgreSQL 容器"
-
-    rm -f "${ready_file}"
-    log "启动数据集构建执行端"
-    (
-      cd "${PROJECT_ROOT}"
-      nohup env \
-        TD_DATASET_BUILDER_POSTGRES_CONTAINER="${postgres_container}" \
-        TD_DATASET_BUILDER_WORKER_ID='dataset-builder-development' \
-        TD_DATASET_BUILDER_POLL_SECONDS="${TD_DATASET_BUILDER_POLL_SECONDS:-2}" \
-        TD_DATASET_BUILDER_LEASE_SECONDS="${TD_DATASET_BUILDER_LEASE_SECONDS:-30}" \
-        TD_DATABASE_PASSWORD="${postgres_password}" \
-        TD_S3_ENDPOINT='http://127.0.0.1:9000' \
-        TD_S3_ACCESS_KEY="${minio_user}" \
-        TD_S3_SECRET_KEY="${minio_password}" \
-        TD_S3_REGION='us-east-1' \
-        "${PROJECT_ROOT}/.venv/bin/python" \
-        "${PROJECT_ROOT}/jobs/dataset-builder/worker.py" \
-        --ready-file "${ready_file}" \
-        >"${log_file}" 2>&1 &
-      printf '%s\n' "$!" >"${pid_file}"
-    )
-    STARTED_DATASET_BUILDER=1
-  fi
-
-  if ! wait_for_ready_file \
-    "数据集构建执行端" \
-    "${ready_file}" \
-    45 \
-    "${pid_file}"
-  then
-    show_log_tail "${log_file}"
-    die "数据集构建执行端启动失败"
-  fi
-}
-
 install_frontend_dependencies() {
   if [[ ! -x "${PROJECT_ROOT}/apps/web-console/node_modules/.bin/vite" ]]; then
     log "安装网页前端依赖"
@@ -603,8 +546,6 @@ stop_all() {
   mkdir -p "${RUNTIME_DIR}"
   touch "${RUNTIME_DIR}/stop.requested"
   stop_pid_file "网页前端" "${RUNTIME_DIR}/web-console.pid"
-  stop_pid_file "数据集构建执行端" "${RUNTIME_DIR}/dataset-builder.pid"
-  rm -f "${RUNTIME_DIR}/dataset-builder.ready.json"
   stop_pid_file "业务后端" "${RUNTIME_DIR}/business-api.pid"
   log "停止开发基础设施"
   compose down
@@ -617,16 +558,6 @@ status_all() {
   printf '业务后端：'
   if pid_is_running "${RUNTIME_DIR}/business-api.pid"; then
     printf '运行中\n'
-  else
-    printf '未运行\n'
-  fi
-  printf '数据集构建执行端：'
-  if pid_is_running "${RUNTIME_DIR}/dataset-builder.pid"; then
-    if [[ -s "${RUNTIME_DIR}/dataset-builder.ready.json" ]]; then
-      printf '运行中（就绪）\n'
-    else
-      printf '运行中（未就绪）\n'
-    fi
   else
     printf '未运行\n'
   fi
@@ -644,11 +575,9 @@ logs_all() {
   mkdir -p "${RUNTIME_DIR}"
   touch \
     "${RUNTIME_DIR}/business-api.log" \
-    "${RUNTIME_DIR}/dataset-builder.log" \
     "${RUNTIME_DIR}/web-console.log"
   tail -n 100 -f \
     "${RUNTIME_DIR}/business-api.log" \
-    "${RUNTIME_DIR}/dataset-builder.log" \
     "${RUNTIME_DIR}/web-console.log"
 }
 
@@ -660,10 +589,6 @@ rollback_on_failure() {
   warn "启动失败，回滚本次新启动的本地进程"
   if (( STARTED_FRONTEND == 1 )); then
     stop_pid_file "网页前端" "${RUNTIME_DIR}/web-console.pid"
-  fi
-  if (( STARTED_DATASET_BUILDER == 1 )); then
-    stop_pid_file "数据集构建执行端" "${RUNTIME_DIR}/dataset-builder.pid"
-    rm -f "${RUNTIME_DIR}/dataset-builder.ready.json"
   fi
   if (( STARTED_BACKEND == 1 )); then
     stop_pid_file "业务后端" "${RUNTIME_DIR}/business-api.pid"
@@ -684,7 +609,6 @@ start_all() {
   trap 'rollback_on_failure $?' EXIT
   start_infrastructure
   start_backend
-  start_dataset_builder
   start_frontend
   cat <<EOF
 
@@ -692,7 +616,6 @@ start_all() {
   网页前端      http://127.0.0.1:5173/
   业务后端      http://127.0.0.1:8080/
   健康检查      http://127.0.0.1:9091/actuator/health
-  数据集构建端  自动领取 BUILDING 任务并校验候选清单
   RabbitMQ      http://127.0.0.1:15672/
   MinIO         http://127.0.0.1:9001/
   Prometheus    http://127.0.0.1:9090/
@@ -727,10 +650,6 @@ EOF
     if ! pid_is_running "${RUNTIME_DIR}/business-api.pid"; then
       show_log_tail "${RUNTIME_DIR}/business-api.log"
       die "业务后端意外退出"
-    fi
-    if ! pid_is_running "${RUNTIME_DIR}/dataset-builder.pid"; then
-      show_log_tail "${RUNTIME_DIR}/dataset-builder.log"
-      die "数据集构建执行端意外退出"
     fi
     if ! pid_is_running "${RUNTIME_DIR}/web-console.pid"; then
       show_log_tail "${RUNTIME_DIR}/web-console.log"

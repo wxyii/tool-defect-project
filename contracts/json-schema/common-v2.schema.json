@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tool-defect.local/contracts/common-v2.schema.json",
+  "title": "刀具缺陷第二版公共契约",
+  "$defs": {
+    "Uuid": {"type": "string", "format": "uuid"},
+    "UtcTimestamp": {"type": "string", "format": "date-time"},
+    "Sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "PersonRole": {"type": "string", "enum": ["PRODUCTION_EMPLOYEE", "ADMINISTRATOR"]},
+    "BatchSource": {"type": "string", "enum": ["MANUAL_UPLOAD", "PRODUCTION_CAPTURE"]},
+    "UsageStage": {"type": "string", "enum": ["NEW_BLADE", "AFTER_ONE_WHEEL", "AFTER_TWO_WHEELS", "AFTER_THREE_WHEELS", "OTHER", "UNSPECIFIED"]},
+    "BatchStatus": {"type": "string", "enum": ["DRAFT", "UPLOADING", "READY", "PROCESSING", "COMPLETED", "PARTIALLY_COMPLETED", "FAILED", "CANCELLED"]},
+    "BatchItemStatus": {"type": "string", "enum": ["PENDING_UPLOAD", "UPLOADING", "READY", "QUEUED", "PROCESSING", "COMPLETED", "QUALITY_REJECTED", "FAILED", "CANCELLED"]},
+    "ImageQualityOverall": {"type": "string", "enum": ["ACCEPTED", "WARNING", "REJECTED"]},
+    "ImageQualityCheckType": {"type": "string", "enum": ["DECODABLE", "BLADE_PRESENT", "BLADE_COMPLETE", "BLUR", "EXPOSURE"]},
+    "ImageQualityCheckStatus": {"type": "string", "enum": ["PASS", "WARNING", "FAIL", "NOT_RUN"]},
+    "AlgorithmOutcome": {"type": "string", "enum": ["QUALIFIED", "UNQUALIFIED", "INCONCLUSIVE"]},
+    "QuickReviewDecision": {"type": "string", "enum": ["DEFECT_CONFIRMED", "NO_DEFECT_CONFIRMED", "UNABLE_TO_DETERMINE"]},
+    "AdminFeedbackLabel": {"type": "string", "enum": ["CORRECT_DETECTION", "FALSE_POSITIVE", "FALSE_NEGATIVE", "LOCALIZATION_INACCURATE", "IMAGE_UNUSABLE", "UNCONFIRMED"]},
+    "SampleCandidateStatus": {"type": "string", "enum": ["PENDING", "INCLUDED", "EXCLUDED", "EXPORTED"]},
+    "ExportJobStatus": {"type": "string", "enum": ["QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "EXPIRED"]},
+    "ModelUploadStatus": {"type": "string", "enum": ["AWAITING_UPLOAD", "UPLOADED", "VALIDATING", "VALIDATED", "REJECTED", "EXPIRED"]},
+    "ModelValidationStatus": {"type": "string", "enum": ["PASSED", "FAILED", "HOLD"]},
+    "ObjectReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bucket", "object_key", "sha256", "size_bytes", "media_type"],
+      "properties": {
+        "bucket": {"type": "string", "minLength": 1, "maxLength": 63, "pattern": "^[a-z0-9][a-z0-9.-]*$"},
+        "object_key": {"type": "string", "minLength": 1, "maxLength": 1024, "pattern": "^(manual-originals|production-originals|sample-exports|model-quarantine|model-evidence)/"},
+        "sha256": {"$ref": "#/$defs/Sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "media_type": {"type": "string", "enum": ["image/jpeg", "image/png", "application/zip", "application/json"]},
+        "object_version": {"type": "string", "minLength": 1, "maxLength": 200}
+      }
+    },
+    "SampleExportTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bucket", "object_key", "media_type"],
+      "properties": {
+        "bucket": {"type": "string", "minLength": 1, "maxLength": 63, "pattern": "^[a-z0-9][a-z0-9.-]*$"},
+        "object_key": {"type": "string", "minLength": 1, "maxLength": 1024, "pattern": "^sample-exports/"},
+        "sha256": {"$ref": "#/$defs/Sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "object_version": {"type": "string", "minLength": 1, "maxLength": 200},
+        "media_type": {"type": "string", "enum": ["application/zip"]}
+      }
+    },
+    "BatchAggregateCounts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["total", "completed", "defect_suspected", "normal", "inconclusive", "quality_rejected", "technical_failed"],
+      "properties": {
+        "total": {"type": "integer", "minimum": 0}, "completed": {"type": "integer", "minimum": 0},
+        "defect_suspected": {"type": "integer", "minimum": 0}, "normal": {"type": "integer", "minimum": 0},
+        "inconclusive": {"type": "integer", "minimum": 0}, "quality_rejected": {"type": "integer", "minimum": 0},
+        "technical_failed": {"type": "integer", "minimum": 0}
+      }
+    },
+    "ImageQualityCheck": {
+      "type": "object", "additionalProperties": false,
+      "required": ["check_type", "status", "rule_id", "reason_code", "user_hint"],
+      "properties": {
+        "check_type": {"$ref": "#/$defs/ImageQualityCheckType"}, "status": {"$ref": "#/$defs/ImageQualityCheckStatus"},
+        "rule_id": {"type": "string", "minLength": 1, "maxLength": 100}, "reason_code": {"type": "string", "minLength": 1, "maxLength": 100},
+        "measurement": {"type": "number"}, "threshold": {"type": "number"}, "user_hint": {"type": "string", "maxLength": 300}
+      }
+    },
+    "ImageQualityResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["overall", "checker_version", "checks"],
+      "properties": {
+        "overall": {"$ref": "#/$defs/ImageQualityOverall"}, "checker_version": {"type": "string", "minLength": 1, "maxLength": 100},
+        "checks": {"type": "array", "minItems": 1, "maxItems": 20, "items": {"$ref": "#/$defs/ImageQualityCheck"}}
+      }
+    },
+    "DetectionBatch": {
+      "type": "object", "additionalProperties": false,
+      "required": ["batch_id", "batch_no", "source", "created_by", "usage_stage", "status", "counts", "created_at", "updated_at", "version"],
+      "properties": {
+        "batch_id": {"$ref": "#/$defs/Uuid"}, "batch_no": {"type": "string", "pattern": "^JC-[0-9]{8}-[0-9]{5}$"},
+        "source": {"$ref": "#/$defs/BatchSource"}, "created_by": {"$ref": "#/$defs/Uuid"}, "usage_stage": {"$ref": "#/$defs/UsageStage"},
+        "usage_stage_note": {"type": "string", "maxLength": 200}, "status": {"$ref": "#/$defs/BatchStatus"},
+        "counts": {"$ref": "#/$defs/BatchAggregateCounts"}, "created_at": {"$ref": "#/$defs/UtcTimestamp"},
+        "updated_at": {"$ref": "#/$defs/UtcTimestamp"}, "version": {"type": "integer", "minimum": 1}
+      }
+    },
+    "DetectionBatchItem": {
+      "type": "object", "additionalProperties": false,
+      "required": ["batch_item_id", "batch_id", "image", "status", "created_at", "updated_at"],
+      "properties": {
+        "batch_item_id": {"$ref": "#/$defs/Uuid"}, "batch_id": {"$ref": "#/$defs/Uuid"}, "capture_id": {"$ref": "#/$defs/Uuid"},
+        "image": {"$ref": "#/$defs/ObjectReference"}, "status": {"$ref": "#/$defs/BatchItemStatus"}, "quality": {"$ref": "#/$defs/ImageQualityResult"},
+        "algorithm_outcome": {"$ref": "#/$defs/AlgorithmOutcome"}, "quick_review_decision": {"$ref": "#/$defs/QuickReviewDecision"},
+        "created_at": {"$ref": "#/$defs/UtcTimestamp"}, "updated_at": {"$ref": "#/$defs/UtcTimestamp"}
+      }
+    },
+    "QuickReviewRecord": {
+      "type": "object", "additionalProperties": false,
+      "required": ["review_record_id", "batch_item_id", "decision", "submitted_by", "submitted_at", "idempotency_key"],
+      "properties": {
+        "review_record_id": {"$ref": "#/$defs/Uuid"}, "batch_item_id": {"$ref": "#/$defs/Uuid"}, "decision": {"$ref": "#/$defs/QuickReviewDecision"},
+        "submitted_by": {"$ref": "#/$defs/Uuid"}, "submitted_at": {"$ref": "#/$defs/UtcTimestamp"}, "idempotency_key": {"type": "string", "minLength": 8, "maxLength": 128},
+        "supersedes_record_id": {"$ref": "#/$defs/Uuid"}, "disposition_reference": {"type": "string", "maxLength": 200}
+      }
+    },
+    "AdminFeedbackRecord": {
+      "type": "object", "additionalProperties": false,
+      "required": ["feedback_id", "batch_item_id", "label", "submitted_by", "submitted_at"],
+      "properties": {
+        "feedback_id": {"$ref": "#/$defs/Uuid"}, "batch_item_id": {"$ref": "#/$defs/Uuid"}, "label": {"$ref": "#/$defs/AdminFeedbackLabel"},
+        "note": {"type": "string", "maxLength": 2000}, "annotation_reference": {"$ref": "#/$defs/ObjectReference"},
+        "source_review_record_id": {"$ref": "#/$defs/Uuid"}, "supersedes_feedback_id": {"$ref": "#/$defs/Uuid"}, "revision": {"type": "integer", "minimum": 1}, "submitted_by": {"$ref": "#/$defs/Uuid"}, "submitted_at": {"$ref": "#/$defs/UtcTimestamp"}
+      }
+    },
+    "SampleCandidate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sample_candidate_id", "batch_item_id", "feedback_id", "status", "created_at"],
+      "properties": {
+        "sample_candidate_id": {"$ref": "#/$defs/Uuid"}, "batch_item_id": {"$ref": "#/$defs/Uuid"}, "feedback_id": {"$ref": "#/$defs/Uuid"},
+        "status": {"$ref": "#/$defs/SampleCandidateStatus"}, "decision_note": {"type": "string", "maxLength": 1000}, "source_snapshot": {"type": "object", "additionalProperties": true}, "latest_decision_id": {"$ref": "#/$defs/Uuid"},
+        "export_job_id": {"$ref": "#/$defs/Uuid"}, "created_at": {"$ref": "#/$defs/UtcTimestamp"}
+      }
+    },
+    "SampleExternalReceipt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["receipt_id", "sample_export_job_id", "receiver_name", "recorded_by", "recorded_at"],
+      "properties": {
+        "receipt_id": {"$ref": "#/$defs/Uuid"}, "sample_export_job_id": {"$ref": "#/$defs/Uuid"},
+        "receiver_name": {"type": "string", "minLength": 1, "maxLength": 256},
+        "external_reference": {"type": "string", "maxLength": 512}, "receipt_note": {"type": "string", "maxLength": 2000},
+        "recorded_by": {"$ref": "#/$defs/Uuid"}, "recorded_at": {"$ref": "#/$defs/UtcTimestamp"}
+      }
+    },
+    "SampleExportJob": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sample_export_job_id", "filter_snapshot", "candidate_count", "status", "created_at"],
+      "properties": {
+        "sample_export_job_id": {"$ref": "#/$defs/Uuid"}, "filter_snapshot": {"type": "object", "additionalProperties": {"type": "string"}},
+        "candidate_count": {"type": "integer", "minimum": 1}, "exported_count": {"type": "integer", "minimum": 0}, "failed_count": {"type": "integer", "minimum": 0}, "status": {"$ref": "#/$defs/ExportJobStatus"}, "package": {"$ref": "#/$defs/ObjectReference"}, "manifest": {"$ref": "#/$defs/ObjectReference"},
+        "failed_candidate_ids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/Uuid"}},
+        "external_receipts": {"type": "array", "items": {"$ref": "#/$defs/SampleExternalReceipt"}},
+        "created_at": {"$ref": "#/$defs/UtcTimestamp"}, "expires_at": {"$ref": "#/$defs/UtcTimestamp"}
+      }
+    },
+    "SampleDownloadTicket": {
+      "type": "object", "additionalProperties": false,
+      "required": ["ticket_id", "download_url", "expires_at"],
+      "properties": {
+        "ticket_id": {"$ref": "#/$defs/Uuid"}, "download_url": {"type": "string", "format": "uri"}, "expires_at": {"$ref": "#/$defs/UtcTimestamp"}
+      }
+    },
+    "ModelUploadSession": {
+      "type": "object", "additionalProperties": false,
+      "required": ["model_upload_id", "quarantine_object", "declared_sha256", "status", "created_at", "expires_at"],
+      "properties": {
+        "model_upload_id": {"$ref": "#/$defs/Uuid"}, "quarantine_object": {"$ref": "#/$defs/ObjectReference"}, "declared_sha256": {"$ref": "#/$defs/Sha256"},
+        "model_version": {"type": "string", "minLength": 1, "maxLength": 100}, "description": {"type": "string", "maxLength": 1000},
+        "status": {"$ref": "#/$defs/ModelUploadStatus"}, "created_at": {"$ref": "#/$defs/UtcTimestamp"}, "expires_at": {"$ref": "#/$defs/UtcTimestamp"}
+      }
+    },
+    "ModelValidationResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["model_upload_id", "status", "package_check", "security_scan", "load_test", "warmup_test", "fixed_sample_test", "evidence"],
+      "properties": {
+        "model_upload_id": {"$ref": "#/$defs/Uuid"}, "status": {"$ref": "#/$defs/ModelValidationStatus"},
+        "package_check": {"type": "string", "enum": ["PASSED", "FAILED", "NOT_RUN"]}, "security_scan": {"type": "string", "enum": ["PASSED", "FAILED", "NOT_RUN"]},
+        "load_test": {"type": "string", "enum": ["PASSED", "FAILED", "NOT_RUN"]}, "warmup_test": {"type": "string", "enum": ["PASSED", "FAILED", "NOT_RUN"]},
+        "fixed_sample_test": {"type": "string", "enum": ["PASSED", "FAILED", "NOT_RUN"]}, "evidence": {"$ref": "#/$defs/ObjectReference"},
+        "external_source_note": {"type": "string", "maxLength": 1000}, "safe_error": {"type": "string", "maxLength": 1000}
+      }
+    },
+    "LegacyProvenanceSnapshot": {
+      "type": "object", "additionalProperties": false, "readOnly": true,
+      "required": ["source_type", "legacy_id", "immutable_summary", "archive_reference", "sha256", "retained_until"],
+      "properties": {
+        "source_type": {"type": "string", "enum": ["LEGACY_DATASET", "LEGACY_TRAINING"]}, "legacy_id": {"type": "string", "minLength": 1, "maxLength": 200},
+        "immutable_summary": {"type": "string", "minLength": 1, "maxLength": 2000}, "archive_reference": {"type": "string", "minLength": 1, "maxLength": 500},
+        "sha256": {"$ref": "#/$defs/Sha256"}, "retained_until": {"$ref": "#/$defs/UtcTimestamp"}
+      }
+    },
+    "StandardError": {
+      "type": "object", "additionalProperties": false,
+      "required": ["error_code", "message", "request_id", "retryable"],
+      "properties": {
+        "error_code": {"type": "string", "pattern": "^TD-[A-Z0-9-]+$"}, "message": {"type": "string", "minLength": 1, "maxLength": 500},
+        "request_id": {"$ref": "#/$defs/Uuid"}, "retryable": {"type": "boolean"}, "details": {"type": "object", "additionalProperties": {"type": "string"}}
+      }
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.tool-defect.local/r1/consumer-migration-r1.schema.json",
+  "title": "第一版消费者迁移清单 R1",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "consumers"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "consumers": {"type": "array", "minItems": 4, "uniqueItems": true, "items": {
+      "type": "object", "additionalProperties": false,
+      "required": ["consumer_id", "owner", "language", "generated_package", "contract_version", "telemetry_source", "migration_status", "last_observed_call_at", "http_operations", "event_operations"],
+      "properties": {
+        "consumer_id": {"type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-z][a-z0-9-]+$"},
+        "owner": {"type": "string", "minLength": 1, "maxLength": 128},
+        "language": {"type": "string", "enum": ["python", "java", "typescript"]},
+        "generated_package": {"type": "string", "minLength": 1, "maxLength": 128},
+        "contract_version": {"const": "1.0.0"},
+        "telemetry_source": {"type": "string", "minLength": 1, "maxLength": 256},
+        "migration_status": {"type": "string", "enum": ["FROZEN_UNUSED", "COMPATIBILITY", "MIGRATING", "RETIRE_READY", "RETIRED"]},
+        "last_observed_call_at": {"type": ["string", "null"], "format": "date-time"},
+        "http_operations": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 128}},
+        "event_operations": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 128}}
+      }
+    }}
+  }
+}

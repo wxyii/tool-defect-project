@@ -569,49 +569,6 @@ public class JdbcReviewRepository implements ReviewRepository {
         return newTaskId;
     }
 
-    @Override
-    public void appendTrainingDecision(
-            UUID decisionId,
-            UUID reviewRecordId,
-            String actorId,
-            String decision,
-            String reason,
-            Instant createdAt) {
-        int inserted = jdbc.update(
-            """
-            INSERT INTO review_training_decision(
-                training_decision_id,
-                review_record_id,
-                decision,
-                decided_by,
-                reason,
-                created_at
-            ) VALUES (
-                ?,
-                ?,
-                ?,
-                (
-                    SELECT user_id
-                    FROM sys_user
-                    WHERE external_subject = ?
-                      AND status = 'ACTIVE'
-                ),
-                ?,
-                ?
-            )
-            """,
-            decisionId,
-            reviewRecordId,
-            decision,
-            actorId,
-            reason,
-            Timestamp.from(createdAt)
-        );
-        if (inserted != 1) {
-            throw new DomainViolation("训练候选质量决定写入失败");
-        }
-    }
-
     private static ReviewTaskState mapTask(ResultSet row, int index)
             throws SQLException {
         Timestamp lease = row.getTimestamp("lease_expires_at");

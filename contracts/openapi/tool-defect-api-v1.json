@@ -190,6 +190,60 @@
         }
       }
     },
+    "/api/v1/users/role-migration-preview": {
+      "get": {
+        "operationId": "previewLocalUserRoleMigrations",
+        "tags": ["identity"],
+        "security": [{"UserSession": []}],
+        "responses": {
+          "200": {
+            "description": "旧角色映射预览",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/LocalUserRoleMigrationList"}
+              }
+            }
+          },
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"}
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/role-migration": {
+      "post": {
+        "operationId": "confirmLocalUserRoleMigration",
+        "x-write-example-operation": "confirmLocalUserRoleMigration",
+        "tags": ["identity"],
+        "security": [{"UserSession": []}],
+        "parameters": [
+          {"$ref": "#/components/parameters/UserId"},
+          {"$ref": "#/components/parameters/IdempotencyKey"}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/LocalUserRoleMigrationRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "角色映射已确认",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/LocalUserRoleMigrationDecision"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "422": {"$ref": "#/components/responses/ValidationError"}
+        }
+      }
+    },
     "/api/v1/users/{user_id}/status": {
       "patch": {
         "operationId": "updateLocalUserStatus",
@@ -238,6 +292,34 @@
         },
         "responses": {
           "204": {"description": "账号角色已更新"},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "422": {"$ref": "#/components/responses/ValidationError"}
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/display-name": {
+      "patch": {
+        "operationId": "updateLocalUserDisplayName",
+        "x-write-example-operation": "updateLocalUserDisplayName",
+        "tags": ["identity"],
+        "security": [{"UserSession": []}],
+        "parameters": [
+          {"$ref": "#/components/parameters/UserId"},
+          {"$ref": "#/components/parameters/IdempotencyKey"}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/LocalUserDisplayNameRequest"}
+            }
+          }
+        },
+        "responses": {
+          "204": {"description": "显示名称已更新"},
           "400": {"$ref": "#/components/responses/BadRequest"},
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
@@ -3417,7 +3499,7 @@
           "user_id": {"$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"},
           "username": {"type": "string", "minLength": 3, "maxLength": 64},
           "display_name": {"type": "string", "minLength": 1, "maxLength": 256},
-          "roles": {"type": "array", "items": {"type": "string"}},
+          "roles": {"type": "array", "items": {"$ref": "../json-schema/common-v2.schema.json#/$defs/PersonRole"}},
           "permissions": {"type": "array", "items": {"type": "string"}},
           "password_change_required": {"type": "boolean"}
         },
@@ -3439,7 +3521,7 @@
           "username": {"type": "string", "minLength": 3, "maxLength": 64},
           "display_name": {"type": "string", "minLength": 1, "maxLength": 256},
           "initial_password": {"type": "string", "minLength": 12, "maxLength": 128},
-          "roles": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+          "roles": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"$ref": "../json-schema/common-v2.schema.json#/$defs/PersonRole"}}
         },
         "additionalProperties": false
       },
@@ -3451,11 +3533,19 @@
         },
         "additionalProperties": false
       },
+      "LocalUserDisplayNameRequest": {
+        "type": "object",
+        "required": ["display_name"],
+        "properties": {
+          "display_name": {"type": "string", "minLength": 1, "maxLength": 256}
+        },
+        "additionalProperties": false
+      },
       "LocalUserRolesRequest": {
         "type": "object",
         "required": ["roles"],
         "properties": {
-          "roles": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+          "roles": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"$ref": "../json-schema/common-v2.schema.json#/$defs/PersonRole"}}
         },
         "additionalProperties": false
       },
@@ -3464,6 +3554,69 @@
         "required": ["temporary_password"],
         "properties": {
           "temporary_password": {"type": "string", "minLength": 12, "maxLength": 128}
+        },
+        "additionalProperties": false
+      },
+      "LocalUserRoleMigrationRequest": {
+        "type": "object",
+        "required": ["role", "reason"],
+        "properties": {
+          "role": {"$ref": "../json-schema/common-v2.schema.json#/$defs/PersonRole"},
+          "reason": {"type": "string", "minLength": 1, "maxLength": 1024}
+        },
+        "additionalProperties": false
+      },
+      "LocalUserRoleMigrationDecision": {
+        "type": "object",
+        "required": ["user_id", "role", "status", "idempotent"],
+        "properties": {
+          "user_id": {"$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"},
+          "role": {"$ref": "../json-schema/common-v2.schema.json#/$defs/PersonRole"},
+          "status": {"const": "CONFIRMED"},
+          "idempotent": {"type": "boolean"}
+        },
+        "additionalProperties": false
+      },
+      "LocalUserRoleMigrationPreview": {
+        "type": "object",
+        "required": [
+          "user_id", "display_name", "status", "legacy_roles",
+          "migration_status"
+        ],
+        "properties": {
+          "user_id": {"$ref": "../json-schema/common-v1.schema.json#/$defs/Uuid"},
+          "username": {"type": ["string", "null"]},
+          "display_name": {"type": "string"},
+          "status": {"type": "string", "enum": ["ACTIVE", "DISABLED"]},
+          "legacy_roles": {"type": "array", "items": {"type": "string"}},
+          "suggested_role": {
+            "anyOf": [
+              {"$ref": "../json-schema/common-v2.schema.json#/$defs/PersonRole"},
+              {"type": "null"}
+            ]
+          },
+          "selected_role": {
+            "anyOf": [
+              {"$ref": "../json-schema/common-v2.schema.json#/$defs/PersonRole"},
+              {"type": "null"}
+            ]
+          },
+          "migration_status": {
+            "type": "string",
+            "enum": ["UNCONFIRMED", "CONFIRMED", "CONFLICT", "REJECTED"]
+          },
+          "decision_reason": {"type": ["string", "null"]}
+        },
+        "additionalProperties": false
+      },
+      "LocalUserRoleMigrationList": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/LocalUserRoleMigrationPreview"}
+          }
         },
         "additionalProperties": false
       },
@@ -3479,7 +3632,7 @@
           "display_name": {"type": "string"},
           "status": {"type": "string", "enum": ["ACTIVE", "DISABLED"]},
           "password_change_required": {"type": "boolean"},
-          "roles": {"type": "array", "items": {"type": "string"}},
+          "roles": {"type": "array", "items": {"$ref": "../json-schema/common-v2.schema.json#/$defs/PersonRole"}},
           "created_at": {"type": "string", "format": "date-time"},
           "updated_at": {"type": "string", "format": "date-time"}
         },

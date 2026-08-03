@@ -76,6 +76,40 @@ final class RabbitMessagePublisherTest {
         assertThat(rabbit.message).isNull();
     }
 
+    @Test
+    void publishesFrozenV2SingleItemWithoutMultiviewEnvelope() throws Exception {
+        ConfirmingRabbitTemplate rabbit = new ConfirmingRabbitTemplate();
+        RabbitMessagePublisher publisher = new RabbitMessagePublisher(
+            rabbit, Duration.ofSeconds(1), new ObjectMapper());
+        UUID taskId = UUID.randomUUID();
+        String payload = """
+            {"message_id":"019f0000-0000-7000-8000-000000000511",
+             "occurred_at":"2026-08-03T00:00:00Z","idempotency_key":"r4-request-0001",
+             "traceparent":"00-0123456789abcdef0123456789abcdef-0123456789abcdef-01",
+             "batch_item_id":"019f0000-0000-7000-8000-000000000512",
+             "detection_task_id":"%s",
+             "image":{"bucket":"td-original","object_key":"manual-originals/r4/item.png",
+               "sha256":"%s","size_bytes":128,"media_type":"image/png"},
+             "pipeline_version":"2.0.0"}
+            """.formatted(taskId, "c".repeat(64));
+        OutboxEvent event = OutboxEvent.pending(
+            UUID.randomUUID(), "detection_task", taskId,
+            "tool_defect.inference.item.requested.v2",
+            "inference.item.requested.v2", payload,
+            Instant.parse("2026-08-03T00:00:00Z"));
+
+        publisher.publishAndConfirm(event);
+
+        assertThat(rabbit.message.getMessageProperties().getType())
+            .isEqualTo("tool_defect.inference.item.requested.v2");
+        String schemaVersion = rabbit.message.getMessageProperties()
+            .getHeader("schema_version");
+        assertThat(schemaVersion).isEqualTo("2.0");
+        var delivered = new ObjectMapper().readTree(rabbit.message.getBody());
+        assertThat(delivered.has("image")).isTrue();
+        assertThat(delivered.has("images")).isFalse();
+    }
+
     private static OutboxEvent event(UUID taskId, String payload) {
         UUID eventId = UUID.randomUUID();
         Instant occurredAt = Instant.parse("2026-07-29T00:00:00Z");

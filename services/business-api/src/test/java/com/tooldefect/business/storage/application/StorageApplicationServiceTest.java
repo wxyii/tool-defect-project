@@ -1,7 +1,6 @@
 package com.tooldefect.business.storage.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -10,7 +9,6 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -25,15 +23,12 @@ import org.junit.jupiter.api.Test;
 
 import com.tooldefect.business.shared.domain.DomainViolation;
 import com.tooldefect.business.storage.domain.ObjectState;
-import com.tooldefect.business.storage.domain.StorageAccessDenied;
 import com.tooldefect.business.storage.domain.StorageIntegrityViolation;
-import com.tooldefect.business.storage.domain.StorageTicketExpired;
 import com.tooldefect.business.storage.domain.StoredObject;
 import com.tooldefect.business.storage.domain.UploadSession;
 import com.tooldefect.business.storage.domain.UploadSessionStatus;
 
 final class StorageApplicationServiceTest {
-    private static final UUID IMAGE = uuid(1);
     private static final UUID CAPTURE = uuid(2);
     private static final UUID STATION = uuid(3);
     private static final UUID REVIEW_TASK = uuid(4);
@@ -50,7 +45,6 @@ final class StorageApplicationServiceTest {
     void setUp() {
         clock = new MutableClock(Instant.parse("2026-07-29T01:00:00Z"));
         objects = new MemoryObjects();
-        objects.bind(CAPTURE, STATION);
         objects.bindReview(REVIEW_TASK, CAPTURE, STATION, 10, 10);
         sessions = new MemorySessions();
         storage = new FakeStorage(clock);
@@ -81,164 +75,6 @@ final class StorageApplicationServiceTest {
             10_000,
             40_000
         );
-    }
-
-    @Test
-    void sameContentConfirmationIsIdempotent() {
-        var ticket = issue();
-        StoredObject first = service.confirm(
-            IMAGE, CAPTURE, STATION, 10, SHA256, ticket.uploadReceipt()
-        );
-        StoredObject second = service.confirm(
-            IMAGE, CAPTURE, STATION, 10, SHA256, ticket.uploadReceipt()
-        );
-
-        assertEquals(ObjectState.AVAILABLE, first.state());
-        assertEquals(ObjectState.AVAILABLE, second.state());
-        assertEquals(1, second.recordVersion());
-        assertEquals(UploadSessionStatus.CONFIRMED, sessions.latest().status());
-    }
-
-    @Test
-    void conflictingRepeatIsRejected() {
-        var ticket = issue();
-        service.confirm(IMAGE, CAPTURE, STATION, 10, SHA256, ticket.uploadReceipt());
-
-        assertThrows(DomainViolation.class, () -> service.confirm(
-            IMAGE,
-            CAPTURE,
-            STATION,
-            10,
-            "b".repeat(64),
-            ticket.uploadReceipt()
-        ));
-    }
-
-    @Test
-    void expiredTicketFailsClosed() {
-        var ticket = issue();
-        clock.advance(Duration.ofMinutes(5));
-
-        assertThrows(StorageTicketExpired.class, () -> service.confirm(
-            IMAGE, CAPTURE, STATION, 10, SHA256, ticket.uploadReceipt()
-        ));
-        assertEquals(UploadSessionStatus.EXPIRED, sessions.latest().status());
-        assertEquals(ObjectState.STAGING, objects.findById(IMAGE).orElseThrow().state());
-    }
-
-    @Test
-    void stationScopeIsEnforcedForIssueRenewAndConfirm() {
-        assertThrows(StorageAccessDenied.class, () -> service.issueRawUpload(
-            IMAGE,
-            CAPTURE,
-            STATION,
-            uuid(99),
-            LocalDate.of(2026, 7, 29),
-            "PRIMARY",
-            10,
-            SHA256,
-            "image/png",
-            "png"
-        ));
-        var ticket = issue();
-        assertThrows(StorageAccessDenied.class, () -> service.renewRawUpload(
-            IMAGE, CAPTURE, uuid(99), 10, SHA256
-        ));
-        assertThrows(StorageAccessDenied.class, () -> service.confirm(
-            IMAGE, CAPTURE, uuid(99), 10, SHA256, ticket.uploadReceipt()
-        ));
-    }
-
-    @Test
-    void renewalRevokesOldTicketAndRequiresExactRegistration() {
-        var first = issue();
-        var second = service.renewRawUpload(IMAGE, CAPTURE, STATION, 10, SHA256);
-
-        assertNotEquals(first.uploadReceipt(), second.uploadReceipt());
-        assertEquals(UploadSessionStatus.REVOKED, sessions.values.getFirst().status());
-        assertEquals(UploadSessionStatus.ISSUED, sessions.latest().status());
-        assertThrows(DomainViolation.class, () -> service.renewRawUpload(
-            IMAGE, CAPTURE, STATION, 10, "b".repeat(64)
-        ));
-    }
-
-    @Test
-    void firstIntegrityFailureCanRenewAndRecover() {
-        var ticket = issue();
-        storage.missing = true;
-
-        assertThrows(StorageIntegrityViolation.class, () -> service.confirm(
-            IMAGE, CAPTURE, STATION, 10, SHA256, ticket.uploadReceipt()
-        ));
-        assertEquals(ObjectState.STAGING,
-            objects.findById(IMAGE).orElseThrow().state());
-        assertEquals(UploadSessionStatus.FAILED, sessions.latest().status());
-
-        storage.missing = false;
-        var retry = service.renewRawUpload(
-            IMAGE,
-            CAPTURE,
-            STATION,
-            10,
-            SHA256
-        );
-        StoredObject recovered = service.confirm(
-            IMAGE,
-            CAPTURE,
-            STATION,
-            10,
-            SHA256,
-            retry.uploadReceipt()
-        );
-        assertEquals(ObjectState.AVAILABLE, recovered.state());
-        assertEquals(UploadSessionStatus.CONFIRMED, sessions.latest().status());
-    }
-
-    @Test
-    void repeatedIntegrityFailureIsQuarantinedAndCannotRenew() {
-        var first = issue();
-        storage.decodedBytes = 40_001;
-
-        assertThrows(StorageIntegrityViolation.class, () -> service.confirm(
-            IMAGE, CAPTURE, STATION, 10, SHA256, first.uploadReceipt()
-        ));
-        var second = service.renewRawUpload(
-            IMAGE,
-            CAPTURE,
-            STATION,
-            10,
-            SHA256
-        );
-        assertThrows(StorageIntegrityViolation.class, () -> service.confirm(
-            IMAGE, CAPTURE, STATION, 10, SHA256, second.uploadReceipt()
-        ));
-        assertEquals(ObjectState.QUARANTINED,
-            objects.findById(IMAGE).orElseThrow().state());
-        assertThrows(DomainViolation.class, () -> service.renewRawUpload(
-            IMAGE, CAPTURE, STATION, 10, SHA256
-        ));
-    }
-
-    @Test
-    void metadataSubstitutionIsQuarantined() {
-        var ticket = issue();
-        storage.metadata = Map.of();
-
-        assertThrows(StorageIntegrityViolation.class, () -> service.confirm(
-            IMAGE, CAPTURE, STATION, 10, SHA256, ticket.uploadReceipt()
-        ));
-        assertEquals(ObjectState.STAGING,
-            objects.findById(IMAGE).orElseThrow().state());
-    }
-
-    @Test
-    void onlyAvailableObjectsCanBeRead() {
-        var ticket = issue();
-        assertThrows(DomainViolation.class, () ->
-            service.issueRead(IMAGE, "operator", "VIEW")
-        );
-        service.confirm(IMAGE, CAPTURE, STATION, 10, SHA256, ticket.uploadReceipt());
-        assertTrue(service.issueRead(IMAGE, "operator", "VIEW").isAbsolute());
     }
 
     @Test
@@ -332,21 +168,6 @@ final class StorageApplicationServiceTest {
         );
     }
 
-    private ObjectStoragePort.UploadAuthorization issue() {
-        return service.issueRawUpload(
-            IMAGE,
-            CAPTURE,
-            STATION,
-            STATION,
-            LocalDate.of(2026, 7, 29),
-            "PRIMARY",
-            10,
-            SHA256,
-            "image/png",
-            "png"
-        );
-    }
-
     private ReviewAnnotationStorage.UploadTicket issueReview(UUID imageId) {
         return service.issue(
             imageId,
@@ -390,15 +211,10 @@ final class StorageApplicationServiceTest {
 
     private static final class MemoryObjects implements StoredObjectRepository {
         private final Map<UUID, StoredObject> values = new HashMap<>();
-        private final Map<UUID, UUID> captureStations = new HashMap<>();
         private final Map<UUID, ReviewSourceBinding> reviewSources =
             new HashMap<>();
         private final Map<UUID, ReviewMaskExpectation> reviewMasks =
             new HashMap<>();
-
-        void bind(UUID captureId, UUID stationId) {
-            captureStations.put(captureId, stationId);
-        }
 
         void bindReview(
                 UUID reviewTaskId,
@@ -447,11 +263,6 @@ final class StorageApplicationServiceTest {
                     expectedHeight
                 )
             );
-        }
-
-        @Override
-        public boolean captureBelongsToStation(UUID captureId, UUID stationId) {
-            return stationId.equals(captureStations.get(captureId));
         }
 
         @Override
@@ -654,6 +465,10 @@ final class StorageApplicationServiceTest {
         @Override
         public URI authorizeRead(String bucket, String objectKey, Duration ttl) {
             return URI.create("https://storage.invalid/read");
+        }
+
+        @Override
+        public void delete(String bucket, String objectKey) {
         }
     }
 

@@ -1,0 +1,101 @@
+{
+  "schema_version": "1.0.0",
+  "baseline_id": "R0-V1-RUNTIME-2026-08-03",
+  "captured_at": "2026-08-03",
+  "contract_version": "v1 / 1.0.0",
+  "target_contract_version": "v2 / 2.0.0",
+  "overall_status": "PASS",
+  "non_use_declaration": {
+    "status": "CONFIRMED",
+    "evidence_ref": "Docs/decisions/R0-第一版未实际使用声明.md",
+    "declared_by": "project-owner",
+    "meaning": "第一版只有源码和冻结设计资产，从未实际部署或投入业务使用"
+  },
+  "source_scan": {
+    "status": "COMPLETE",
+    "method": "对冻结来源文件按路径排序计算逐文件 SHA-256，再对清单计算 SHA-256",
+    "scan_1_sha256": "67bdd75079c20b71cb462b0f8e84b163458f9260fd908d27a782f6e26237e64a",
+    "scan_2_sha256": "67bdd75079c20b71cb462b0f8e84b163458f9260fd908d27a782f6e26237e64a",
+    "consistent": true
+  },
+  "consumers": [
+    {
+      "consumer_id": "edge-agent",
+      "owner": "apps/edge-agent/",
+      "version": "v1 / 1.0.0",
+      "operations_source": "contracts/consumers/v1-consumers.json#edge-agent",
+      "http_operations": ["createCapture", "completeCaptureImage", "renewCaptureImageUploadTicket", "submitCapture", "getEdgeCapture", "queryCaptureSync", "reportDeviceHeartbeat"],
+      "event_operations": [],
+      "migration_status": "SOURCE_ONLY_NOT_DEPLOYED",
+      "last_call_evidence": {"status": "NEVER_CALLED", "evidence_ref": "Docs/decisions/R0-第一版未实际使用声明.md"},
+      "telemetry_source": {"status": "NOT_APPLICABLE_NEVER_DEPLOYED", "source_ref": "Docs/decisions/R0-第一版未实际使用声明.md"},
+      "gate_status": "PASS"
+    },
+    {
+      "consumer_id": "business-api",
+      "owner": "services/business-api/",
+      "version": "v1 / 1.0.0",
+      "operations_source": "contracts/consumers/v1-consumers.json#business-api",
+      "http_operations": ["createCapture", "renewCaptureImageUploadTicket", "getReviewWorkspace", "completeReviewAnnotation", "submitReview", "createDatasetVersion", "createTrainingRun", "createModelDeployment", "submitDetectionResult", "submitDetectionFailure"],
+      "event_operations": ["publishInferenceTask", "recordOutboxEvent"],
+      "migration_status": "SOURCE_ONLY_NOT_DEPLOYED",
+      "last_call_evidence": {"status": "NEVER_CALLED", "evidence_ref": "Docs/decisions/R0-第一版未实际使用声明.md"},
+      "telemetry_source": {"status": "NOT_APPLICABLE_NEVER_DEPLOYED", "source_ref": "Docs/decisions/R0-第一版未实际使用声明.md"},
+      "gate_status": "PASS"
+    },
+    {
+      "consumer_id": "inference-service",
+      "owner": "services/inference-service/",
+      "version": "v1 / 1.0.0",
+      "operations_source": "contracts/consumers/v1-consumers.json#inference-service",
+      "http_operations": ["startDetectionAttempt", "submitDetectionResult", "submitDetectionFailure", "getInferenceReadiness", "listRuntimeModels"],
+      "event_operations": ["consumeInferenceTask", "consumeDeadLetter"],
+      "migration_status": "SOURCE_ONLY_NOT_DEPLOYED",
+      "last_call_evidence": {"status": "NEVER_CALLED", "evidence_ref": "Docs/decisions/R0-第一版未实际使用声明.md"},
+      "telemetry_source": {"status": "NOT_APPLICABLE_NEVER_DEPLOYED", "source_ref": "Docs/decisions/R0-第一版未实际使用声明.md"},
+      "gate_status": "PASS"
+    },
+    {
+      "consumer_id": "web-console",
+      "owner": "apps/web-console/",
+      "version": "v1 / 1.0.0",
+      "operations_source": "contracts/consumers/v1-consumers.json#web-console",
+      "http_operations": ["getCsrfToken", "loginLocalUser", "getLocalUserSession", "logoutLocalUser", "changeLocalPassword", "listLocalUsers", "createLocalUser", "updateLocalUserStatus", "updateLocalUserRoles", "resetLocalUserPassword", "getSystemOverview", "listAuditRecords", "listDetections", "getDetection", "listReviewTasks", "getReviewWorkspace", "claimReviewTask", "releaseReviewTask", "submitReview", "completeReviewAnnotation", "createImageAccessTicket", "streamAuthorizedEvents"],
+      "event_operations": [],
+      "migration_status": "SOURCE_ONLY_NOT_DEPLOYED",
+      "last_call_evidence": {"status": "NEVER_CALLED", "evidence_ref": "Docs/decisions/R0-第一版未实际使用声明.md"},
+      "telemetry_source": {"status": "NOT_APPLICABLE_NEVER_DEPLOYED", "source_ref": "Docs/decisions/R0-第一版未实际使用声明.md"},
+      "gate_status": "PASS"
+    }
+  ],
+  "capture_agents": {
+    "source_components": ["apps/edge-agent/"],
+    "declared_version": "v1 / 1.0.0",
+    "deployed_instances": 0,
+    "telemetry_source": "NOT_APPLICABLE_NEVER_DEPLOYED",
+    "status": "PASS",
+    "evidence_ref": "Docs/decisions/R0-第一版未实际使用声明.md"
+  },
+  "role_users": {
+    "legacy_role_source": "services/business-api/src/main/java/com/tooldefect/business/identity/domain/SystemRole.java",
+    "legacy_roles": ["OPERATOR", "REVIEWER", "QUALITY_MANAGER", "ALGORITHM_ENGINEER", "MODEL_APPROVER", "SYSTEM_OPERATOR", "SECURITY_ADMIN", "AUDITOR"],
+    "runtime_user_counts": {"total": 0, "by_role": {}},
+    "mapping_approval_evidence": "NOT_APPLICABLE_NO_RUNTIME_USERS",
+    "status": "PASS",
+    "evidence_ref": "Docs/decisions/R0-第一版未实际使用声明.md"
+  },
+  "active_deployments": {
+    "declared_sources": ["deploy/compose/development.yml", "deploy/compose/development.start-all.override.yml", "deploy/environments/production/docker-compose.production.yml", "tools/dev/start-all.sh"],
+    "running_instances": 0,
+    "status": "PASS",
+    "evidence_ref": "Docs/decisions/R0-第一版未实际使用声明.md"
+  },
+  "historical_multiview": {
+    "schema_sources": ["contracts/json-schema/common-v1.schema.json", "apps/edge-agent/migrations/001_initial.sql"],
+    "record_count": 0,
+    "database_query_evidence": "NOT_APPLICABLE_NO_RUNTIME_DATABASE",
+    "status": "PASS",
+    "evidence_ref": "Docs/decisions/R0-第一版未实际使用声明.md"
+  },
+  "closure_basis": "项目所有者确认第一版从未实际部署或使用；源码消费者继续冻结，运行态数量为零，运行遥测不适用"
+}

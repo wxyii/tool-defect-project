@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,6 +32,11 @@ public class UserAdministrationController {
     @GetMapping
     public Map<String, Object> list() {
         return Map.of("items", identities.listUsers());
+    }
+
+    @GetMapping("/role-migration-preview")
+    public Map<String, Object> roleMigrationPreview() {
+        return Map.of("items", identities.previewRoleMappings());
     }
 
     @PostMapping
@@ -61,6 +67,25 @@ public class UserAdministrationController {
         identities.setRoles(userId, body.roles(), actor(authentication));
     }
 
+    @PostMapping("/{userId}/role-migration")
+    public Map<String, Object> confirmRoleMigration(
+            Authentication authentication,
+            @org.springframework.web.bind.annotation.PathVariable UUID userId,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @RequestBody RoleMigrationRequest body) {
+        return identities.confirmRoleMigration(
+            userId, body.role(), actor(authentication), body.reason());
+    }
+
+    @PatchMapping("/{userId}/display-name")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void displayName(
+            Authentication authentication,
+            @org.springframework.web.bind.annotation.PathVariable UUID userId,
+            @RequestBody DisplayNameRequest body) {
+        identities.setDisplayName(userId, body.displayName(), actor(authentication));
+    }
+
     @PostMapping("/{userId}/password-reset")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void reset(
@@ -89,7 +114,16 @@ public class UserAdministrationController {
     public record StatusRequest(String status) {
     }
 
+    public record DisplayNameRequest(
+            @JsonProperty("display_name") String displayName) {
+    }
+
     public record RolesRequest(List<String> roles) {
+    }
+
+    public record RoleMigrationRequest(
+            String role,
+            String reason) {
     }
 
     public record PasswordResetRequest(

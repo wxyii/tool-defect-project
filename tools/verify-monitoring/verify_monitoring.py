@@ -193,8 +193,6 @@ def main() -> int:
             "tool.defect.integrity.conflicts",
             "tool.defect.review.pending.tasks",
             "tool.defect.quality.reviewed.samples.30d",
-            "tool.defect.dataset.candidates",
-            "tool.defect.training.active.runs",
             "tool.defect.model.production.deployments",
         ),
     }

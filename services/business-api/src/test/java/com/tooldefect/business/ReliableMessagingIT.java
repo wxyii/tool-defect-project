@@ -176,7 +176,7 @@ class ReliableMessagingIT {
             return null;
         });
         jdbc.update(
-            "UPDATE outbox_event SET next_attempt_at = now() WHERE event_id = ?",
+            "UPDATE outbox_event SET next_attempt_at = now() - interval '1 second' WHERE event_id = ?",
             returnedEventId
         );
         assertThat(messaging.publishDue(10)).isEqualTo(1);
@@ -426,9 +426,8 @@ class ReliableMessagingIT {
         UUID recipeId = UUID.randomUUID();
         UUID stationId = UUID.randomUUID();
         UUID captureId = UUID.randomUUID();
-        UUID datasetId = UUID.randomUUID();
-        UUID datasetVersionId = UUID.randomUUID();
         UUID modelId = UUID.randomUUID();
+        UUID modelUploadId = UUID.randomUUID();
         UUID modelVersionId = UUID.randomUUID();
         UUID pipelineId = UUID.randomUUID();
         UUID imageId = UUID.randomUUID();
@@ -507,36 +506,42 @@ class ReliableMessagingIT {
             "e".repeat(64)
         );
         jdbc.update(
-            "INSERT INTO dataset(dataset_id, dataset_name, purpose) VALUES (?, ?, '消息测试')",
-            datasetId,
-            "message-dataset-" + datasetId
-        );
-        jdbc.update(
-            """
-            INSERT INTO dataset_version(
-                dataset_version_id, dataset_id, version, status
-            ) VALUES (?, ?, '1', 'BUILDING')
-            """,
-            datasetVersionId,
-            datasetId
-        );
-        jdbc.update(
             "INSERT INTO model(model_id, model_name, task_type) VALUES (?, ?, 'MULTITASK')",
             modelId,
             "message-model-" + modelId
         );
         jdbc.update(
             """
+            INSERT INTO model_upload_session_v2(
+                model_upload_id, model_version_label, quarantine_bucket,
+                quarantine_object_key, declared_sha256, size_bytes,
+                media_type, status, expires_at
+            ) VALUES (?, 'message-model-upload', 'td-model-quarantine', ?, ?,
+                1024, 'application/zip', 'VALIDATED', now() + interval '1 hour')
+            """,
+            modelUploadId,
+            "model-quarantine/" + modelUploadId + ".zip",
+            "c".repeat(64)
+        );
+        jdbc.update(
+            """
             INSERT INTO model_version(
-                model_version_id, model_id, version, dataset_version_id,
+                model_version_id, model_id, version, source_kind,
+                model_upload_id, external_source_snapshot,
                 artifact_bucket, artifact_object_key, artifact_sha256,
                 input_spec, output_spec, approval_state
-            ) VALUES (?, ?, '1', ?, 'td-models', ?, ?,
+            ) VALUES (?, ?, '1', 'EXTERNAL_UPLOAD', ?, CAST(? AS jsonb),
+                'td-models', ?, ?,
                 '{}'::jsonb, '{}'::jsonb, 'CANDIDATE')
             """,
             modelVersionId,
             modelId,
-            datasetVersionId,
+            modelUploadId,
+            """
+            {"source_system":"messaging-test","source_version":"1",
+             "exported_at":"2026-08-03T00:00:00Z",
+             "sha256":"5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f"}
+            """,
             "models/" + modelVersionId + "/model.bin",
             "c".repeat(64)
         );

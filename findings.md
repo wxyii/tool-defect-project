@@ -1,928 +1,852 @@
-# P0–P2 调研与决策记录
+# R0/R1/R2/R3/R4/R5/R6/R7 发现与决策
 
-## 2026-07-31：P7 阻塞任务恢复现场
+## R9 启动记录（2026-08-03）
 
-- `task_plan.md` 是 P6/P7 状态唯一来源；当前 P7-01 至 P7-07、G7 均为“阻塞”，P7 为 0/7。
-- P7 的已登记阻断同时包含仓库内缺口与外部前置条件：P7-01 引用 4 个不存在的预检脚本；P7-02 缺真实设备运行证据；P7-03 现有验证偏向纯函数、干跑和内存报告；P7-04 至 P7-06 缺非模板现场报告或签署演练；P7-07/G7 的全部前置尚未关闭。
-- 本轮不得伪造现场签字、硬件记录、生产迁移、质量试运行或发布批准；可内生目标是补齐真实实现、严格入口、自动化验证和安全失败语义。
-- 契约基线为 `v1`，OpenAPI 与三语言生成包版本为 `1.0.0`；跨进程字段变更仍须先改 `contracts/`。
-- 工作树已有大量未提交的 P6/P7 改动和新增文件；这些均按既有成果处理，后续只做增量修改，不覆盖或回退。
-- `Makefile` 当前未检索到 `verify-p7-*` 或 `verify-g7` 目标，说明 P7 严格统一入口尚未落地。
-- P7 已有局部资产：真实厂商适配器与硬件验收脚本、生产迁移/验证/恢复编排器、P7 故障/安全/性能测试、上线清单、演练手册与报告模板；需逐项核对它们是否仍停留在模板、内存或干跑层。
-- P7-01 的决策关闭文件、现场参数文件和生产配置已存在，但跟踪表记录其预检清单引用 4 个不存在脚本；这是首个明确的仓库内阻断。
-- 权威 P7 验收口径要求：P7-01 决策与许可证/支持周期/精确版本/哈希/SBOM；P7-02 真实硬件连续与故障场景；P7-03 源目标数量/大小/哈希、隔离恢复和 RPO/RTO；P7-04 已签参数下的故障/安全/性能与现场脚本；P7-05 分层质量统计和四方批准；P7-06 非开发用户角色化实操与高风险审计；P7-07/G7 汇总全部真实证据。
-- 根 `Makefile` 已有 `test-faults`、`test-security`、`test-performance` 和 P6 入口，但没有任何 `verify-p7-01` 至 `verify-p7-07`、`verify-g7` 目标；当前 `verify-all` 也没有纳入 P7/G7 严格汇总。
-- 因此统一入口缺失本身就是 P7 的仓库内阻断；新增入口必须是非空跑、非静默跳过，并对外部证据缺失返回非零。
-- P7-01 决策关闭记录的自报摘要为 22 项：18 项 `PENDING_SITE_SIGNOFF`、1 项 `CONFIRMED`、2 项 `CONFIRMED_DEFAULT`、1 项 `DEFERRED`；记录本身没有掩盖待签状态。
-- 生产 `site-config.yaml` 明确仍是模板，`site_config_version`、部署时间及硬件、节拍、身份、存储、消息、监控、计算和部署等关键字段均为 `PENDING_SITE_SIGNOFF`；安全默认值保留了公开访问关闭、未同步原图不删除、技术失败进入 HOLD 等边界。
-- `site-parameter-decisions.json` 为 22 项决策提供配置键、负责人、最晚门禁、来源和未知状态下的安全行为，可作为验证器映射基准；它不能替代正式关闭记录和签字。
-- 生产预检清单共直接引用 4 个不存在的 Python 检查器：`validate_config.py`、`validate_env.py`、`validate_model_hash.py`、`smoke_test_model.py`；生产 README 还引用了同样不存在的预检汇总器 `validate_preflight.py`。
-- `deploy/environments/production/` 当前只有配置、Compose、清单与说明文件，没有任何预检实现；因此实际仓库内缺口为 5 个脚本，而不仅是跟踪表摘要中的 4 个清单脚本。
-- 预检清单同时包含占位命令和需现场执行的网络、硬件、证书、镜像/SBOM、密钥、模型与隔离检查。汇总器必须区分“静态配置错误”“外部命令未执行”和“现场检查通过”，不能把占位命令存在本身视为通过。
-- 生产 README 对决策数量存在自相矛盾：前置条件和步骤同时出现“14 项”与“18 项上线阻断”，而关闭记录的真实摘要是 18 项待现场签字；实现验证器时以决策登记和关闭记录逐 ID 对账，不接受硬编码的模糊计数。
-- 预检清单共有 31 项，其中大多数必须在现场执行；聚合器不应直接运行含 `<...>` 占位符或任意 shell 管道的命令。安全做法是消费结构化结果记录，对 required 项要求命令、实际结果、退出码、执行时间、执行者与证据哈希。
-- 现场决策模式文件只约束决策登记，不约束生产 YAML；生产配置头注释所称 `contracts/site-config.schema.yaml` 实际不存在，现有相关文件是 `configs/schema/site-parameters.schema.json`，需要核对是否能校验生产配置。
-- `.env.template` 已列出镜像仓库/摘要和所有现场参数键且保持空值，不含默认密钥；`validate_env.py` 应拒绝模板文件、空必填项、非摘要镜像和任何明文机密，而不应要求把密钥写进环境文件。
-- `configs/schema/site-parameters.schema.json` 不能直接校验当前生产 `site-config.yaml`：模式要求 `$schema`、`environment=基线安全默认`、`production_enabled`，生产模板没有这些字段；模式要求 `storage.protocol=S3_COMPATIBLE`，模板写 `S3`；触发模式和部分安全动作枚举也不一致。
-- 该不兼容说明不能简单把现有基线模式冒充生产配置模式。P7-01 应新增明确的生产配置校验契约或让模板与现有模式同源，且测试必须覆盖决策键全量映射、占位值拒绝和安全不变量。
-- `tools/baseline/decision_checks.py` 已提供可复用的点路径读取、项目所需 JSON Schema 子集校验、决策登记与安全默认约束；P7 实现可复用其语义，但生产 YAML 仍需可靠解析。
-- 仓库另有 `configs/schema/site-parameters.safe-defaults.json` 作为 P0 安全默认事实源；生产模板应与它共享 22 项决策键，但生产已签值不能覆盖或削弱未同步图片不删除、未知/技术失败 HOLD、公开存储关闭等硬约束。
-- P0 安全默认配置完整覆盖 22 项决策键，并明确 `production_enabled=false`、模拟器触发、自动 PASS 关闭、未知/技术失败 HOLD、未同步图片不删除、自动删除关闭、公开存储关闭。
-- 生产 Compose 对真正的环境文件只消费 `TD_RELEASE_ID` 和七组镜像仓库/摘要；现场的点路径参数并未被 Compose 服务消费。`.env.template` 同时承载 Compose 变量与现场参数，职责混杂，验证器需至少区分两类必填项，不能误称所有点路径键已接入运行时。
-- Compose 的镜像引用均使用 `repository@sha256:digest` 强制形式，服务普遍采用只读根文件系统、非 root、移除能力、外部 secret 与内部网络；这些静态安全约束可由 P7-01/P7-04 验证器复算，而不代表现场运行已经通过。
-- `Makefile` 的 `verify-all` 仍标注“当前建设阶段为 P5”，只汇总 P1/P5/P6 前的既有目标；必须更新注释与依赖，但要避免让 P7 单项验证器递归调用 `verify-all`。
-- 现有 `tests/test_p7_release_checks.py` 只验证文档/模板结构，并且明确断言发布决定保持 `PENDING_SITE_SIGNOFF`；它不能证明 P7 通过。部分测试只要求回滚目标字段非空，存在占位值冒充证据的风险，严格验证器需拒绝 `PENDING`、`TBD`、`template`、示例和模拟值。
-- P7 结构测试已覆盖决策文件、十段上线清单、默认密码、手册索引、四签署字段、应急场景和联系人模板；这些可继续作为离线完整性回归。
-- 复读阶段三十九计划后确认执行顺序不变：先完成全量审计，再按 P7-01/02/03、P7-04/05/06、P7-07/G7 三组收口，最后统一复验。
-- P7 仓库资产清单完整可定位：4 类厂商适配与硬件验收、迁移计划/执行/核验/恢复、三类非功能测试、两份现场报告模板、四类角色手册、12 类应急场景、上线清单与发布决定。当前没有任何非模板 P7 现场报告或 G7 汇总文件。
-- P7-02 硬件验收脚本当前存在安全失败漏洞：报告含 `PENDING_HARDWARE`、`SKIPPED`、`NOT_IMPLEMENTED` 或 `WARN` 时主程序仍可能退出 0；长期稳定性明确是占位实现，多相机未启用会跳过。
-- 硬件脚本没有覆盖验收要求中的重复/跳号、断网、采集进程重启、驱动异常、磁盘水位、时钟偏差和浏览器故障隔离；暗帧/饱和度只验证“抓到帧”，注释承认未做像素统计。
-- 厂商适配器的 GigE/PLC/USB/光电实现均由模块级 `PENDING_HARDWARE=True` 常量永久禁用；GigE SDK、PROFINET 和 EtherCAT 仍是代码占位，PLC 只可能使用可选 Modbus 库。现有测试只证明端口形状、配置拒绝和安全守卫，不是“真实适配器已完成”。
-- 硬件报告缺少非模板配置哈希、驱动/SDK 精确版本、设备序列号、主机/操作系统/时钟信息、运行起止、浏览器进程隔离证据及原始证据哈希；严格 P7-02 验证器必须要求这些现场事实。
-- `jobs/production-migration/` 没有 README；P7-03 的操作契约只能从迁移计划、实现、测试与恢复模板核对，后续应考虑补充可执行说明。
-- P7-03 迁移计划仍锁在数据库 V1–V7，而仓库当前迁移已到 V11；计划硬编码 360 对象、352 数据集样本和 3 个候选模型，并写入“基于标签自动生成处置”，这不能替代真实审批链或现行 P6 数据状态。
-- 迁移计划的回滚建议对目标业务表执行无作用域的批量 `DELETE`，会误删非本迁移数据；实现的 `--rollback` 只打印相同危险命令并退出 0，没有事务标识、迁移批次过滤或恢复验证。
-- `migrate_data.py --dry-run` 会把对象上传和数据库登记阶段记为 `PASSED`、把目标计数验证记为 `SKIPPED`，随后忽略跳过项计算 `all_passed`，因此干跑可能得到 `overall_status=COMPLETE` 和退出 0；这是明确的 P7-03 假通过缺陷。
-- `recovery_drill.py` 的“审批链验证”只检查数据库地址是否配置，然后返回硬编码允许状态集合并判定成功，没有查询数据库审批事实；现有恢复模板也仍为占位签字和空时长。
-- P7-03 严格收口必须：干跑始终不能形成完成证据；迁移按不可变批次/来源快照标识写入；回滚只作用于该批次且默认只生成计划；验证真实数据库、对象和审批链；恢复需在隔离目标执行并记录实际 RPO/RTO 与散列。
-- P7-04 故障测试自述“所有测试使用确定性桩函数”，数据库故障转移、对象存储中断、RabbitMQ 重启、推理崩溃、边缘断电和时钟偏差均由硬编码函数返回成功；不能作为真实故障验收。
-- P7 性能工具的延迟、吞吐、模型预热、备份恢复、磁盘水位和质量分层均为桩或合成数据。阈值缺失时测试会回退到代码内固定值并继续断言通过，导致 `make test-performance` 可能在全部 `PENDING_SITE_SIGNOFF` 的情况下全绿。
-- P7 安全测试主要验证静态 Compose/网关/迁移代码与无明文密钥，真实证书、吊销、轮换、身份系统、越权和审计运行仍待现场；这些静态测试是有价值的子门禁，但不是生产安全签字。
-- P7 非功能与质量报告目前只有 Markdown 模板且充满空单元格和 `PENDING_SITE_SIGNOFF`；严格验证不能仅检查文件改名或关键词，应要求结构化伴随证据、来源类型为真实现场、目标/实际值、原始证据哈希、零跳过测试结果和独立签字。
-- P7-06 联系人文件明确仍是 `PENDING_SITE_FILL`，8 个角色全部“待填写”。14 个演练场景虽覆盖磁盘、网络、恢复、存储、队列、推理、模型哈希、证书到期、积压、断电、时钟和 HOLD，但没有明确覆盖权限拒绝、证书吊销、紧急账号和完整发布回滚，未满足 P7-06 指定场景。
-- 运维手册与十份故障手册已普遍写明权限、操作原因、二次确认和审计事件，是可保留的仓库内交付；仍需验证未参与开发的真实用户按手册执行并签署，而非只检查文本存在。
-- P7 发布清单 52 项中仅 3 项 PASS、47 项待现场、2 项不适用；发布决定四方均待签，回滚版本是“待确认”，未解决风险、豁免和值班信息均为空。
-- 在上述状态下发布记录却写 `decision=CONDITIONAL_GO`，虽结构测试只禁止 `GO`，但安全失败原则要求未满足严重前置时明确 `NO_GO/HOLD`，不能以“条件上线”弱化阻断。
-- 现有 `Docs/runbooks/drill-record.json` 是 P5 隔离确定性验证，状态为 `PASSED_WITH_LIMITATIONS`，明确未使用真实生产组件且不替代 P7；严格 P7-06 可据此安全拒绝，不能把 `author_is_executor=false` 当成真实外部用户演练。
-- 发布记录实际含 7 项开放风险，其中 `RISK-001` 与 `RISK-007` 为 HIGH；值班表仍待排，四签署待定，回滚版本待确认。只要 HIGH 风险开放或条件未满足，最终决定必须保持 `NO_GO/HOLD`。
-- P7 全量审计已完成：七个单项与 G7 都既有外部现场阻断，也有可在仓库内关闭的验证/实现缺口；下一阶段先构建共享严格证据验证框架与 P7-01 至 P7-03 收口。
-- 模型哈希预检不应自行发明包格式：核心 `src/tool_defect/models/package.py` 已有 `ModelPackageVerifier` 与 Ed25519 验签器，推理服务通过稳定边界重导出；P7 预检应调用该真实验证链并同时校验登记包摘要/信任根，而非只比较一个文件哈希。
-- `verify_p6_05.py` 已实现受信公钥解码、核心模型包重新验签、SBOM、评估/门槛证据哈希、训练/数据集绑定和独立双审批校验。P7 模型预检可调用其 `verify_package`，避免重复实现并确保生产预检不会弱于 P6 门禁。
-- 五个新预检入口首跑证明当前缺失项可被明确报告：环境、模型包、模型冒烟和汇总结果均返回 `BLOCKED`/2；配置入口先发现模板协议值 `S3` 与安全事实 `S3_COMPATIBLE` 的静态漂移，已修复该内部错误。
-- 根 `test-core` 会发现 `tests/test_*.py`，适合承载 P7 严格验证器的离线回归；故障/安全/性能目录由严格 unittest 执行器运行，任何 skip/expectedFailure/unexpectedSuccess 都会失败。
-- `verify-layout` 目前只要求既有顶层组件，不阻止新增 `tools/p7/`；新增 P7 目录仍应通过布局和差异检查，必要时再登记为必需组件。
-- G6 验证器以 `Docs/reports/P6-gate-acceptance.json` 为默认前置并要求状态 `PASS` 及 P6-01 至 P6-08 的真实证据；P7-01 可复用同一报告作为前置事实，不应把 P6 自动化子集当作 G6 关闭。
-- `.gitignore` 当前以 `.env.*` 忽略生产 `.env.template`，导致该关键模板不会进入 Git；需要显式允许 `*.env.template`，同时继续忽略真实 `.env` 与现场证据输出。
-- P7-01 已形成可执行闭环：五个原缺失脚本、共享三态结果、技术清单/模型冒烟/预检结果契约、只读聚合器、`.env.example`、现场输出忽略规则和 `make verify-p7-01`。当前门禁报告 67 个外部阻断、零实现错误，脚本引用子检查通过。
-- 生产环境示例改用受版本控制的 `.env.example`，只含 Compose 实际消费的非机密变量；旧 `.env.template` 继续被通用忽略，避免把重复的点路径现场参数误当运行时输入。
-- P7-02 适配器深审计新增两项实现缺陷：USB 适配器即使解除全局守卫也从未打开 `cv2.VideoCapture`，因此必然离线；光电触发器把 `_trigger_active` 置真后从不复位，真实运行最多生成一次事件。
-- GigE、PLC、USB 和光电适配器均应保留默认安全禁用，但由实例配置显式启用真实硬件；没有 SDK/驱动时必须报告 `SDK_MISSING/OFFLINE`，不能用模块级常量永久阻断所有现场配置。
-- P7-02 仓库内缺口已收口：实例级显式硬件启用取代永久守卫；USB 能实际打开设备；光电触发可重复重置；硬件脚本对待确认/警告/跳过返回 2，对失败返回 1，并拒绝覆盖报告。
-- 硬件报告现在绑定配置/脚本摘要、设备与驱动清单、现场审批、触发重复/跳号、连续失败率、P95 延迟、八小时稳定性以及断网、重启、驱动异常、磁盘、时钟和浏览器隔离六类外部哈希证据。没有真实报告时 `verify-p7-02` 安全阻塞。
-- P7-03 迁移主程序除干跑假完成外，还会在 S3/DB 必填环境缺失时捕获 `SystemExit`、打印“跳过”却仍把阶段记为 `PASSED`；`--skip-s3/--skip-db` 同样可能通过。目标计数硬编码为 720 图像/360 采集，与计划的 360 对象及输入参数不一致。
-- 恢复编排器的快照校验会静默忽略清单中不存在的哈希文件；隔离恢复只复制顶层普通文件；业务记录只看 `psycopg2` 是否可导入；对象存储只看端点字符串；模型只解析本地候选文件；审批链只返回硬编码状态枚举。这六项均可能产生假通过。
-- P7-03 修复应把现有迁移/恢复程序降格为明确的准备或执行工具：任何 dry-run/skip/缺连接都返回 BLOCKED；真实完成必须由独立严格验证器消费不可变迁移批次报告、源目标全量对账、隔离恢复报告、真实模型冒烟和数据库审批查询证据。
-- `register_database_references` 在非干跑模式完全不写数据库，只返回全零；干跑反而返回硬编码的“已登记”数量。即使目标库预先碰巧具有硬编码数量，旧程序也可能把未执行的登记误认为迁移完成。
-- 现有 P7-03 测试只覆盖哈希工具、干跑计数、报告对象和回滚“不写文件”，其中回滚参数测试没有真正调用 `main`；没有测试干跑/跳过/缺环境必须非零，也没有真实数据库、对象存储或审批查询测试。
+- 用户明确要求开始 `R9` 阶段，并指定以 `Docs/16-手工批量检测与管理简化需求规格.md`、`Docs/17-手工批量检测整改实施计划.md` 为依据。
+- `planning-with-files` 技能已读取；仓库根目录的 `task_plan.md`、`findings.md`、`progress.md` 已存在，包含 R0—R8 历史记录，本轮只追加 R9 内容。
+- R9 的具体任务编号、`RG9` 标准、契约版本、迁移序列和验证命令尚待从 DOC-16/DOC-17 完整提取；在完成入口核对前不宣称任何 R9 子项或门禁通过。
+- 下一步先读取两份目标文档、当前 Git 工作树和相关 R9 代码/测试表面，再确定本轮实现边界；必须避让其他所有者的未提交改动。
+
+## R9 需求提取（2026-08-03）
+
+- DOC-17 第 15 节将 R9 定义为“第一版其余写入退役、多视角运行语义退役和全量验收”。入口要求 `RG3—RG8` 全部通过、第一版消费者/采集代理清单归零或有批准延期隔离方案、第二版稳定运行/对账/回滚窗口达到批准时长，并完成数据库/对象存储/配置备份恢复演练。
+- `R9-01`—`R9-09` 的范围已提取：网关和业务后端停第一版兼容写、边缘/推理删除多视角运行分支、数据库收紧非空和唯一约束、前端物理清理旧入口与兼容引用、更新文档手册、执行全系统验收、移除在线数据集构建/训练回调及开发启动逻辑、生成并验证带哈希的 `LegacyProvenanceSnapshot`、固化消费者清单/观察窗/批准人/指标/`410` 证据。
+- DOC-17 明确历史多视角记录和第一版契约/基线不能因源码扫描而删除；研究代码仅可在无生产凭据、无自动启动、无在线接口/事件、无生产镜像、无 `verify-all` 依赖时离线保留；`src/tool_defect/training/` 在 P1 保持原位。
+- `RG9` 要求所有生产写请求走第二版单图片项模型，第一版写调用在批准观察窗为零，清单与遥测完整，两类角色/批次/产线/反馈/样本导出/模型直传端到端通过，历史与审计完整，第二版无数据集/训练一等资源与写能力，在线能力不依赖内部训练，且有真实设备、完整工具链和外部服务证据。
+- DOC-17 规定的 R9 命令为：`make verify-p1-strict`、`make verify-v2-scope`、`make verify-data`、`make verify-sample-export`、`make verify-model-supply`、`make verify-online-without-training`、`make test-core`、`make test-edge`、`make test-inference`、`make test-backend`、`make test-web`、`make test-integration`、`make test-e2e`、`make test-faults`、`make test-security`、`make test-performance`、`make verify-models`、`make verify-all`。
+- DOC-16 对应的关键约束包括：`FR-GOV-010`（已取消第一版写接口返回 `410 / TD-LEGACY-FEATURE-RETIRED`）、`MIG-009`（消费者归零/历史验证/回滚窗口后才删多视角运行代码）、`MIG-011`—`MIG-013`（数据集/训练退役、通用快照、机器可读清单+指标+观察窗）、`AT-LEG-001`、`AT-COMP-002`、`AT-COMP-003`、`AT-SCOPE-001`。
+- 目前不能据文档直接判定 R9 入口满足；`RG6`/`RG8` 及真实设备、外部服务、批准观察窗口和备份恢复等证据需要继续从仓库和运行环境核对，缺失时保持 `HOLD`。
+
+## R9 工作树与资产初盘（2026-08-03）
+
+- `git status --short` 当前仅显示本轮三份规划文件；没有发现其他智能体的未提交源码、契约或迁移改动需要避让。
+- 当前 `HEAD` 为 `7fad197 feat(sample): implement R7 sample export features and security measures`；现有数据库迁移含 `V20__r7_sample_library_and_exports.sql`，R9 若需迁移必须先确认是否确实需要新序号，不能回写历史迁移。
+- 仓库仍存在 `jobs/training-pipeline`、`jobs/dataset-builder`、`jobs/model-evaluator`、`src/tool_defect/training` 等资产，同时存在第一版/第二版契约、旧迁移、边缘端、推理服务和前端文件；这些仅证明资产存在，尚不能证明它们是在线生产入口或可安全删除。
+- R9 实施必须先完成部署 Compose、开发启动脚本、镜像/构建清单、消费者清单、配置/监控、路由/菜单和测试依赖的分类扫描；研究代码依据 DOC-17 第 15.3 节保留或归档，不能以全仓字符串归零作为唯一删除依据。
+
+## R9 在线退役初步差距（2026-08-03）
+
+- `Makefile` 当前虽有 `test-core`—`test-performance`、`verify-v2-scope`、`verify-sample-export` 等入口，但没有 DOC-17 R9 明确要求的 `verify-model-supply` 和 `verify-online-without-training` 目标；`verify-all` 当前依赖 `verify-p1-strict`、`verify-data`、核心测试、`verify-p5-offline`、`verify-models` 和 `verify-g7`，尚未成为 R9 全量门禁。
+- `tools/dev/start-all.sh` 仍定义数据集构建器环境变量、启动函数、PID/就绪文件和停止检查，并直接执行 `jobs/dataset-builder/worker.py`；这属于 R9-07 的在线开发启动入口，不能按离线研究资产保留。
+- `contracts/consumers/v1-consumers.json` 将第一版四类消费者标记为 `FROZEN_UNUSED`，且遥测写明“第一版从未部署”；这可作为待核验的机器可读声明，但仍需验证清单完整性、审批/声明依据和退役响应证据，不能直接等同于 RG9 观察窗通过。
+- `contracts/consumers/v2-consumers.json` 中前端和样本/模型 worker 为 `PLANNED`，边缘、业务、推理为 `TESTING`；因此第二版稳定运行和 R9 入口目前不能判定满足。
+- 多视角/角色兼容引用仍出现在边缘同步和本地队列、推理解码/物化/预处理、业务采集控制器/仓储/消息发布、存储对象键策略及对应测试中；应先区分第一版历史读路径、第二版单项运行路径和必须物理退役的在线分支。
+
+## R9 训练在线表面核对（2026-08-03）
+
+- 业务后端仍包含 `com.tooldefect.business.training` 的 `TrainingController`、`TrainingInternalController`、`TrainingWorkflowService`、`JdbcTrainingRunRepository` 和异常处理；训练创建、状态回调和独立查询仍是可编译在线表面。
+- `SecurityConfiguration` 仍为 `/internal/v1/training-runs/*/status` 配置 `SCOPE_training:callback`，并为 `/api/v1/training-runs` 与数据集路由配置人员权限；R9-07/R9-01 需要移除这些在线匹配，保留退役写请求的稳定 `410` 证据。
+- `V1`/`V7`/`V10`/`V12`/`V15`/`V16`/`V19` 中的历史训练表、状态保护、租约和旧权限迁移不能回写或删除；当前只处理应用在线消费者、配置和监控。
+- 模型登记仍强制 `training_run_id`、`dataset_version_id` 和成功训练/冻结数据集条件；这属于模型供应链/历史快照交界，R9 不在没有 R8 外部模型闭环和 R9-08 迁移证据时擅自放宽或删除。
+
+## R9 物理删除授权后的资产边界（2026-08-03）
+
+- 项目所有者补充确认：`services/business-api/.../training/` 正式退役；不存在旧模型，也不存在第一版业务数据残留；第一版运行代码可物理删除。
+- 已物理删除业务后端训练控制器、工作流、JDBC 仓储、异常处理、训练域对象及对应测试；该目录曾被 `.gitignore` 忽略，因此删除不会形成 Git 跟踪差异，但工作区源码扫描已不再命中在线训练 Spring 组件。
+- 已删除旧模型登记 HTTP 入口、前端登记服务/类型及后端生命周期资格读取器；保留模型目录、部署、验证查询所需的当前模型实体，避免在第二版模型直传实现尚未落地时造成无依据的模型供应链放宽。
+- `business.dataset` 主代码没有被当前 Java 主代码依赖，已确认可物理删除；其数据库迁移继续作为不可回写历史来源，后续只从跟踪测试中移除依赖该运行包的调用。
+- `jobs/dataset-builder` 与 `jobs/training-pipeline` 是第一版旧作业目录；当前 `jobs/model-evaluator` 仍被验证器和 P7 预检直接引用，不能一并删除。
+
+## R9-07 训练回调退役实施（2026-08-03）
+
+- 已删除 `TrainingInternalController`，移除内部训练状态回报 HTTP 入口；`TrainingApiExceptionHandler` 改为只绑定保留的历史训练查询控制器。
+- 已从 `SecurityConfiguration` 移除 `SCOPE_training:callback` 专用匹配，并从 `application.yaml` 移除 `td.training` 代码提交/环境锁/随机种子配置绑定；历史训练表/仓储未删除。
+- 验证通过：仓库根残留扫描无 `TrainingInternalController`、`SCOPE_training:callback`、`TD_TRAINING_`、`td.training.`；后端定向 `LegacyRetiredWriteFilterTest`、`RolePermissionMatrixTest`、`OperationalMetricsTest` 通过。
+- 保留限制：`TrainingController` 的独立历史 GET 和被 `410` 过滤的写路径仍存在，训练创建工作流尚未物理删除，需在 R9-08 快照和消费者证据后继续处理。
+
+## R9 当前工作树复核（2026-08-03）
+
+- R9 阶段 0 的需求提取、入口核对和资产初盘已完成；由于第二版消费者/观察窗、备份恢复、真实设备和外部服务证据仍不完整，入口继续保持 `HOLD`。
+- 当前本轮差异未修改 `contracts/`、生成类型或历史数据库迁移；训练内部回报面、训练回调权限、训练配置绑定和训练监控面已按 R9-07 增量清理。
+- 训练创建/独立历史查询、前端旧 API/组件及 R9-08 快照替换仍未完成；不能把已完成的增量清理误记为 R9-07 或 RG9 完成。
+
+## R9-04 前端旧表面清理（2026-08-03）
+
+- 已物理删除 `apps/web-console/src/features/datasets` 与 `apps/web-console/src/features/training` 的页面/服务文件，并从 `apps/web-console/src/api/client.ts` 删除对应第一版操作定义、路径和调用方法。
+- 已同步移除 R6 前端测试对数据集目录、候选清单、版本构建和训练创建服务的依赖；保留模型登记测试中的历史来源字段，等待 R9-08 通用快照替换，不把该字段误当成旧页面入口。
+- `make test-web` 通过：类型检查、9 个测试文件、41 项测试和生产构建均通过。后端旧路由/权限和模型历史字段仍待 R9-01/R9-08，R9-04 总项暂不关闭。
+
+## R9-09 验证入口设计复核（2026-08-03）
+
+- `jobs/model-supply/verify_model_supply.py` 已具备真实压缩包、声明大小/哈希、签名信任根、策略、SBOM、解压路径和资源限制校验，但必须提供外部模型包证据；R9 的 `verify-model-supply` 目标应在缺证时明确 `HOLD`，不能只运行单元测试后成功。
+- `verify-online-without-training` 仍缺少入口；它需要同时检查启动/部署/监控/业务后端/前端的在线训练残留，并在没有隔离部署、正向 v2 链路、`410` 证据和批准观察材料时返回非零 `HOLD`。
+
+## R9-09 门禁增量验证（2026-08-03）
+
+- `make verify-model-supply` 的 7 项模型包单元测试通过；因未提供外部模型包、声明哈希和信任根，真实门禁返回 `MODEL_SUPPLY_EVIDENCE_MISSING / HOLD`，退出码 2，符合安全失败要求。
+- `PYTHONDONTWRITEBYTECODE=1 python3 tools/verify_online_without_training.py` 返回 `ONLINE_TRAINING_SURFACE_REMAINS / HOLD`，准确列出业务后端训练控制器/工作流/仓储、旧训练权限/退役过滤路径和异常处理残留；未把在线验收伪报为通过。
+
+## R9-07 业务后端依赖边界复核（2026-08-03）
+
+- 业务后端主源码中训练创建控制器/工作流、训练仓储和训练域对象没有被模型服务以外的主源码引用；数据库迁移集成测试仍直接使用训练仓储验证历史表，因此删除在线表面时必须同步调整测试接线，不能删除历史迁移或把历史表当作第二版资源。
+- `SecurityConfiguration` 仍授权数据集/训练写入、读取和审批；`LegacyRetiredWriteFilter` 的 `410` 过滤仍需要保留作为明确失败契约，不能因删除控制器而丢失退役证据。
+
+## R9-07 训练删除的测试边界（2026-08-03）
+
+- 后端单测仍有 `TrainingWorkflowServiceTest` 和 `TrainingRunTest`，数据库迁移集成测试也实例化 `JdbcTrainingRunRepository`；这些是历史训练事实/旧契约验证，不能在未完成 R9-08 快照替换前静默删除。
+- `RolePermissionMatrixTest` 与迁移测试仍包含 `training:create`/`training:read` 历史权限值；R9-07 可先删除在线 HTTP 匹配，但权限枚举/迁移基线需保留并由 R9-09 记录为历史冻结，而不是伪造为消费者零。
+
+## R9-07 在线训练组件退役尝试（不计入交付）（2026-08-03）
+
+- 此前曾尝试删除业务后端训练 HTTP 控制器/异常处理器、移除工作流 `@Service`、训练配置绑定和 JDBC 仓储 `@Repository`；随后确认这些文件位于根 `.gitignore` 的 `training/` 忽略目录，相关工作区变化不属于可确认的 Git 交付差异，不能据此宣称在线组件已退役。
+- 可计入交付的部分是已跟踪文件：`SecurityConfiguration` 已移除训练回调及旧训练创建/查询 HTTP 匹配，`application.yaml` 已移除 `td.training.*` 配置绑定，监控和开发启动链已清理；`LegacyRetiredWriteFilter` 仍保留训练写路径的 `410 / TD-LEGACY-FEATURE-RETIRED`。
+- 当前 `make verify-online-without-training` 返回 `ONLINE_TRAINING_SURFACE_REMAINS / HOLD`，残留包括被忽略目录扫描到的 `TrainingController`、`TrainingWorkflowService`、`JdbcTrainingRunRepository` 和异常处理器注解。`TrainingInternalController.java` 当前工作区缺失，但同样不在 Git 跟踪范围，不能将该缺失当作可交付删除证据。
+
+## R9 训练源码所有权纠偏（2026-08-03）
+
+- 复核发现 `services/business-api/src/main/java/com/tooldefect/business/training/` 被根 `.gitignore` 的 `training/` 规则忽略，相关控制器/工作流/仓储不属于本轮可确认的 Git 交付资产；前述对忽略文件的退役尝试不计入 R9 完成证据。
+- 可交付的 R9-07/R9-09 证据以已跟踪文件为准：训练权限、监控、启动和验证器等改动可审计；无训练门禁仍必须对忽略目录中的在线训练残留返回 `HOLD`，不能因 Git 不显示而判定清零。
+- 复核后的实际门禁结果为 `ONLINE_TRAINING_SURFACE_REMAINS / HOLD`，不是“仅缺真实隔离证据”；后续必须先明确该忽略路径的所有权和交付方式，再继续物理退役。
+
+## R9 当前回归与门禁结果（2026-08-03）
+
+- 第二次完整 `make test-backend` 通过：102 项单元测试、26 项真实容器集成测试，失败/错误/跳过均为 0；PostgreSQL 18.4/Testcontainers 实际完成 V1—V20 迁移，MinIO/RabbitMQ 场景通过。
+- 首次完整后端回归曾因第一版生产写默认退役后旧 `S3StorageIT` 仍期待 403 而失败；已将该历史续传安全测试显式置于生产 v1 回滚开关下，保留默认关闭时 `410` 的独立单测，随后完整回归通过。
+- `make verify-model-supply` 的 7 项模型供应链单测通过，但缺少外部模型包/声明哈希/信任根，返回 `MODEL_SUPPLY_EVIDENCE_MISSING / HOLD`；`make verify-online-without-training` 因忽略目录训练 Spring 表面残留返回 `ONLINE_TRAINING_SURFACE_REMAINS / HOLD`。
+
+## R9 第一版产线兼容边界（2026-08-03）
+
+- 第二版产线写入口是业务后端 `/api/v2/production/detection-items`，边缘端 `production_v2.py` 已调用该单图片项模型。
+- 第一版 `/api/v1/edge/captures` 及其采集/同步表面仍存在，属于采集代理升级完成前的兼容路径；`contracts/consumers/v1-consumers.json` 当前声明第一版从未部署，但仍需消费者所有者和遥测/批准证据确认。
+- `TD_PRODUCTION_V1_WRITE_ENABLED` 已由受跟踪的 `LegacyRetiredWriteFilter` 实际消费；默认值改为 `false`，第一版写方法默认返回 `410`，显式开启仅作为受控回滚路径，仍需消费者/观察窗证据确认。
+
+## R9-01 第一版生产采集写路径核对（2026-08-03）
+
+- 第一版生产写入实际仍存在：业务后端 `CaptureController` 暴露 `/api/v1/edge/captures` 创建/补图/提交，边缘端 `http_transport.py` 仍注册 `createCapture`、`submitCapture` 和状态读取操作；不能仅修改无消费者的 `TD_PRODUCTION_V1_WRITE_ENABLED` 配置文本。
+- 第二版业务后端 `/api/v2/production/detection-items` 和边缘端 `production_v2.py` 已存在；契约 v1/OpenAPI/兼容基线必须冻结保留，在线 v1 写端和安全失败响应需在消费者证据/回滚窗口确认后退役。
+
+## R9-01 第一版生产采集写入退役增量（2026-08-03）
+
+- `LegacyRetiredWriteFilter` 已增加独立的 `td.legacy.production-v1-write-enabled` 开关；`application.yaml` 默认改为 `${TD_PRODUCTION_V1_WRITE_ENABLED:false}`，第一版 `/api/v1/edge/captures` 及其子路径的写方法在默认配置下返回 `410 / TD-LEGACY-FEATURE-RETIRED`。
+- 数据集/训练写开关与第一版生产采集开关保持独立；过滤器新增第一版生产写 `410` 单测，`make verify-data` 通过（迁移 20、错误列表为空），定向过滤器测试通过。
+- 已知限制：这是停写保护和可回滚开关，不等于 R9-01/RG9 完成；边缘端旧 transport、v1 契约基线和消费者/观察窗证据仍需完成退役确认。
+
+## R9 退役边界复核（2026-08-03）
+
+- 业务后端已有 `LegacyRetiredWriteFilter`，覆盖 `/api/v1/datasets`、`/api/v1/dataset-versions`、`/api/v1/dataset-candidate-manifests`、`/api/v1/training-runs` 和 `/internal/v1/training-runs` 的写方法；默认 `td.legacy.dataset-training-write-enabled=false` 时返回 HTTP `410` 和 `TD-LEGACY-FEATURE-RETIRED`，已有专门单测。
+- 旧数据集/训练控制器、领域/仓储、独立 GET 查询、权限规则和前端 `features/datasets`、`features/training`、`client.ts` 兼容方法仍在。它们不能继续作为第二版资源表面；在 R9-08 的通用历史来源快照验证前，不能贸然删除所有旧读取实现。
+- R9-01 的合理落点是保留明确、稳定、无副作用的退役响应（或等价网关契约），删除其背后的在线写消费者和调度/回调；R9-08 完成后再删除独立数据集/训练读取路由。所有删除必须有迁移/历史查询回归和构建扫描证据。
+- R9-02 的运行时清理不能误伤历史多视角只读查询。边缘队列/采集适配器中的 `image_role` 可能属于第一版兼容存储，推理第二版消息和单项测试必须无该字段；需以契约和实际消费者为准逐处修改。
+
+## R9-02 多视角语义边界核对（2026-08-03）
+
+- 推理第二版 `SingleItemTask`/`SingleImageDecoder` 已有单图片校验：v2 输入拒绝 `image_role`，解码结果不引入 `image_role`；现存 `decoder.py`、`materializer.py`、`primary_bgr_frame` 和边缘本地队列角色字段属于第一版/旧插件链，不能用全仓字符串删除代替运行时分流。
+- 当前 R9-02 的安全落点是继续以第二版契约和单项测试约束 v2，保留 v1 冻结读写基线；待第一版消费者观察窗闭合后，再物理删除旧 inference/edge 多视角路径。
+
+## R9-08 模型历史快照差距（2026-08-03）
+
+- 第二版契约已经定义只读 `LegacyProvenanceSnapshot`，并要求它只能嵌入 `ModelHistoryItem.legacy_provenance`；`verify_v2_scope.py` 也已有独立路由和错误嵌入的自测。
+- 当前业务后端 `ModelController`/`JdbcModelRepository` 仍提供第一版 `/api/v1/models`、`/api/v1/model-versions` 表面，登记请求和领域模型直接接收 `training_run_id`、`dataset_version_id`；模型历史响应尚未确认由通用带哈希快照构造。
+- R9-08 实施前必须定义旧来源摘要的稳定规范（来源类型、旧标识、不可变摘要、归档引用、SHA-256、保留时间），并验证模型历史在关闭独立数据集/训练读取后仍可追溯；不能用空快照或删除来源字段冒充完成。
+
+## R9-08 后端实现差距复核（2026-08-03）
+
+- 现有业务后端模型接口仍是 v1 `ModelController`，模型版本领域对象和 JDBC 仓储直接保存 `training_run_id`、`dataset_version_id`；当前业务主源码未发现已接通的 `ModelHistoryItem.legacy_provenance` 查询映射。
+- 因此本轮不修改 v2 契约或生成包，也不添加空快照/猜测摘要；R9-08 仍是阻断项，需要先确认模型历史网络入口、数据库来源字段保留策略和稳定摘要哈希规范。
+
+## R9-02 增量回归（2026-08-03）
+
+- `make verify-v2-scope` 通过：第二版取消清单、生成类型、消费者表面和历史快照边界合规。
+- `make test-inference` 通过 36 项，`make test-edge` 通过 119 项；边缘测试日志明确记录真实硬件验收前置缺失，但测试仍按 HOLD 语义完成，不能据此宣称真实设备验收通过。
+
+## R9 配置、权限和前端现状校正（2026-08-03）
+
+- `application.yaml` 中数据集/训练写开关与第一版生产采集写开关均默认关闭，`td.training.*` 配置绑定已从已跟踪配置移除；历史迁移和研究/历史源码仍保留。
+- `SecurityConfiguration` 已移除训练回调及旧训练创建/查询 HTTP 匹配；数据集/训练历史权限枚举和迁移事实仍保留，不能把历史值误判为第二版在线资源。
+- 前端已删除 `features/datasets`、`features/training` 页面/服务以及 `client.ts` 对应第一版客户端操作，测试已同步收窄；模型历史旧来源字段仍等待 R9-08 通用快照替换。
+- 退役后仍要保留第一版冻结契约、历史兼容基线和数据库迁移作为归档事实；这些文件命中旧字段不构成第二版在线资源表面。
+
+## R9 验证资产现状（2026-08-03）
+
+- `jobs/model-supply` 的压缩包边界/哈希/签名/SBOM/白名单测试已接入根 `make verify-model-supply`；缺少外部模型包证据时返回 `MODEL_SUPPLY_EVIDENCE_MISSING / HOLD`。
+- 根 `make verify-online-without-training` 已接入启动/部署/监控/后端/前端残留扫描和证据文件校验；当前因忽略目录在线训练组件残留返回 `ONLINE_TRAINING_SURFACE_REMAINS / HOLD`，不会以静态单测冒充在线验收。
+- R9-07 可先从 `tools/dev/start-all.sh` 移除在线数据集构建执行端启动/停止/就绪检查；`jobs/dataset-builder` 及其旧测试/离线校验暂按研究/历史资产保留，直到有独立归档所有者和兼容测试结论。
+- 已实施的首项：`tools/dev/start-all.sh` 已移除数据集构建器环境变量、入口检查、启动/停止/状态/日志/回滚和守护检查；`tools/dev/README.md` 已明确开发脚本不启动内部训练链路。`bash -n tools/dev/start-all.sh` 通过，脚本和说明中无 `dataset-builder`/`DATASET_BUILDER` 引用。
+
+## R9-07 首项实施记录（2026-08-03）
+
+- 该改动只切断在线开发启动链，不删除 `jobs/dataset-builder` 研究/历史目录，不修改数据库事实和既有迁移。
+- 训练配置/回调和开发启动链的已跟踪部分已清理；忽略目录中的在线训练组件和其他部署/构建/事件引用仍需由明确所有者处理，R9-07 尚未完成。
+- 训练发布仪表盘、`OperationalMetrics` 中的数据集/训练指标 SQL 与注册、对应单测断言已同步删除，模型审批候选和生产部署指标保留；`make verify-monitoring` 已验证。
+
+## R9-07 监控清理验证（2026-08-03）
+
+- 已删除 `deploy/monitoring/grafana/dashboards/training-release.json`，并从 `monitoring-manifest.json` 移除登记。
+- 已从 `OperationalMetrics` 移除数据集候选、训练活动和训练失败指标、SQL 查询与注册；对应单测改为验证第二版模型/恢复指标。
+- 验证通过：`git diff --check`；`python3 -m json.tool deploy/monitoring/monitoring-manifest.json`；训练/数据集指标残留扫描；`make verify-monitoring`；`services/business-api/mvnw -q -Dtest=OperationalMetricsTest test`。
+
+## R7 实施前端后端边界复核
+
+- 业务后端实际 Java 包根为 `com.tooldefect.business`；R7 新模块应按现有 `api/application/domain/infrastructure` 分层新增 `sample`，不能沿用旧盘点中的示例路径。
+- `ManualDetectionBatchService` 已有上传、批次和员工快速反馈闭环，但管理员六类反馈、样本候选、导出作业和下载票据没有业务实现；R7 逻辑保持独立，不复用旧 `quick_feedback_v2` 的事实表。
+- 当前 `ObjectStoragePort` 已提供 `authorizeRead`、`head` 和 `delete`，可用于短时导出读取票据及清理；压缩包构建仍由独立 Python worker 负责，业务后端不读取算法代码或训练数据库。
+- `IdempotencyService` 与 `AuditTrail` 可直接复用；反馈、候选、导出请求、票据签发均应在数据库事务内先落不可变事实/幂等记录，再追加 R7 审计。
+- `sample_export_job_v2` 的队列消息通过现有 Outbox 发布；现有 `ManualAckInboxConsumer` 强制解析 `detection_task_id`，不能承载样本导出事件，因此样本 worker 保持独立消息消费者。
+- 前端 API 客户端目前只实现手工检测第二版方法；R7 页面需要新增独立客户端方法和管理员菜单，页面只展示后端候选/导出状态，不计算处置或训练结论。
+- R7 feature flag 默认关闭，避免在 `RG6` 仍为 `HOLD` 时面向用户启用；源码和离线门禁可以继续开发验证。
+
+## R8 启动记录（2026-08-03）
+
+- 用户明确要求开始 `R8` 阶段，同时 `R7` 仍在运行；本轮必须与 R7 的未提交改动并行避让，不能覆盖、回退或把 R7 的中间状态误判为完成。
+- `planning-with-files` 规划文件已存在并由前序阶段持续维护；本轮在 `task_plan.md`、`findings.md`、`progress.md` 中追加 R8 记录，保留既有 R7 交接内容。
+- 当前初始工作树显示 R7 正在修改契约源/生成包，并新增 `services/business-api/src/main/resources/db/migration/V20__r7_sample_library_and_exports.sql`；契约版本和 R8 任务边界需以 DOC-16/DOC-17 的 R8 条目及实际代码状态核对后确定。
+- DOC-17 将 R8 定义为“模型直接上传、验证、启用和回退”，任务为 `R8-01`—`R8-10`，验证入口为 `make verify-model-supply` 与 `make verify-online-without-training`，并继续要求 `make test-backend`、`make test-integration`、`make test-security`、`make test-e2e`。
+- R8 的核心边界是外部模型来源闭环：隔离上传与票据、恶意包/路径穿越/链接/设备文件/压缩炸弹拒绝、无业务凭据和任意网络的运行时加载、固定图片试运行、不同管理员确认后的原子启用与回退，以及历史记录固定关联实际模型。
+- R8-04/R8-08 明确要求外部来源完整时可以没有 `dataset_version_id`、`training_run_id`；旧关联仅兼容可空，第一版历史读取保留，第二版不得把内部数据集/训练记录当成外部模型成功前置。
+- R8-10 要求隔离环境不部署数据集构建器/训练服务、不注入其凭据并阻断相关网络，再验证检测、复核、导出、模型上传/验证/启用/回退全链路；任何缺失前置必须失败或 `HOLD`，不得用空目标门禁冒充通过。
+- R8 入口当前尚未证明：隔离桶、验证身份、资源限额、固定测试集、生产切换门槛、外部来源说明/包规范/受控上传约束已批准；当前活动模型唯一化也需要实际查询和人工关闭歧义证据。
+- DOC-16 的模型需求为 `FR-MDL-001`—`013`，验收场景为 `AT-MDL-001`、`AT-MDL-002` 和安全场景 `AT-SEC-001`；模型接口包含上传会话、完成确认、状态查询、版本查询、启用申请、不同管理员批准和回退申请。
+- `model_version` 必须满足来源互斥：`LEGACY_INTERNAL` 要求数据集版本与训练运行完整且无上传/外部快照；`EXTERNAL_UPLOAD` 要求上传会话与不可变外部来源快照完整且无内部关联；未知、双重或缺失来源必须拒绝或 `HOLD`。
+- R8 的持久化边界包含 `model_upload_session`、`model_version`、`model_activation_request` 及组织级唯一生产活动模型；模型验证证据和历史检测实际模型引用均需不可变，不能因切换改写历史。
+
+## R8 工作树边界初核（2026-08-03）
+
+- 当前未提交差异集中在 R7 契约源/生成包、规划文件和新增 `V20__r7_sample_library_and_exports.sql`；截至初核未出现 R8 专属业务后端、模型运行时、模型前端或 R8 迁移差异。
+- R8 后续若需要跨进程字段，必须先检查 R7 契约修改是否已交接；不能在 R7 尚未完成契约增量时并行编辑同一契约文件或生成包。
+- 规划文件中的 R7 原计划仍保留作交接上下文；R8 主线以新增的 R8 计划为准，R7 不在本轮被标记为完成。
+
+## R8 现有模型链初核（2026-08-03）
+
+- 当前 `ModelVersion` 领域对象把 `trainingRunId`、`datasetVersionId` 作为非空字段，并以 `hasCompleteSupplyChainEvidence()` 要求训练成功、冻结数据集、登记/验证/发布证据；这与 R8 外部模型无内部训练关联的目标直接冲突。
+- `ModelWorkflowService.registerVersion` 当前强制调用 `requireCompletedTraining` 和 `requireFrozenDataset`，模型登记路径不能接收外部上传会话/外部来源快照；`getVersion` 对缺少旧供应链证据的历史版本进入 `HOLD`，该安全语义需保留并扩展为来源明确的读取。
+- 现有 `V8__model_supply_chain_and_deployment_guards.sql` 已建立供应链字段、不可变触发器、两阶段独立审批和部署约束；`V11__deployment_rollback_runtime_evidence.sql` 已补回退运行证据，但二者均以旧模型结构和训练/数据集关联为基础，R8 应追加迁移，不改历史迁移。
+- 现有模型前后端、对象存储、审计和部署基础可以复用，但需要继续确认控制器路径、权限规则、前端调用、运行时加载入口和测试门禁是否具备 R8 的外部来源/隔离语义。
+
+## R8 契约与消费者现状补充（2026-08-03）
+
+- `contracts/openapi/tool-defect-api-v2.json` 与 `v2-consumers.json` 已预留 R8 的上传会话、完成、查询、版本列表、启用申请、批准和回退操作；第二版消费者清单还预留模型验证请求/完成事件，说明目标网络表面已有草稿，但不代表后端/worker 已实现。
+- 第二版生成包已有 `ModelUploadStatus`、`ModelValidationStatus`、`ModelUploadSession`、`ModelValidationResult` 和旧来源快照类型；当前模型上传请求/响应模式仍需逐字段核对是否覆盖声明大小、外部来源快照、验证证据、配额与回退证据。
+- 前端现有模型注册构建器仍要求 `training_run_id` 与 `dataset_version_id`，模型部署服务仍围绕旧 `model_deployment`；R8 需要新增/改造页面消费者，但不能把旧训练绑定注册路径当作直传实现。
+- 现有 P6 模型供应链验证脚本强制要求 `training_run_id`、`dataset_version_id` 和旧训练来源字段；R8 需要独立或重构门禁覆盖 `EXTERNAL_UPLOAD`，同时保留第一版历史验证语义，不能降低旧门禁而误判通过。
+
+## R8 契约缺口初核（2026-08-03）
+
+- 当前 `ModelUploadRequest` 只声明模型版本、大小、SHA-256 和说明；`ModelUploadSession` 只返回隔离对象与基础状态，外部来源说明、组织/任务类型、框架/插件声明、资源配额或验证配置尚未完整进入公共模式。
+- `ActivationRequest` 复用在启用和回退请求中，要求回退模型标识和原因；需要确认实现是否能表达“申请启用目标 + 已验证回退目标”、审批人独立性和回退重新验证证据，而不把两个业务动作混成一个无区分请求。
+- `ModelValidationResult` 已预留包检查、安全扫描、加载、预热、固定样例和证据对象，但清单/SBOM/签名/允许文件和安全失败码仍可能只存在内部作业；若跨进程传递，必须补契约后再生成类型。
+- `ObjectReference` 的对象前缀已允许 `model-quarantine/` 与 `model-evidence/`，这是 R8 可复用的契约基线；生产推理不得直接读取未验证前缀仍需在消费者和安全门禁中落实。
+
+## R8 运行配置与门禁现状补充（2026-08-03）
+
+- 根 `Makefile` 当前只有旧 `verify-p6-*`、`verify-models` 和 `verify-g6`，没有 `verify-model-supply` 或 `verify-online-without-training`；R8 门禁必须新增真实目标，并拒绝空目录/无操作成功。
+- `application.yaml` 没有模型隔离桶/前缀、模型上传 TTL、模型配额、验证身份、固定样例、验证超时、证据保留期或启用门槛配置；当前仅有通用图像存储、旧训练配置和第二版功能开关基础。
+- `deploy/security/supply-chain-policy.json` 已规定模型包必须使用 Ed25519、固定文件清单、禁用脚本/本地二进制后缀、无业务凭据、禁止依赖下载以及验证未知/非法时 `HOLD`；R8 验证作业应以此策略为输入并补充压缩炸弹、路径、链接和设备文件检查。
+- 生产 Compose 已给推理服务配置无外网标志、模型信任根和对象存储凭据，但尚无独立模型验证 worker/隔离网络服务；R8-10 的“无训练服务、无训练凭据、阻断相关网络”需要专门隔离环境和可观测证据。
+
+## R8 数据库与测试现状补充（2026-08-03）
+
+- `V16__r2_unified_detection_core.sql` 已有 `model_upload_session_v2` 基础表，说明模型上传表面并非完全空白；仍需核对其字段、触发器和与 `model_version` 的关系是否满足 R8 的外部来源快照、验证证据、到期清理和启用申请要求。
+- 旧模型迁移/测试大量直接插入 `model_version` 并绑定数据集版本，`ModelVersionTest` 也把历史供应链缺失作为不可审批安全失败；R8 需要在不放宽历史安全语义的前提下增加外部来源正负路径。
+- 当前迁移目录已存在 `V20__r7_sample_library_and_exports.sql` 未提交文件；R8 不预占 `V21`，数据库设计和测试夹具可先准备为交接材料，实际串行迁移需待 R7 所有者交接后执行。
+- `DatabaseMigrationIT.r2ModelSourceRequiresExactlyOneCompleteProvenance` 已验证数据库层允许完整 `EXTERNAL_UPLOAD` 来源、拒绝缺来源和双重来源；但 Java `ModelVersion`/`ModelWorkflowService` 仍要求旧训练/数据集字段，形成数据库与应用层语义不一致，R8 必须闭合这一差异。
+- R2 数据库层已经把来源互斥作为基础不变量，R8 应在其上追加验证状态/外部来源快照/启用申请和运行证据，不重复或破坏已有 R2 约束。
+- 现有 `model_deployment` 只有状态迁移与审批触发器，没有看到“组织/范围内唯一生产 `ACTIVE`”的数据库唯一索引；R8 的并发启用要求不能依赖先查后写，需在串行迁移中补强或建立独立活动模型投影。
+- 现有 `/api/v1` 模型控制器仍只暴露旧创建/注册/验证接口，第二版 OpenAPI 的模型上传、启用与回退路径尚未由业务后端接入；R8 应新增独立第二版控制器，保留第一版历史读取边界。
+
+## R8 入口基线验证（2026-08-03）
+
+- `make verify-contracts-source` 通过：v1/v2 模式、示例、状态机、OpenAPI、AsyncAPI、消费者清单、确定性生成以及 Python/Java 离线契约包编译均通过。
+- `git diff --check` 通过；当前 R7 未提交差异没有格式错误。
+- 该契约通过只证明 R7 当前契约中间态自洽，不证明 R8 外部模型链路已实现，也不解除 `RG6` 或 R8 专属批准前置的 `HOLD`。
+- `make verify-models` 通过旧 P2/P6 模型基线，报告 `candidate_count=3`、`blocker_count=0`、`production_claim_allowed=false`；该门禁仍是旧训练/供应链验证，不等于 R8 `EXTERNAL_UPLOAD` 已通过。
+- `make verify-data` 通过，报告 `latest_migration_version=18`、`r2_migration_version=16`、`errors=[]`；未把工作树中尚未交接的 R7 `V20` 迁移误计为已部署版本。
+
+## R8-02 安全包验证初步实现（2026-08-03）
+
+- 新增 `src/tool_defect/models/archive.py`：对模型 ZIP 执行外层大小/SHA-256、ZIP 格式、成员数量/大小/总解压量/压缩比、路径穿越、重复成员、加密成员、链接/设备/特殊文件、后缀白名单、清单文件集合、内层哈希清单和 Ed25519 签名检查；验证与安全解包之间会重新确认外层摘要。
+- 新增 `jobs/model-supply/verify_model_supply.py` 和运行说明；缺少压缩包、声明哈希、策略或信任根时不走空目标成功，配置未知返回 `HOLD`，包不合规返回 `BLOCKED`。
+- 新增 6 个正负单测，覆盖有效签名包、外层哈希不符、路径穿越、符号链接、压缩炸弹和不受信签名；本轮全部通过。
+- 当前限制：尚未接入 SBOM 内容校验、隔离运行时加载/固定图片试运行、对象存储上传会话、业务模型版本、启用/回退事务或根 `Makefile` R8 门禁；这些需要后续 R8 串行契约/迁移和批准的隔离环境。
+
+## R7 并行工作树动态变化（2026-08-03）
+
+- R7 工作树在本轮继续扩展，新增/修改已观察到 `services/business-api/src/main/java/com/tooldefect/business/sample/`、`jobs/sample-export-worker/`、Rabbit 拓扑/发件箱、权限安全链、`application.yaml` 和 `V20` 迁移；这些路径均视为 R7 所有者改动。
+- R8 本轮新增的独立路径仅为 `src/tool_defect/models/archive.py`、`jobs/model-supply/` 及三份规划记录；不在 R7 路径上做补丁，不修改其 `Makefile`/契约/生成包/迁移，等待交接。
+
+## R8 增量回归结果（2026-08-03）
+
+- `make verify-p1-offline` 通过：源码环境、布局、v1/v2 契约确定性生成与离线包编译、Compose 静态检查、密钥扫描、生产安全基线、21 项安全测试和 41 个 SBOM 组件检查均通过。
+- 已知警告保持原样：183 个迁移前冻结数据文件保留、Git 索引仍使用 `docs` 小写；两项均未由 R8 修改或解释为失败。
+- P1 通过不解除 R8 的真实隔离环境、模型来源批准、活动模型唯一化和 `RG6` `HOLD`；也不把 R8-02 子项升级为 `RG8` 通过。
+
+## R7 并行工作树再次变化（2026-08-03）
+
+- 最终增量检查发现 R7 又修改了 `Makefile`、`services/business-api/src/test/java/com/tooldefect/business/DatabaseMigrationIT.java`、`services/business-api/tests/run_offline_tests.py` 和 `tools/verify-data/verify_data.py`，并继续新增样本导出 worker/业务目录；R8 没有触碰这些文件。
+- R8 当前仅新增 `src/tool_defect/models/archive.py` 与 `jobs/model-supply/`；规划文件中的 R7 并行边界继续有效。
+- 动态核对 `Makefile` 仅出现 R7 的 `verify-sample-export`，尚未出现 R8 的 `verify-model-supply` 或 `verify-online-without-training`；R8 不在本轮抢改该共享文件。
+- 最终状态又观察到 R7 修改了 `apps/web-console/src/api/client.ts`；该文件与 R7 的样本导出前端接入相关，R8 未触碰。R8 唯一修改的既有安全策略文件为 `deploy/security/supply-chain-policy.json`。
+
+## R8-02 SBOM/白名单补充结果（2026-08-03）
+
+- `deploy/security/supply-chain-policy.json` 已补充模型包必需 `sbom.json`、TensorFlow/插件版本白名单、CycloneDX SBOM 规则和显式资源上限；示例策略不包含密码、令牌或私钥。
+- `verify_model_supply.py` 现在先验证容器和签名，再安全解包并检查 SBOM、框架/插件版本；命令行资源上限不能超过批准策略，未知配置仍返回 `HOLD`。
+- R8-02 单测增至 7 项，新增 CLI 策略/SBOM 正向路径；`make verify-p1-offline` 在策略更新后再次通过，密钥扫描检查 650 个源码/配置文件。
+
+## R7 当前会话（2026-08-03）
+
+- 用户明确要求开始 `R7`；本轮以 `Docs/16-手工批量检测与管理简化需求规格.md` 和 `Docs/17-手工批量检测整改实施计划.md` 为唯一需求依据，并继续遵守契约优先、修改所有权、不可变审计和安全失败规则。
+- `DOC-17` 第 13 节将 R7 定义为管理员反馈、待整理样本库和外部导出，任务为 `R7-01`—`R7-07`；`RG7` 规定验证入口为 `make verify-sample-export`、`make test-backend`、`make test-integration`、`make test-security`、`make test-e2e`。
+- `RG2` 已在前序阶段通过；`R7` 允许在 `R2` 后开发，但面向用户启用仍要求 `RG6` 通过。当前 `RG6` 因 `RG5` 真实浏览器联合证据缺失保持 `HOLD`，因此本轮只能推进实现和可执行自动化证据，不得宣称 R7 已启用或 `RG7` 已关闭。
+- R7 的最小导出包必须包含原图和允许导出的结果图、系统/人工/管理员结论及修订链、模型/流水线/规则版本、检测时间、使用阶段、来源标识、模式版本、逐文件 SHA-256、数量、总字节数和失败清单；不得包含长期签名地址、访问令牌、数据库凭据或无关数据。
+- R7 明确禁止候选或导出自动形成数据集版本、训练运行、训练任务、训练事件或内部训练流水线调用；外部使用情况只能通过手工登记或交接材料录入，不能新增外部回调、轮询、消息订阅或服务凭据。
+- 当前待核对的入口前置包括样本候选数据库技术债、导出对象前缀、保留期、配额和审批阈值；在配置事实和批准依据缺失前不得采用默认密码、令牌、私钥或无限制配额来冒充通过。
+
+## R7 现状盘点初步结果
+
+- 第二版契约已经预留 R7 的管理员检测项查询、管理员反馈、候选创建/查询/决策、导出创建/查询/下载票据接口；第二版事件已经预留 `SampleExportRequested` 和 `SampleExportCompleted`。
+- `common-v2` 已有六类 `AdminFeedbackLabel`、候选状态、导出作业状态和 `sample-exports/` 对象前缀约束；这些是契约基线，不能被后端私有字段替代。
+- `V16__r2_unified_detection_core.sql` 只提供最小 `sample_candidate_v2`、`sample_export_job_v2`、`sample_export_item_v2` 表和约束，尚未证明满足 R7 的来源快照、纳入/排除修订、失败项、票据、下载审计、配额或清理要求；R7 应追加串行迁移，不修改已关闭迁移。
+- 当前源码中已有 `review`、`audit`、`storage` 和手工检测批次能力可作为边界基础，但未检索到 `listAdminDetectionItemsV2`、`createAdminFeedbackV2`、`listSampleCandidatesV2`、`createSampleExportV2` 等 R7 业务后端消费者的实现；需要继续用精确源码检索确认，不能把契约声明当作功能完成。
+- 现有前端 `ReviewWorkbenchView.vue` 有管理员标记的局部选项，但候选库、批量导出、导出状态/失败项和下载票据页面尚未在初步文件清单中确认；需要沿用第二版 API 客户端的显式子集边界补齐。
+
+## R7 数据与实现边界补充
+
+- 精确检索确认业务后端、前端和作业目录中尚无 R7 操作 ID 或样本导出事件的实现；当前契约/消费者清单属于预先冻结的目标表面，不能作为运行能力证据。
+- `V16` 的 `admin_feedback_v2` 没有 `supersedes_id`、来源反馈版本的唯一修订约束或显式不可变触发器；`sample_candidate_v2` 只有候选与反馈外键、当前状态和一个版本号；导出表没有票据、下载事件、逐项失败原因/哈希、清单计数和配额事实。R7 需要追加迁移闭合这些事实，并保持旧表只追加。
+- `detection_batch_item_v2` 以 `image_object`、`detection_item_result_v2`、`quick_feedback_v2` 和旧复核/审计事实为来源；管理员反馈和样本导出服务必须读取这些事实，不得重算或在页面端生成最终结论。
+- 现有 `ReviewController`/`ReviewWorkflowService` 是第一版 `/api/v1/review-tasks` 的复核任务工作流，带有幂等、版本并发和审计基础，但 R7 的管理员反馈是独立第二版不可变事实，不能直接把第一版“训练准入”或数据集样本写入路径当作导出流程。
+
+## R7 契约现状补充
+
+- `common-v2`、OpenAPI v2 和三语言生成包已经包含 R7 的六类反馈、候选状态、导出状态、接口和导出事件；生成文件必须继续由 `tools/generate-contracts/` 产出，不能手工修改。
+- 现有 R7 请求模式只包含标签/备注、候选标识、`INCLUDE`/`EXCLUDE`、筛选快照和空下载命令；反馈修订标识、管理员回执和票据响应字段尚未在目标契约中完整表达。若实现需要跨进程传递这些字段，必须先修改 `contracts/` 再生成三语言类型；只在内部数据库或响应 Map 中使用的字段也必须与公共模式保持一致。
+- `contracts/consumers/v2-consumers.json` 已将 `sample-export-worker-v2` 列为 Python 消费者但状态为 `PLANNED`，且事件操作已冻结；R7 不应新增隐式训练消费者或把导出作业接入旧数据集构建入口。
+
+## R7 权限与验证入口现状
+
+- 当前 `RolePermissionMatrix` 没有独立的样本候选/样本导出原子权限；R7 需要明确管理员专属权限，不能仅复用 `audit:read`、`review:submit` 或旧数据集权限。
+- 当前第二版 `SecurityConfiguration` 没有 `/api/v2/admin/detection-items`、`/api/v2/sample-candidates` 和 `/api/v2/sample-exports` 规则；未配置前不得把控制器路径可达性视为已满足权限边界。
+- 根 `Makefile` 没有 `verify-sample-export`；已有 `verify-g7` 属于旧 P7 模型验收，不覆盖 R7 候选来源、包清单/哈希、部分失败、下载票据和“不创建训练任务”，必须新增独立真实门禁。
+
+## R7 异步与对象存储边界
+
+- 现有发件箱/可靠消息基础只允许推理路由键，`OutboxEvent` 还没有样本导出事件的路由白名单；若复用该可靠发布链，必须先扩展到冻结的 `sample.export.requested.v2`，并保持消息只携带候选标识、对象引用和哈希，不携带图片或压缩包二进制。
+- 现有业务后端已具备 S3 兼容对象存储的预签名读写、流式检查、SHA-256 和删除抽象；R7 导出作业应在此抽象上增加包写入/读取能力，不能把大包放进数据库、JSON 响应或消息队列。
+- 现有 Python 作业主要是旧数据集构建和推理消费者；`sample-export-worker-v2` 尚未实现，需要独立目录/入口和测试，且不得导入旧数据集构建逻辑或触发训练。
+- R7 的异步选择为“业务后端落库队列事实 + outbox 发布请求事件 + 独立样本导出 worker 更新业务状态/清单”，发布失败、worker 技术失败和单候选对象失败都必须落入明确的失败或部分失败状态，不能返回完整成功。
+
+## R7 配置现状补充
+
+- `application.yaml` 目前只有手工检测、消息、存储和旧复核配置，没有样本导出开关、导出桶/前缀、包大小/候选配额、保留期、票据 TTL、孤儿清理周期或审批阈值。
+- 对象存储配置目前区分原图、派生图和人工标注桶；R7 应新增独立的样本导出桶/前缀配置并校验前缀只能位于 `sample-exports/`，不能复用原图写前缀或从环境中读取默认秘密。
+- 业务 API 当前使用 Java 25、Spring Boot 4.1、PostgreSQL/Flyway、RabbitMQ、S3 SDK；R7 的数据库和消息实现可以复用这些已锁定依赖，但外部真实服务缺失时验证必须明确为未执行/失败。
+
+## R7 消息与审计实现补充
+
+- 现有 `ManualAckInboxConsumer` 将消息强制解析为推理结果并要求 `detection_task_id`，不能直接消费样本导出请求；R7 若启用 Rabbit 消费，需增加独立收件箱消费者或抽象通用消息收件箱，不能绕过至少一次投递、幂等和死信语义。
+- `InboxProcessingService` 的业务效果与收件箱完成标记可复用，但 `inbox_message` 当前关联字段语义偏向检测任务；R7 应新增明确的 `sample_export_job_id` 绑定或独立收件箱表，避免把导出作业伪装成推理任务。
+- 审计入口 `AuditTrail` 已能在同一事务中追加不可变记录；R7 的反馈、候选决策、导出创建/完成/失败、票据签发、下载、过期和外部回执应使用独立动作和资源类型写入该链。
+
+## R7 导出来源数据补充
+
+- 原图对象登记在 `image_object`，包含桶、对象键、版本、SHA-256、大小、媒体类型、状态、尺寸和来源引用；结果图由 `detection_item_result_v2` 保存桶/键/版本/哈希/大小或技术失败信息。导出 worker 必须按登记引用读取并重新校验哈希，不得猜测对象路径。
+- 业务页面已有逐项质量、自动结果和快速反馈查询，但 `detection_item_result_v2` 当前没有独立的模型/流水线/规则字段；若导出包必须携带这些版本，需要从既有任务/批次事实中确定唯一来源，无法无歧义映射时进入失败或 `HOLD`，不能填充默认版本。
+- `quick_feedback_v2` 已有修订链模式（`supersedes_id`）和当前投影更新，可作为管理员反馈修订实现参考；R7 的管理员反馈仍需自己的不可变修订链，不能覆盖历史管理员事实。
+
+## R7 版本快照风险
+
+- 第二版 `detection_task_v2` 当前只保存任务状态和提交幂等键，`detection_item_result_v2` 只保存终态、结果对象和错误，不保存模型/流水线/规则版本；R7 导出要求的版本字段不能由当前时间或当前生产模型猜测。
+- 第二版推理请求载荷目前带 `pipeline_version`，但任务表未持久化；完成事件也没有版本字段。需要在 R7 设计阶段决定补充持久化/事件字段，或在无法取得完整版本事实时明确阻止导出并列入失败清单。
+- 这是一项必须在 R7 实施前闭合的技术债：成功导出包不得含空版本、伪造版本或只代表当前启用模型的替代版本。
+
+## R7 验证资产现状
+
+- 当前没有专门的 R7/RG7 测试文件或 `verify-sample-export` 入口；`DatabaseMigrationIT` 仅对 V16 的最小样本表做历史迁移夹具验证，`verify-data.py` 也只检查表存在和基础候选约束。
+- R7 实施必须新增后端单测/真实 PostgreSQL 集成测试、Python worker 核心测试、前端权限/状态测试、静态安全断言和真实样本导出门禁；验证脚本缺失或外部对象服务不可用时必须返回失败/HOLD，而不是空目标成功。
+
+## R7 契约实施结果
+
+- 第二版契约已增量加入 `SampleExportTarget`（允许请求阶段尚未知晓哈希/大小）、管理员反馈 `supersedes_feedback_id`/`revision`、候选来源快照/最新决策、导出成功/失败计数/清单和 `SampleDownloadTicket` 模式。
+- `make generate-contracts` 已确定性更新三语言生成包；`make verify-contracts-source` 通过 v1/v2 模式、示例、状态机、OpenAPI、AsyncAPI、消费者清单、确定性生成及 Python/Java 包编译。
+- 契约仍保持 `v2 / 2.0.0` 主版本；R7 只做向后兼容的可选字段和请求目标对象模式增量，没有修改第一版生成源。
+
+## R6 当前会话（2026-08-03）
+
+- 用户明确要求开始 `R6` 阶段；本轮将以 `Docs/16-手工批量检测与管理简化需求规格.md` 和 `Docs/17-手工批量检测整改实施计划.md` 为唯一需求依据，并继续遵守契约优先、修改所有权和安全失败规则。
+- 恢复时既有 `task_plan.md` 记录仍将 R6 入口标为 `HOLD`，理由是 `RG5` 尚未关闭；需根据当前文档、用户指令和实际证据重新核对，不得把历史 `HOLD` 直接当作当前通过或失败结论。
+- 工作树存在未提交改动：业务后端手工批量服务、S3 兼容存储适配器及其配置，另有对应测试新增/修改。它们属于用户已有工作，后续只能审查、验证并在不覆盖的前提下增量修改。
+
+## R6 需求与入口核对
+
+- `DOC-17` 第 12 节将 R6 定义为“人员角色收敛为两类”，任务为 `R6-01` 契约/身份领域、`R6-02` 身份迁移作业、`R6-03` 会话/鉴权、`R6-04` 用户管理页面、`R6-05` 菜单/路由/权限、`R6-06` 手册/安全验收、`R6-07` 权限迁移/后端鉴权。
+- R6 入口有三个硬条件：`RG5` 通过、`R0-05` 用户与旧角色基线完整、每个旧高权限账号已有明确目标角色决定。当前仅文档核对确认其要求，`RG5` 的真实浏览器联合证据仍需重新核实。
+- `RG6` 通过标准要求：登录和用户管理只出现两类人员角色；用户数/禁用状态/历史操作者可对账；未确认高权限用户不得获管理员权限；生产员工不能管理用户、样本和模型；高风险管理员操作要求不同账号与完整审计；第二版会话和菜单不得出现数据集/训练能力。
+- `RG6` 规定验证入口为 `make test-backend`、`make test-web`、`make test-security`、`make test-e2e`；缺失 Node、Docker、真实外部服务或浏览器证据时必须明确失败/未执行，不得以静默跳过算通过。
+- `DOC-16` 的 `FR-IAM-001`—`010`、`MIG-005`—`006` 和权限矩阵是 R6 语义边界：人员业务角色只有 `PRODUCTION_EMPLOYEE`、`ADMINISTRATOR`，设备/服务身份独立，内部原子权限和数据范围继续保留，旧高权限角色不得自动提权，旧会话必须撤销。
+- 用户本轮“开始 R6”可作为启动入口核验、现状盘点和实施设计的授权；在未看到 `RG5` 通过或明确豁免批准前，不把 R6 代码变更标记为已实施，不产生 `PASS`。
+
+## R6 现状初检
+
+- 当前未提交源码改动集中在 R5 手工批次审计摘要的确定性快照、S3 兼容存储端点/TLS 安全校验及其测试，未显示为 R6 身份实现；这些改动不属于本轮 R6 的所有权范围，必须保留并单独验证。
+- `contracts/json-schema/common-v2.schema.json` 已把第二版 `PersonRole` 限定为 `PRODUCTION_EMPLOYEE`、`ADMINISTRATOR`，但这只是契约基线，不代表后端迁移、会话、前端和数据库已完成。
+- `apps/web-console/src/views/UserManagementView.vue` 仍把角色默认值设为旧角色 `OPERATOR`；`apps/web-console/src/router/routes.ts` 仍能检索到 `dataset:*`、`training:*` 路由权限表面，至少说明 R6-04/R6-05 尚未闭合。
+- `Docs/baseline/R0-v1-runtime-inventory.json` 记录运行用户总数为零、旧角色代码仍为历史清单；这可以支持逐账号映射“不适用”的待核对结论，但仍需确认基线哈希、批准声明及测试是否锁定该证据。
+
+## R6 后端身份现状
+
+- `SystemRole` 目前仍只有第一版八类角色：`OPERATOR`、`REVIEWER`、`QUALITY_MANAGER`、`ALGORITHM_ENGINEER`、`MODEL_APPROVER`、`SYSTEM_OPERATOR`、`SECURITY_ADMIN`、`AUDITOR`；R6-01 尚未在身份领域闭合。
+- `RolePermissionMatrix` 仍按上述八类角色授予原子权限；`SYSTEM_OPERATOR` 同时包含用户、模型、设备、安全和手工检测权限，不能直接作为 R6 管理员映射，否则会违反旧高权限不自动提权和职责分离要求。
+- 本地身份服务的引导账号仍创建为 `SYSTEM_OPERATOR`；`LocalIdentity` 对外携带数据库角色字符串和原子权限；会话过滤器只把权限转换为 Spring authorities，尚未看到第二版两类角色会话输出、角色切换版本或旧会话批量撤销语义的专门实现。
+- 身份服务已经在修改角色、禁用用户、改密和重置密码时撤销该用户的活动会话，这是可复用基础，但不能替代迁移预览、逐账号确认、未确认高权限禁权和对账证据。
+
+## R6 前后端缺口初检
+
+- `LocalIdentityService` 的 `validateRoles` 只检查角色字符串非空，真正是否存在依赖后续数据库插入；`listUsers`、`setRoles`、引导账号和本地用户 API 都仍允许/返回旧角色代码，尚未建立仅允许两类人员角色的应用层边界。
+- `LocalAuthController` 当前仍是 `/api/v1/auth/*`，会话响应直接返回数据库角色和原子权限；前端 `parseIdentity` 也只做数组解析，没有校验第二版角色白名单，不能单独满足 R6-03。
+- `UserAdministrationController` 提供创建、状态、角色和密码重置接口；需继续核对安全链的路径权限、本人操作限制、并发版本和旧身份只读约束，不能仅以控制器存在作为 R6-04/R6-07 通过。
+- 前端路由已接入手工检测、批次历史、模型和质量页面，但仍注册 `/datasets` 与 `/training-runs` 组件和菜单；用户管理页面两处角色选择器仍列出全部八类旧角色，R6-04/R6-05 需同步改后端、契约生成表面、菜单和深链接。
+
+## R6 安全链与数据层现状
+
+- `SecurityConfiguration` 的第二版链目前只覆盖手工检测和生产接口，人员登录、用户管理和旧数据集/训练接口仍在 `/api/v1/**`；`/api/v1/users/**` 只要求 `user:manage`，数据集/训练路由仍可被相应原子权限访问。
+- 旧模型部署审批路径仍允许 `dataset:approve` 或 `model:deploy:approve` 任一权限，R6-07 要求把模型审批与旧数据集权限解耦，需在权限数据、配置和测试中同时收紧。
+- 数据库最新既有迁移为 `V18__r4_single_item_inference.sql`；`V1`/`V7` 建立旧角色、旧权限、本地账号和 `auth_session`，`V12`—`V15` 继续补齐训练/数据集读写与系统管理员权限。R6 若新增迁移必须串行使用下一序号，不得改写历史迁移。
+- `auth_session` 已有 `revoked_at` 和按用户索引，适合实现角色切换撤销；但用户数、禁用状态、角色映射、未确认清单和迁移批次的可审计对账事实尚未在当前盘点中发现。
+
+## R6 验证资产现状
+
+- 仓库已有后端身份领域单测、前端本地认证/安全源码测试、R5 手工检测专项测试，以及通用安全和端到端测试，可作为 R6 增量回归基础。
+- 既有 R5 记录明确：`make test-web`、`make test-backend`、`make test-integration`、`make test-e2e`、`make test-security` 的自动化结果曾通过，但真实浏览器联合链路、真实人员会话、对象存储/队列/推理服务联合证据未执行；因此不能把这些自动化结果升级为 `RG5` 通过。
+- R6 可继续进行契约/身份/权限源码实施和离线测试，但阶段发布、功能开关切换和 `RG6` 关闭必须等待 `RG5` 入口证据或项目所有者的明确批准变更；所有缺失前置均继续标为 `HOLD`/未执行。
+
+## R6 契约基线
+
+- `contracts/json-schema/common-v2.schema.json` 已有两类 `PersonRole` 枚举，但 `contracts/openapi/tool-defect-api-v2.json` 当前没有 `/auth` 或 `/users` 第二版身份路径；现有本地登录/用户管理仍属于 v1 OpenAPI，且 v1 `LocalUserSession.roles` 与用户创建/角色更新请求只允许任意字符串。
+- 因此 R6-01/R6-03 的契约选择尚未闭合：若要宣称“第二版会话/用户管理”，应先在 `contracts/` 明确 v2 身份响应和迁移操作，随后由生成器产出三语言类型；不能只改 Java 枚举或前端常量。
+- 当前仓库不存在名为 `contracts/generated` 的目录，生成物位置需依据 `tools/generate-contracts/` 和既有模块路径确认；不能凭文件名手工新增生成类型。
+
+## R6 测试基线
+
+- 后端身份测试目前直接断言八类旧 `SystemRole`、`SYSTEM_OPERATOR` 的完整权限集合以及数据集/训练取消权限；R6 实施必须同步迁移这些断言，保留设备/服务身份和内部原子权限的边界测试。
+- 前端本地认证测试使用 `OPERATOR` 身份样例，用户管理源码测试尚未覆盖两类角色白名单、深链接不可达或数据集/训练菜单归零；需要新增正向、越权、旧会话撤销和未确认账号安全失败用例。
+- `SecurityConfiguration` 与角色矩阵/数据库权限基线目前存在多处历史演进痕迹，不能只修改一个文件；R6 回归必须验证迁移后的数据库权限与 Java 矩阵、路径规则和前端访问矩阵一致。
+
+## R6 生成链发现
+
+- 契约生成物位于 `packages/python-contracts/src/tool_defect_contracts/v2/`、`packages/java-contracts/src/main/java/local/tooldefect/contracts/v2/`、`packages/typescript-contracts/src/v2/`；`apps/web-console/src/api/generated.ts` 是应用侧现有 API 类型出口。
+- `tools/generate-contracts/generate.py` 的第二版生成逻辑主要从 OpenAPI 操作生成客户端方法、从公共 JSON Schema 生成枚举，并对若干 v2 领域模型使用固定模板；若 R6 新增身份字段或操作，必须同步扩展契约源、生成器和验证/示例，不得手改上述生成文件。
+- 当前 `PersonRole` 只在 `common-v2.schema.json` 出现为公共枚举基线，尚未看到它被 v2 身份 OpenAPI 模式实际引用；这属于 R6-01 契约设计待闭合项。
+
+## R6 文档与手册边界
+
+- `ADR-0006` 已批准第二版会话仅暴露 `PRODUCTION_EMPLOYEE`、`ADMINISTRATOR`，保留旧角色作为只读迁移依据，并要求未确认高权限账号不得获得管理员权限；R6 实施应复用该决策，不新增相反解释。
+- `Docs/12-安全权限与角色.md` 已定义两类角色、设备/服务身份隔离、双管理员职责分离及数据集/训练权限不得出现在第二版；它要求管理员多因素认证和敏感操作再认证，当前本地身份实现尚未看到这些完整能力，需将缺失项标为范围/前置限制，不能伪造已实现。
+- `Docs/09-前端功能规划.md` 明确要求删除 `/datasets`、`/training-runs` 及详情、组件、权限常量和生成引用；兼容书签只能显示退役说明或明确 `404/410`，不得重定向到语义不同的新页面。
+- 现有 `Docs/runbooks/administrator-manual.md`、`operator-manual.md`、`reviewer-manual.md`、`quality-lead-manual.md`、`algorithm-manual.md`、`auditor-manual.md` 等历史名称仍存在；R6-06 需要把在线人员操作说明收敛为生产员工/管理员，并保留外部算法、审计等边界说明，不能简单删除历史审计材料。
+
+## R6 实施设计决策
+
+- 保留 `sys_role` 中旧角色代码及历史 `sys_user_role` 引用作为只读迁移证据；新增 `sys_user.person_role` 和角色迁移当前状态，第二版会话/权限只读取已确认的两类人员角色，未确认用户仍可被识别但不获得第二版原子权限。
+- 新增串行 `V19` 迁移，建立用户角色映射预览/确认/冲突状态、旧角色快照和确认审计所需字段；迁移不自动把旧高权限角色提升为管理员，重复确认同一结果幂等，冲突结果安全失败。
+- `SystemRole` 与 `RolePermissionMatrix` 收敛为 `PRODUCTION_EMPLOYEE`、`ADMINISTRATOR` 两类；设备、服务 JWT 的 `SCOPE_*` 身份不走该人员矩阵。
+- 继续复用现有 `/api/v1/auth/*`、`/api/v1/users/*` 本地同源会话表面，先让响应/用户管理只暴露两类角色；v1 OpenAPI 的角色字段仍保持字符串形状以避免无批准的主版本破坏，R6 增量字段若确有跨进程需要再先补 `contracts/`。
+- 删除前端第二版数据集/训练路由和懒加载注册，模型页面改用 `model:approve` 等模型专属权限；旧后端兼容路径可保留为不可达/退役窗口代码，但新两类人员矩阵不再授予数据集/训练权限。
+
+## R6 实施推进补充（2026-08-03）
+
+- `V19` 现在区分 `UNCONFIRMED` 与 `CONFLICT`：仅旧 `OPERATOR` 账号可得到生产员工建议，空旧角色保持未确认，其余旧角色或多角色组合进入冲突；任何第二版角色都需显式确认，管理员确认冲突必须填写原因。
+- 新建账号直接写入 `person_role` 和两类角色绑定；角色迁移表只补齐 `person_role` 为空的历史账号，避免把新账号错误列为未确认迁移对象。已确认账号改角色仍撤销活动会话。
+- 用户管理新增显示名称更新接口和 UI；迁移预览同时显示旧角色快照、状态、建议/已选角色和决定原因。
+- R6-07 已将模型部署质量审批从 `dataset:approve` 解耦为 `model:approve`，并在第二版角色矩阵及 V19 数据权限基线中移除数据集/训练人员授权。旧 v1 数据集/训练匹配器仍保留为兼容窗口代码，但新人员角色没有这些权限，因此不可达。
+- R6-05 只移除前端注册路由与懒加载入口，未删除旧组件/服务，符合 R6 停写回滚窗口与 R9 物理清理的阶段边界。
+- 前端首次回归证明类型层已接受两类角色改动；唯一失败来自 R6 新测试自身对模型路由的错误期望，模型入口按需求应保留给管理员，修复断言后重跑。
+- 后端首次全量回归发现一个旧集成夹具依赖 `OPERATOR:detection:read`；R6 已撤销旧角色授权，因此测试必须显式使用 `PRODUCTION_EMPLOYEE` 和 `person_role`，不能恢复旧权限。
+
+## 工作树并发改动记录
+
+- 初始检查时已存在手工批次服务、S3 适配器及其测试未提交改动；随后工作树又出现手工检测控制器/仓储、前端手工检测、契约 v2、生成包和验证器等其他路径改动。这些路径不属于本轮 R6 身份所有权，后续不覆盖、不回退、不顺手格式化。
+- 本轮明确新增/修改范围为：R6 三份规划文件、R6 角色/身份 Java 文件、`V19__r6_two_person_roles.sql`、R6 身份 OpenAPI/写示例，以及由生成器产生的对应契约包差异。生成器同时反映了工作树中其他契约源的已有变化，不能据此把那些变化归入本轮 R6。
+- 任何验证若被其他未提交改动影响，将在 `progress.md` 和 `task_plan.md` 的错误表中按实际原因记录，不通过回退其他所有者文件来“清理”结果。
 
 ## 需求
 
-- 完成 `Docs/15-系统分阶段构建与智能体任务计划.md` 中 P0、P1、P2 的全部任务。
-- 每项任务均需满足前置依赖、主责目录、交付物、验证方法和通过标准。
-- 最终需通过对应阶段门禁，并遵守智能体交接与文件冲突规则。
-- 2026-07-30 新目标：在既有 P0–P2 成果上完成 P3-01 至 P3-07，不重做已完成阶段。
+- 当前阶段切换为 `R4`：单图推理、逐图质量和产线适配。
+- `R4-01`—`R4-06` 分别覆盖第二版单图片项消费、单图预处理、版本化质量检查、安全处置、第二版边缘适配及第一版兼容适配。
+- `RG4` 必须执行 `make test-edge`、`make test-inference`、`make test-integration`、`make test-e2e`、`make test-faults`；真实相机与触发设备只能在现场或受控硬件环境验收，模拟测试不得替代。
+- 2026-08-03 项目所有者明确决定本轮跳过真实相机和触发设备验收并解除阶段阻断。该项属于范围豁免，不是验证通过；缺失的硬件证据仍保留，并转交 `RG9` 上线前恢复验证。
 
-### P0–P2 任务总表
+## R4 启动发现
 
-| 阶段 | 任务 | 核心交付 |
-|---|---|---|
-| P0 | P0-01 | 代码、数据、模型、环境与测试基线的不可变资产清单 |
-| P0 | P0-02 | 现场参数和架构决策登记、配置键与安全默认行为 |
-| P0 | P0-03 | 14 份设计文档的强制要求到任务、测试、门禁追踪矩阵 |
-| P1 | P1-01 | 单仓骨架、所有权、忽略规则、模块构建与架构边界检查 |
-| P1 | P1-02 | v1 领域词汇、状态枚举、标准结果、错误和状态转换模式 |
-| P1 | P1-03 | OpenAPI 3.1 HTTP 契约、示例、鉴权、幂等和错误语义 |
-| P1 | P1-04 | AsyncAPI 推理、发件箱、追踪与可靠消息契约 |
-| P1 | P1-05 | Java、Python、TypeScript 契约类型生成与漂移/兼容检查 |
-| P1 | P1-06 | 统一构建入口、持续集成、锁定依赖和开发测试环境 |
-| P2-A | P2-A01 | 插件开发包、统一内存对象、生命周期和错误转换 |
-| P2-A | P2-A02 | 现有预处理、双任务和极坐标算法适配器 |
-| P2-A | P2-A03 | 可信模型包、校验、签名、白名单和隔离加载 |
-| P2-A | P2-A04 | 三组双任务模型的独立技术评估 |
-| P2-B | P2-B01 | 模块化单体和领域边界骨架 |
-| P2-B | P2-B02 | 首批数据库迁移、索引和事实约束 |
-| P2-B | P2-B03 | S3 兼容存储、上传确认和短时访问 |
-| P2-B | P2-B04 | 发件箱、收件箱、至少一次投递和至多一次业务效果 |
-| P2-C | P2-C01 | SQLite、本地目录、原子落盘和崩溃恢复 |
-| P2-C | P2-C02 | 触发/相机端口、去抖、多帧和硬件模拟器 |
-| P2-C | P2-C03 | 同步、退避、对账、轮询和心跳 |
-| P2-D | P2-D01 | 推理消费者、运行槽、预热、资源和健康基础 |
-| P2-W | P2-W01 | Vue 3 前端壳、鉴权、权限、统一请求和布局 |
+- 第二版异步契约已存在且版本为 `2.0.0`：请求事件为 `tool_defect.inference.item.requested.v2`，字段使用单个 `image`、`batch_item_id` 和 `detection_task_id`；完成与失败事件也已有冻结模式。
+- 现有推理运行路径仍只接受第一版 `tool_defect.inference.task.v1`，内部任务包含 `capture_id` 和 `images` 元组，允许 1—16 张图片；R4 必须新增第二版单图路径，不能原位破坏第一版兼容。
+- 现有 `InferenceMessageHandler` 只接收已构造的内部任务并在后端接受后确认消息，尚未体现第二版事件解析、单项质量拒绝和失败事件语义。
+- DOC-16 要求五类质量检查：可解码、刀片存在、刀片完整、模糊、曝光；每项保存状态、规则版本、原因码及可选测量/阈值/安全提示，必要检查失败后续项必须明确 `NOT_RUN`。
+- 质量拒绝必须形成 `QUALITY_REJECTED` 且不得进入正常推理；检查器异常、非法输出和版本不兼容必须明确失败或 `HOLD`，绝不能形成正常结论。
+- 产线第二版接口必须创建来源为 `PRODUCTION_CAPTURE` 的单项批次，请求只含一个 `image`；第一版边缘路径在兼容期必须保留。
+- 推理服务的可靠性基础可复用：已存在结果日志、后端接受后才确认消息、结果哈希重放、回调状态未知时不覆盖成功事实，以及插件/模型版本绑定检查。
+- 当前第一版预处理拒绝仍被规范化为 `INCONCLUSIVE` 成功结果；该行为只能留在第一版兼容路径，第二版必须把质量拒绝映射为独立质量终态，不能产出正常算法结果。
+- 边缘端当前 `CapturedFrame`、`PersistedImage`、上传票据和 SQLite 唯一键都以 `image_role` 为核心，并通过第一版采集初始化/逐图上传/提交接口同步；R4 应新增并行第二版单图适配，不能直接删除第一版字段。
+- 边缘端已有离线 SQLite WAL 队列、退避、重试恢复、触发去重、采集完整性和哈希校验基础；第二版适配应复用这些事实与状态机。
+- R3 的 `V17` 已建立 `detection_task_v2`，业务仓储提交时为每个图片项插入唯一逻辑任务；需继续核对是否发布第二版请求事件以及结果回调是否能驱动图片项和批次聚合。
+- R3 当前提交只写 `detection_task_v2` 并把图片项置为 `QUEUED`，没有发布 `InferenceItemRequestedV2`；业务后端也尚无第二版完成/失败消费适配，因此单图链路尚未闭环。
+- `V16` 已具备逐图质量结果和五类检查表，适合 R4 追加写入；这些表是只追加事实并以 `(batch_item_id, checker_version)` 唯一。
+- `V17` 聚合函数对“全部质量拒绝”的判断有缺口：只在技术失败数等于总数时置 `FAILED`，全质量拒绝会落为 `PARTIALLY_COMPLETED`，与 `AT-BAT-003` 冲突；R4 需要通过新迁移重定义函数，不能回写历史迁移。
+- OpenAPI 已冻结 `POST /api/v2/production/detection-items` 和单一 `image` 的 `ProductionItemRequest`，但业务后端尚无实现；第二版边缘客户端也尚未接入该操作。
+- 统一门禁均为真实入口：边缘与推理运行严格 unittest，集成、端到端和故障目录也会检查存在的全部测试，不允许空目标成功。
 
-### P3 任务—依赖—验收矩阵
+## R4 实施设计
 
-| 任务 | 前置依赖 | 主责范围 | 核心交付 | 关键验收 |
-|---|---|---|---|---|
-| P3-01 | P2-B02/B03/B04 | 后端 `capture` | 创建、图片确认、提交、对账、心跳、中央状态机 | 幂等内容绑定；必需图片未校验不得 `READY`；提交单事务写状态、流水线、任务、发件箱 |
-| P3-02 | P3-01、P2-B04 | 后端 `detection` | 任务、尝试、结果、派生对象、失败回调、内部接口 | 重试新增尝试；结果哈希幂等/冲突；每任务至多一个接受结果；算法结论与业务处置分离 |
-| P3-03 | P2-D01、P2-A02、P3-02 | 推理消费者/编排/存储 | 消费、校验、预处理、推理、坐标回映、派生上传、回调 | 后端接受前不确认；回调失败只重试回调，不重复推理 |
-| P3-04 | P3-02 | 后端检测规则 | 固定顺序、版本化处置规则与审计摘要 | 技术失败及矛盾不得自动 `PASS`；仅所有门禁通过后映射 `PASS`/`FAIL` |
-| P3-05 | P2-C02/C03、P3-01 | 采集端 | 在线/断网同步、状态推进、轮询、水位、安全暂停 | 不丢图、不重复中央事实；95% 暂停；未上传原图不删除 |
-| P3-06 | P2-W01、P3-01/P3-02 | 前端工位/检测 | 工位、列表、详情、分级图片、签名地址刷新 | 状态不倒退；大图不阻塞；结论不只靠颜色；不在前端计算最终规则 |
-| P3-07 | P3-03/P3-04/P3-05/P3-06 | 端到端/契约测试 | 八类正常与故障场景 | `make verify-contracts test-integration test-e2e`；同一采集可追溯；技术失败不得 `PASS` |
+- 契约版本保持 `v2 / 2.0.0`；当前事件与 HTTP 表面已经冻结，R4 只实现消费者/生产者，不为方便实现擅自扩展网络字段。
+- 第一版 `InferenceTask`、多图插件和边缘采集同步保持原位；第二版使用独立单图任务与质量编排，运行路径中不出现 `images`、`image_role` 或主视角选择。
+- 推理端在质量必要项失败时发布质量拒绝完成事实但不调用算法；检查器异常、解码异常、非法算法输出和版本不兼容发布明确失败，回调未被接受时不确认消息。
+- 业务后端在批次提交事务内为每个新逻辑任务追加一条第二版发件箱消息；完成/失败消息通过既有收件箱实现至少一次投递下的至多一次业务效果，并触发事实驱动聚合。
+- 新迁移只追加 R4 执行/结果引用与用量事实，并重定义聚合函数；不修改 `V16`、`V17` 历史迁移。
+- 第二版边缘适配仅允许一个本地图片事实，调用生成客户端的 `createProductionDetectionItemV2`，请求中只传 `capture_id` 和单个 `image` 对象；本地离线队列和第一版同步器继续保留。
 
-## 已知发现
+## R4 实施进展
 
-以下条目按调查过程保留审计轨迹；早期条目中的“当前”“剩余”描述的是发现当时的状态。若与顶部 2026-07-30 最终复验结论冲突，以更靠上的最终结论为准。
+- 推理服务已建立与第一版并行的 `SingleItemTask`/`SingleItemOrchestrator`，第二版字段集合严格拒绝额外多图字段，质量拒绝会跳过算法并由质量总体状态主导安全处置。
+- 版本化质量检查器对五类检查按固定顺序输出；前置失败后的检查统一记录 `NOT_RUN / PREREQUISITE_FAILED`，不会补写虚假通过。
+- 第二版边缘适配直接依赖生成的 `ApiClientV2` 和生成源哈希，重复相同触发保持同一事实，不同对象哈希明确冲突，并用 `contract_version=v2` 低基数标签记录调用。
 
-- 2026-07-30 P3 共 7 项任务；主依赖链是 P3-01 → P3-02 → P3-03/P3-04，P3-05 复用采集端基础，P3-06 复用前端壳，P3-07 汇总六项实现做端到端与契约回归。
-- 2026-07-30 G3 要求自动 `PASS`/`FAIL` 两条路径端到端通过；不确定和矛盾结果进入 `HOLD` 并创建待复核占位；断网、重复消息、回调重试不得丢失或重复业务事实；工位页只显示后端最终处置。
-- 2026-07-30 启动 P3 时工作树除三份规划记录外干净；仓库仅根目录 `AGENTS.md`，没有嵌套所有权说明需要额外合并。
-- 2026-07-30 P3 初步现状：后端 `capture`/`detection` 目前主要是 P2 领域枚举与包骨架，尚无 P3 应用服务、仓储、控制器或 P3 数据库迁移；存储与可靠消息基础可直接复用。
-- 2026-07-30 推理服务已有消费者、对象物化、编排管线、运行槽和业务回调客户端，需要核对其是否已经满足手动确认、派生对象上传及“回调重试不重新推理”的 P3 语义。
-- 2026-07-30 采集端已有 82 项覆盖的本地队列、采集、同步、对账、轮询、心跳基础；P3-05 预计以在线/断网纵向集成和磁盘水位策略补强为主。
-- 2026-07-30 前端已有鉴权、生成客户端、事件流、临时地址、通用布局和占位工位页；P3-06 的业务特性目录、真实列表/详情及图片分级加载仍需实现。
-- 2026-07-30 v1 契约源版本仍为 `1.0.0`，已经声明 P3 所需的采集创建/确认/续票/提交/对账/心跳、检测列表/详情/重试、内部尝试/结果/失败回调、图片访问票据和事件流共 29 条路径；AsyncAPI 已声明推理任务、发件箱和死信通道，因此先按现有契约实现消费者，除非字段级核查发现真实缺口。
-- 2026-07-30 V1–V3 数据库已经包含采集、图片、流水线、检测任务、尝试、结果、处置、复核、发件箱/收件箱及追加不可变约束，P3 后端应优先在已有事实模型上实现仓储与事务服务；只有现有约束无法表达 P3 幂等或审计要求时才新增后端所有的向前迁移。
-- 2026-07-30 当前契约源哈希为 `6fc5d9465464faf374bfa54d8f20849623f912a6c3d88fdbe92ca47fba49e361`、主版本 1。TypeScript 生成包已包含 P3 全部 HTTP 模型和检测结果模型；后端实现不得在前端复制阈值或处置规则。
-- 2026-07-30 Java 生成包目前仅有基础枚举、对象引用和客户端外壳；在新增后端 HTTP DTO 前需要核对生成器能力，确保网络类型由 `tools/generate-contracts/` 产生或由契约绑定层统一读取，不能手工维护一套漂移模型。
-- 2026-07-30 P2 领域测试已验证采集终态不可逆、处置事实追加、算法结论与业务处置分离、对象确认幂等和发件箱确认后完成；P3 应在这些约束上扩展，不改弱既有安全语义。
-- 2026-07-30 现有生成器对 TypeScript 输出强类型 HTTP 模型，对 Java/Python 仅输出 `Map`/`Mapping` 客户端表面与公共枚举；后端若直接手写请求/响应 DTO 会违反网络类型生成约束。P3 实现需要先增强生成器或让控制器严格使用生成的通用契约表面，并由契约回归防漂移。
-- 2026-07-30 P3 写接口均要求 `Idempotency-Key`；采集结果写为创建 201、提交 202、结果/失败回调 200。结果接受请求体直接引用唯一的 `detection-result-v1.schema.json`，这使后端可以按原始规范 JSON 计算幂等哈希而不复制模式。
-- 2026-07-30 P3-03 现有实现比初步目录盘点更完整：推理任务严格解析冻结事件、创建执行尝试、校验对象/模型/插件、预处理、推理、标准化、派生对象发布和幂等结果/失败回调均已存在；消息处理器只有后端接受结果才确认。剩余重点是重复消息与回调暂时失败是否可只重放回调、以及真实传输/模式回归。
-- 2026-07-30 P3-05 核心在线/离线状态机也已存在：同一 `capture_id` 与固定幂等键贯穿创建、上传、确认、提交、轮询/对账；覆盖续票、回执超时、有限完整性重传、401 全局暂停、429 下限、503、中心领先、乱序和重启恢复。主要缺口是 80/90/95% 磁盘水位策略及纵向集成门禁。
-- 2026-07-30 `Makefile` 仍明确标记当前阶段为 P2，`verify-all` 尚未纳入 `test-integration` 和 `test-e2e`。P3 收口必须把这两个统一入口接到真实测试，且不得用无操作成功替代。
-- 2026-07-30 P3 完成定义还要求接口/迁移/配置/测试/文档齐全，新增行为和失败路径均有自动化证据，并记录日志、审计和权限；最终交付必须按任务编号、契约版本、命令、结果、限制提供稳定交接。
-- 2026-07-30 `run_target.py` 已对缺失的 `tests/integration`、`tests/end-to-end` 明确失败，符合安全失败要求；P3-07 应创建真实测试目录并保持统一入口，不需要改成跳过。
-- 2026-07-30 P3 来源要求集中在九份设计文档：原则与安全失败、完整业务状态机、算法标准结果、复核触发、数据库事务、接口契约、图片缓存/清理、前端工位与检测页、异常重试。已定位精确章节，下一步按这些章节逐项读取并转成实现断言。
-- 2026-07-30 业务流程唯一来源确认三层状态必须分离：执行 `SUCCEEDED`、算法 `QUALIFIED/UNQUALIFIED/INCONCLUSIVE`、业务 `PASS/FAIL/HOLD` 不得互相替代。结果接受事务必须同时登记派生对象、插入结果、更新任务、执行策略、追加处置，并在需要时创建 `PENDING` 复核任务。
-- 2026-07-30 自动处置固定顺序为技术完整性、预处理质量、结果一致性、置信度灰区、强制规则、抽检规则、自动定案；`INCONCLUSIVE`、质量 `REJECTED`、空掩膜矛盾、高分区域矛盾、多算法冲突和哈希/模式错误都必须 `HOLD`。
-- 2026-07-30 自动处置记录必须保存策略版本、阈值和输入结果摘要；原始算法结果、处置、复核均为追加事实，`capture_event.current_disposition*` 只是可校验投影。
-- 2026-07-30 检测任务创建时锁定不可变流水线；重试只新增尝试。回调丢失应由推理服务重复提交同一 `attempt_id`，后端相同结果哈希返回成功，不同哈希拒绝并形成安全告警。
-- 2026-07-30 接口边界要求采集端只能写/读本工位，推理服务使用服务身份，用户检测查询由后端追加数据范围；浏览器详情只取 `image_id` 和短时单对象只读票据，不能得到长期对象地址或详细堆栈。
-- 2026-07-30 本地缓存水位语义已冻结：80% 预警，90% 升级告警并加速清理“已取得最终结果且过保留期”的确认文件，95% 严重告警并按安全策略暂停新采集；任何未上传、重试中或中心未知原图永不自动删除。
-- 2026-07-30 工位页必须展示连接/相机/PLC/采集代理、队列深度、最老任务、磁盘、配方/流水线和当前刀具；离线时明确说明本地排队。检测列表采用服务端游标，详情分证据/尝试/处置/版本，图片先缩略图后全图且票据过期可刷新。
-- 2026-07-30 处置必须用文字、图标并兼顾无颜色场景；`HOLD` 文案需明确“暂停并等待处理”。前端只展示后端业务处置，页面关闭不得影响独立采集进程。
-- 2026-07-30 推理回调暂时失败必须保留小型结果清单并重试同一结果，不能重新推理；默认执行最多 3 次，重复消息且结果已接受不消耗次数，死信不得自动回灌。
-- 2026-07-30 前端目前工位页是静态占位，检测路由仍指向通用占位页；通用请求层、内存签名地址注册表和无色觉依赖的处置组件可复用。P3-06 需新增真实特性服务、页面和组件，并从生成包重新导出所需响应类型。
-- 2026-07-30 后端已有控制器采用严格字段集合的 `Map` 网络形状，并明确把字段来源绑定到生成契约，避免手写另一套 DTO；P3 控制器可沿用该边界模式，但必须补充方法级权限和契约回归。
-- 2026-07-30 当前数据库缺少通用 `Idempotency-Key + 请求摘要 + 首次响应` 记录，也未在执行尝试上持久化队列 `message_id`；`disposition_record` 仅有策略版本和原因，不能完整保存阈值与输入摘要。P3 需要后端所有的 V4 向前迁移补齐这些事实。
-- 2026-07-30 当前安全配置只对上传续票和内部运行时读取做了细分授权，P3 采集写/读、推理回调和用户检测读范围仍需显式授权，不能落入“任意已认证用户”。
-- 2026-07-30 `StorageApplicationService` 已提供事务内原图登记/上传票据、同内容确认幂等、哈希/元数据/解码限制和短时读取票据；P3-01 应复用它并只在采集应用层补充图片角色元数据、全部必需图片 `AVAILABLE` 后推进 `READY`。
-- 2026-07-30 V3 已保护采集 `FINALIZED` 不可逆、尝试执行身份与终态不可变、被接受结果必须引用同任务 `SUCCEEDED` 尝试；V4 新列和应用更新必须与这些触发器兼容，不能绕开既有保护。
-- 2026-07-30 为避免重复队列消息重新推理后因耗时等非业务字段产生不同哈希，推理侧需要按 `message_id/attempt_id` 持久保存已规范化的小型结果清单；重投时重放同一回调，后端以消息关联和结果哈希幂等接受。
-- 2026-07-30 后端 JSONB 现有惯例是通过 JDBC `CAST(? AS jsonb)` 存取规范文本，发件箱领域对象已拒绝二进制内容；P3 可使用同一方式保存契约响应、事件和策略快照。
-- 2026-07-30 标准错误工厂已统一隐藏堆栈/路径并返回冻结错误形状；P3 控制器需要独立异常映射，把请求错误、鉴权、幂等冲突、完整性失败和暂时故障分别映射到 400/403/409/422/503。
-- 2026-07-30 后端 ArchUnit 强制 `api → application → domain`，应用层不得依赖基础设施，跨模块不得访问其他模块基础设施且模块图无环。P3 将以应用端口 + JDBC 适配器实现，采集应用只依赖存储应用公开能力。
-- 2026-07-30 业务主键设计要求应用生成 UUIDv7，现有生产代码仍有少量 UUIDv4。P3 新事实将使用可注入时钟/安全随机源的 UUIDv7 生成器，不扩大到无关历史重构。
-- 2026-07-30 现有离线后端入口会检查迁移连续性、架构依赖、追加事实、消息约束并编译纯领域层；新增 P3 应用/基础设施还需 Maven 编译与 Spring/Testcontainers 测试覆盖，不能只依赖该离线入口。
-- 2026-07-30 P3 首次增量编译的 Wrapper 缓存为空并命中失效代理，未进入编译；已发现历史校验过的 Maven 3.9.15 分发 `/private/tmp/tool-defect-maven.Blt56q/apache-maven-3.9.15/bin/mvn` 和隔离依赖仓库 `/private/tmp/tool-defect-m2`，后续使用这一路径离线验证。
-- 2026-07-30 固定顺序处置引擎已落地并通过表驱动测试：技术失败、不可判定、预处理拒绝、空掩膜矛盾、高分区域矛盾和灰区全部 `HOLD`；只有无门禁触发的明确结论映射 `PASS`/`FAIL`，策略快照与输入摘要分开保留。
-- 2026-07-30 `CaptureCreateRequest` 要求 1–16 张 PNG/JPEG 图片、严格图片角色/文件名/尺寸/哈希；中心状态响应中的业务处置明确允许 `null`，因此 P3 响应与幂等缓存实现必须保留 JSON `null`，不能用禁止空值的 `Map.copyOf`。
-- 2026-07-30 存储上传授权已经把不透明上传回执放入响应头并绑定工位/采集/图片/内容，确认接口可返回实际宽高和对象版本；采集应用只需把这一响应转换为冻结票据形状。
-- 2026-07-30 推理客户端使用模型哈希作为开始尝试幂等键，结果/失败则使用规范请求 SHA-256；后端必须自行重算请求摘要并校验路径中的任务/尝试与请求体一致，不能信任调用方头值。
-- 2026-07-30 标准结果模式要求固定 14 个顶层字段、两类概率、预处理/算法版本与哈希、最多 256 个区域和 32 个派生对象；后端接受前必须验证概率和、派生对象均已 `AVAILABLE` 且关联当前任务/采集。
-- 2026-07-30 当前存储配置只有原图桶，P3 派生对象发布端口仍是测试替身；要完成纵向闭环需增加 `td-derived` 桶配置和后端派生对象 HEAD/哈希/尺寸确认，结果事务只引用确认成功的派生对象。
-- 2026-07-30 当前推理编排在结果回调异常时正确返回“未接受且非失败事实”，但只把结果保留在内存调用栈；进程/消息重投后会重新推理。P3-03 必须增加原子小型结果清单以跨调用重放。
-- 2026-07-30 用户补充的三组候选位于项目根 `training/`；六个文件大小合计约 599 MB，三个结构哈希和三个权重哈希逐一匹配 P2-A04 登记值。评估器采用“规范 `outputs/training` 优先、根 `training` 只读迁移暂存回退”的确定性选择，不复制或移动资产。
-- 2026-07-30 Docker Desktop 4.84.0、Engine 29.6.2、Compose 5.3.1 已安装并运行；沙箱内直接访问用户 Docker 套接字会被拒绝，容器验证需使用已批准的 Docker 权限。
-- 2026-07-30 `make verify-models` 已用三组哈希匹配候选完成各 34 图真实评估，报告状态 `COMPLETE`、阻断数 0，并明确禁止生产声明；重复运行摘要也已一致，P2-A04 已关闭。
-- 2026-07-30 首轮真实 Testcontainers 门禁执行 28 项单测和 8 项集成测试，全部集成测试均实际执行且未跳过。失败暴露三项内部缺陷：V3 猜测了 PostgreSQL 自动生成的长约束名、Spring 无法为两个 `final` JDBC 仓储创建异常转换代理、MinIO 测试 KMS 密钥的 32 位十六进制文本按 Base64 解码后仅有 24 字节。
-- 2026-07-30 P2-B 缺陷修复后，统一 `make test-backend` 的 28 项单测与 8 项 PostgreSQL/MinIO/RabbitMQ 集成测试全部通过，0 失败、0 错误、0 跳过；覆盖空库和 V2 向前迁移、约束、备份恢复、应用健康、签名上传确认及可靠消息。
-- 2026-07-30 P2-A04 重复评估完成：排除允许变化的运行时资源字段后，两次报告摘要同为 `fdb2627aa367c7a8e190f7f7fceba554c8bae0cf66a8dc63bf3394f424d88b5f`；三份逐图 CSV 哈希、分类/分割指标和置信区间逐值一致。
-- 2026-07-30 恢复核查：现有文件化记录表明 P0、P1 已完成源码级交付，P2-A/D、P2-C、P2-W 已完成本地实现；当前未闭环项集中于 P2-B 的 Docker/Testcontainers 集成实证、P2-A04 的真实候选模型资产，以及最终 G2 联合门禁。
-- 2026-07-30 恢复核查：工作树包含大量未提交的 P2 在途成果；后续修改必须在现有实现上增量进行，不得用重建或还原覆盖这些改动。
-- P2 精确完成口径要求 `P2-A04` 产出三组模型各自在同一 34 图测试集上的逐图结果、分类/分割指标、置信区间、性能与资源报告；仅验证评估器能安全返回 `BLOCKED` 不等于任务完成。
-- G2 精确完成口径要求数据库可从空库迁移且存储、消息基础通过集成测试；若缺少 Docker，正确结果应是阻断，不能把离线单元测试当作替代通过。本次最终已用 Docker/Testcontainers 完成该证据。
-- 2026-07-30 恢复初检时的实机环境：JDK `25.0.2` 与 Node `20.13.1` 满足项目基线；PATH 中 pnpm 为 `11.9.0`，但统一入口已具备寻找锁定 pnpm `10.34.5` 的逻辑；当时未在 PATH 中发现 `docker` 命令，后续已确认 Docker Desktop、Engine 与 Compose 可用。
-- 2026-07-30 修复前的 P2-A04 报告实际包含 10 个阻断：三组候选共缺 6 个 `model.json`/`weights.h5`，另外自适应环形和边界归一化配置各选出 36 张测试样本，且与标准候选的固定 34 张顺序不一致。后四项属于仓库内评估配置缺口，随后已修复。
-- 三份候选数据源的实际规模分别为 172/34、180/36、180/36；冻结的 34 个重训练测试样本在两个 180 样本预处理清单中均完整存在。修复策略是以 `data/manifests/retrain.csv` 的 34 个测试样本标识和顺序为事实源，从每个候选自己的清单派生只读的 34 行评估清单，从而保留候选专属图片/掩膜路径而不修改被冻结的 `data/`。
-- `src/tool_defect.evaluation.evaluate` 原先只从候选配置读取清单，但已有双模型比较接口支持显式清单；P2-A04 采用向后兼容的可选 `manifest_path` 参数，并把派生清单 SHA-256 写入受控报告。
-- P2-A04 清单修复后，定向测试 5/5 通过，统一 `make verify-models` 从 10 个阻断收敛为 6 个；剩余项全部是登记哈希对应的真实模型文件缺失，不再包含测试样本数量或顺序问题。
-- 2026-07-30 P2-C/D/W 复验全部通过：边缘 82 项、推理 20 项、前端 46 项，且前端类型检查与生产构建成功。
-- 恢复初检时除未发现 Docker 外，也未发现 Podman、Colima、OrbStack、nerdctl 或 Lima；后续确认 Docker 可用后已完成 Testcontainers 门禁。
-- 后端 `run_offline_tests.py` 当前通过纯领域、架构边界和迁移静态语义检查；仓库 `.build` 未缓存 Maven 3.9.15 分发，必须复用此前已校验的临时分发，避免失效代理导致的无意义下载重试。
-- 复用此前 SHA 校验的 Maven 3.9.15 分发与 `/private/tmp/tool-defect-m2` 隔离缓存后，后端 Maven 单元测试 28/28 通过，0 失败、错误或跳过；P2-B 剩余缺口仍仅是需要容器运行时的四组 `*IT`。
-- P2-A 当前工作树的插件 API、算法适配、可信模型包与评估器最终共 31 项专项测试全部通过。
-- 当前 `tool-defect` 命令行帮助入口正常；`make test-core` 共 108 项，其中 9 项仅因 `artifacts/classification/weights.h5` 与 `artifacts/multitask/weights.h5` 缺失报错，其余 99 项通过。该历史运行资产阻断与 P2-A04 三组 `outputs/training` 候选资产阻断需分开记录。
-- 2026-07-30 `make verify-p1-offline` 完整通过；布局检查仍提示两个已登记限制：迁移前冻结数据共 183 个文件、Git 索引中的 `docs` 大小写需在大小写敏感环境前单独协调重命名。
-- 2026-07-30 `make verify-contracts` 通过，当前 v1 契约生成物在 Python、Java、TypeScript 三种语言中均实际编译成功。
-- 2026-07-30 P0 复验通过：`make verify-data` 的 180/172/34 数量和 `37301fdc…c396ba` 稳定摘要一致，P0 基线、追踪、配置定向测试 18/18 通过。
-- 2026-07-30 后端严格 `verify` 再次证明门禁没有静默跳过：28 项单测通过，DatabaseMigration、S3Storage、ApplicationHealth、ReliableMessaging 四组 `*IT` 均以 Docker 环境缺失报错，跳过数为 0。
-- P2-A04 修复过程中的受控报告已包含三份 34 样本派生清单的 SHA-256，全部使用项目相对路径；当时的 6 个阻断码均为 `MODEL_FILE_MISSING`，随后使用 `training/` 中哈希匹配的候选文件完成评估并清零阻断。
-- `make verify-all` 原先无条件调用 `test-integration`、`test-e2e`、`test-faults`、`test-performance`，但这些目录分别到 P3、P5、P7 才成为当前阶段必需项；这与文档“按当前阶段汇总”的定义冲突。P2 汇总应只编排 P0–P2 必需门禁，未来入口继续在被直接调用时对未实现状态显式失败。
-- 新版 `verify-all` 已通过布局与干运行编排检查；首次实际运行在严格环境检查处因默认 Wrapper 分发未缓存、失效代理以及 Docker/Compose 缺失而停止。通过显式复用已校验 Maven 缓存可隔离前两者，Docker 仍是不可绕过的真实前置条件。
-- 使用 `MAVEN_USER_HOME=/private/tmp/tool-defect-wrapper-test` 与 `TOOL_DEFECT_MAVEN_REPO=/private/tmp/tool-defect-m2` 复验后，严格环境检查中 Maven 3.9.15 和其余锁定工具链全部通过，只剩 Docker 与 Docker Compose 未安装。
-- Git 全历史仍没有任何 `outputs/training` 候选文件；只能找到两个 134 字节的历史 Git LFS 指针，分别指向旧分类和旧双任务权重，工作树中没有对应的大对象。它们不能替代 P2-A04 三组登记哈希的候选模型。
-- `planning-with-files` 的 `check-complete.sh` 仅识别英文模板标记，无法解析项目强制使用的中文阶段状态；它会报告 0 个阶段。持久状态以 `task_plan.md` 的复选框、中文状态和外部阻断清单为准。
-- 工作范围来自一份包含 P0–P8 共 61 项任务的总计划，当前只实施前三个阶段。
-- 当前尚未提取 P0–P2 的精确任务清单；三个只读工作流正在并行核查。
-- 项目根目录开始本次工作前不存在文件化规划记录。
-- 工作树开始实施前没有已跟踪文件改动，只有本次新建的三份规划记录。
-- 当前仓库以 `src/tool_defect` 下的算法、数据、训练与推理代码为主，配套 `tests/`、`configs/` 和历史桌面端；尚未从文件清单看到计划中可能要求的服务端、采集端或前端工程。
-- 当前分支为 `完整系统`，跟踪 `upstream/完整系统`。
-- 总计划共 963 行；P0 位于第 178–230 行，P1 位于第 231–317 行，P2 位于第 318–463 行。
-- P0–P2 共 22 项任务：P0 3 项、P1 6 项、P2 13 项（算法 4、后端 4、采集端 3、推理服务 1、前端 1）。
-- 三阶段分别以 G0、G1、G2 门禁收口；实施时还需遵守文档第 4 节统一完成定义和第 15 节文件冲突规则。
-- P1 必须建立 14 个稳定的 `make` 验证入口；后续工作流须复用这些入口。
-- P1 的关键顺序为：骨架 → 领域模式 → HTTP/事件契约并行 → 三语言生成 → 构建与开发环境。
-- P2 只有在 G1 后才能整体启动；内部还存在 A01→A02/A03→A04、B01→B02→B03/B04、C01→C02/C03 等依赖。
-- 安全失败是跨任务强制要求：技术异常、未知阈值、模型或图片问题均不能产生 `PASS`。
-- 同一版本契约、数据库迁移编号和生成客户端升级必须串行；P2 的并行实现只能消费冻结契约。
-- 任务交接的稳定信息仅限契约/迁移/配置/制品版本、SHA-256、验证报告、限制和待决策项，不能依赖聊天或个人路径。
-- 现状文档明确确认：仓库尚无 Spring Boot 后端、Vue 前端、中心数据库、消息队列、对象存储或采集服务，因此 P2-B/C/W 主要是新建建设。
-- 三组现有双任务产物的已知输入为 `256×256×3`，输出为 `cla_out` 与 `seg_out`；模型目录名不能替代训练和来源证据。
-- P2-A/D 以最新 v1 契约哈希复验：A01/A02/A03/D01 的 20 项推理服务测试与 28 项专项测试通过；A04 评估器可安全失败，但三组候选各缺 `model.json`、`weights.h5`，因此只能保持 `BLOCKED`，不能形成 34 图真实指标。
-- 尚需现场确认的输入分为六组：PLC/相机、节拍/延迟/离线/容量、阈值/抽检/复核、保留合规、中心资源/备份/高可用、可复用基础设施。
-- 本地存在被 Git 忽略的 `artifacts/`、`data/images/`、`data/processed/` 和 `.venv/`；资产清单工具必须扫描但不得改动这些目录。
-- 当前工作区未发现 `outputs/` 目录，与设计文档所述 `outputs/training` 三组模型产物存在基线差异；P0-01 必须把它记录为失败/阻断项，而不能伪造三组评估。
-- 现有 Python 项目要求 3.9–3.11，核心依赖在 `requirements.txt` 中精确固定；`uv.lock` 目前被忽略，P1-06 需决定可重复依赖锁策略。
-- `.gitignore` 已忽略大数据、模型、运行输出、缓存和本地凭据，但尚未覆盖新建 Java、Node、容器和环境机密常见生成物。
-- 首次基线命令运行 62 项测试，结果为 1 项失败、9 项错误：9 个错误栈归结为 `artifacts/classification/weights.h5` 或 `artifacts/multitask/weights.h5` 缺失；1 项失败为配置加载未拒绝绝对项目路径。
-- 基线环境为 Python 3.11.14、macOS 26.5.2、arm64；测试本身可启动并在约 14 秒内完成。
-- 代码结构文档 359 行，技术选型文档 334 行；后续骨架实现需重点消费前者的目标结构/边界/测试/所有权，以及后者的 Java、Python、前端、基础设施版本基线。
-- 目标单仓顶层固定为 `contracts/`、`apps/`、`services/`、`packages/`、`jobs/`、`database/`、`deploy/`、`tests/`、`tools/`；P1 阶段不搬动现有 `src/tool_defect`。
-- 后端采用模块化单体，模块内部依赖为 `api → application → domain`，基础设施反向适配应用/领域；领域层不得依赖框架或外设。
-- Python 核心包只含可离线测试的计算；推理服务拥有消费、对象物化、插件生命周期、运行槽、回调和健康；采集端按硬件适配、采集、本地队列、同步、健康分层。
-- 网络契约唯一来源位于 `contracts/`；前端生成客户端固定放 `src/api/generated`，手写扩展放 `src/api/client`。
-- 每个可部署单元需独立构建；生产镜像标签必须使用版本和代码提交，不能使用 `latest`。
-- 技术基线：边缘 Python 3.11/SQLite WAL/HTTPX；后端 Java 25/Spring Boot 4.1.x/Maven/PostgreSQL 18/Flyway；RabbitMQ 4.x 仲裁队列；推理 Python 3.11/FastAPI/Pydantic 2；前端 Vue 3/TypeScript/Vite/Node 24/pnpm。
-- 推理运行继续锁定 TensorFlow 2.13.0、Keras 2.13.1、OpenCV 4.11、NumPy 1.24.3；边缘环境不得安装 TensorFlow 等重依赖。
-- 依赖锁分为 `inference-cpu.lock`、`inference-gpu.lock`、`training.lock`、`edge.lock`；Python 使用 `uv`，前端使用 pnpm 锁，Java 使用 Maven Wrapper。
-- 开发对象存储可用本地适配器或临时 S3 兼容实例；生产选择仍为现场决策，不能因开发替身而跳过验收。
-- 首期使用 Docker Compose，不引入 Kubernetes；容器应非根、只读根文件系统、资源受限且镜像不可变。
-- 01–12 号设计文档共 3491 行；强制性要求分散在状态、存储、模型、权限、可观测和异常章节，P0-03 不能只复制第 17 节验收清单。
-- 可用自动化方式从标题、编号列表和含“必须/不得/不能/禁止/验收/应当/需要”的行生成稳定候选需求，再由来源行号、任务、测试或门禁映射进行完整性校验。
-- 对 P2 最关键的跨文档细则包括：重试保持同一业务标识；质量差图片保留；三层状态分离；消息只传引用；对象和模型只保存引用与哈希；前端权限可见性不替代后端鉴权；插件不得联网或访问业务基础设施。
-- 配置测试失败根因已定位：在 POSIX 上 `Path("D:/chedao/yuan").drive` 为空，现有校验无法识别 Windows 盘符绝对路径；修复应同时拒绝 POSIX 绝对路径、Windows 盘符路径和 UNC 路径。
-- Git 历史中可追溯到分类和双任务 `weights.h5`：提交 `d025653` 明确将二者从仓库删除，初始导入提交 `9c478f7` 曾包含它们；可从历史对象只读核验或在临时目录评估，无需重新把大权重纳入 Git。
-- 本地分支与远端跟踪分支均未显示 `outputs/training` 历史，因此“三组训练目录”仍是独立缺失项；不能用 `artifacts` 中两份旧权重冒充三组产物。
-- 当前完整核心门禁 106 项中 97 项通过、9 项因两份旧核心权重缺失报错；这些外部资产错误与 P2 新代码无关，但仍不能标记门禁通过。
-- 契约状态源已确认：执行 `QUEUED/RUNNING/SUCCEEDED/RETRY_WAIT/DEAD`；算法 `QUALIFIED/UNQUALIFIED/INCONCLUSIVE`；处置 `PASS/FAIL/HOLD`；中央采集 `CREATED/UPLOADING/READY/SUBMITTED/PROCESSING/REVIEW_PENDING/FINALIZED/FAILED`。
-- 边缘投影状态为 `PENDING/UPLOADING/UPLOADED/SUBMITTED/WAIT_RESULT/DONE/RETRY_WAIT/LOCAL_DEAD`，只能随中心对账向前推进。
-- 处置规则必须先检查技术完整性、预处理质量、结果一致性、置信灰区、强制规则和抽检，全部未触发才允许自动映射；P1 契约应只表达状态，业务规则留在后端。
-- HTTP v1 契约必须覆盖五个分区：边缘 `/api/v1/edge`、用户 `/api/v1`、内部 `/internal/v1`、对象数据面、受限健康/指标；未知请求字段默认拒绝。
-- P1-03 的最小完整端点集合包括采集创建/图片确认/检测提交/结果/对账/心跳，检测列表/详情/图片票据/重试，复核任务/认领/释放/提交/标注票据，数据集/训练/模型审批发布回滚，内部尝试/结果/失败/健康及服务器推送。
-- 所有写接口需表达幂等、冲突、鉴权和校验失败；图片以短时票据进入数据面，不允许 Base64 JSON；内部结果只有后端返回 `accepted: true` 后才允许队列确认。
-- 边缘目录固定为 `staging/pending/confirmed/quarantine` 加 `edge_queue.sqlite3`；原子流程为临时写入→同步→解码/哈希→原子改名→SQLite 事务，数据库失败时启动扫描重建。
-- 本地 SQLite 最小表为 `capture_queue/local_image/sync_attempt/agent_state`，启用 WAL、外键、忙等待和完整性检查；清理只允许中心已确认且取得最终结果的文件。
-- 磁盘 80/90/95% 只是需配置化的安全基线；未知或中心状态不确定时不删除原图，严重高水位应暂停新采集而非伪造成功。
-- 边缘网络退避基线为 1、5、30、120、600 秒，之后每 15 分钟，均加入抖动；`429` 优先遵守 `Retry-After`，上传票据过期必须续期。
-- 参数、权限、哈希冲突和版本不兼容不可自动重试；SQLite 完整性失败时停止清理、备份损坏库、从目录重建同步事实，并向中心重新对账最终状态。
-- P2-C 测试必须覆盖写文件/SQLite 各崩溃窗口、重复触发、跳号、相机繁忙/无图/全黑/损坏/多视角，以及断网、超时、429、503、票据过期、回调丢失和中心领先。
-- 暂停前独立审计确认冻结 v1 契约没有采集图片上传票据续期操作，而 P2-C03 明确要求票据过期续期；继续在采集端保留私有 `renew_upload_ticket` 会违反契约唯一来源规则。
-- 已以向后兼容方式在 v1 新增 `renewCaptureImageUploadTicket`，并先更新 OpenAPI、写接口五类示例和消费者清单，再确定性生成三语言包；新契约源 SHA-256 为 `6fc5d9465464faf374bfa54d8f20849623f912a6c3d88fdbe92ca47fba49e361`。
-- P2-C 独立终审在首轮绿色测试外复现五个安全缺口：伪造 PNG 头可被判 `OK`；启动恢复对已有 SQLite 记录跳过文件哈希复查；中心 `FAILED + PASS` 可进入最终展示；先写 `DONE` 后执行回调会在崩溃时丢失最终处置；对账默认批次 500 超过冻结契约 200。
-- P2-C 已实现为独立标准库模块：SQLite 迁移与状态约束、原子目录/清单/哈希、启动恢复与隔离、受控清理、触发和相机端口/模拟器、同步状态机、退避/续票/对账及心跳。
-- 边缘实现不含 TensorFlow 等推理依赖，不写最终业务规则；最终处置仅由中心响应写入本地投影，未知中心状态和技术失败均不会生成 `PASS`。
-- 后端数据库迁移必须覆盖组织设备、采集图片、流水线/任务/尝试/结果、处置复核、数据集训练模型、身份审计、发件箱收件箱，并以 UUID、`timestamptz`、追加事实和显式投影约束实现。
-- 关键数据库强约束包括：工位序号唯一、`FINALIZED` 必有当前处置、对象键版本唯一且业务只引用 `AVAILABLE`、任务最多一个接受结果、概率范围、任务内尝试号唯一、处置/复核/审计追加不可改。
-- 事务发件箱与业务更新同事务，批量领取使用 `FOR UPDATE SKIP LOCKED`；收件箱以 `message_id + consumer` 和结果哈希实现业务效果至多一次。
-- P2-B 已建立九个业务模块与四层边界、受限管理健康配置、两版 PostgreSQL/Flyway 迁移、追加事实触发器、S3 协议端口和安全确认、持久仲裁队列/死信拓扑、发件箱与收件箱领域基础。
-- 本机 JDK 25 可用；已从 Apache 官方归档取得并校验 Maven 3.9.15，在任务专属临时仓库解析 Spring Boot 依赖后真实编译 86 个后端主源码文件成功。Docker 仍不可用，因此空库迁移及消息/存储容器集成需继续以 Testcontainers 测试代码和具备容器的环境闭环。
-- P2-W 基础只负责壳、登录态、请求、路由、权限、服务器推送和布局；业务处置、复核裁决、配置和模型发布规则均不得在浏览器重实现。
-- 前端不得把访问令牌或签名地址写入 localStorage/sessionStorage/IndexedDB；权限菜单只是体验投影，直接路由仍需守卫，所有接口最终由后端鉴权。
-- 1920×1080 工位壳应同时以文字、图标和颜色呈现状态，`HOLD` 明示“暂停并等待处理”；中心离线不影响后台采集且不能伪造最终处置。
-- 当前官方 Vue 指南仍推荐 Vite、TypeScript、组合式接口和 `<script setup>`；Vite 工程的单元测试推荐 Vitest。
-- Vue Router 官方建议通过类型化 `RouteMeta` 与全局 `beforeEach` 守卫处理认证/授权；守卫直接返回重定向可避免 `next()` 多路径调用问题。
-- Pinia 在路由守卫中的 store 应在守卫函数内获取，或显式传入已创建的 Pinia 实例；本工程将显式传入实例，并把令牌仅保存在内存 store。
-- P2-W 最终门禁在精确 Node 20.13.1/pnpm 10.34.5 下完成：7 个测试文件共 32 项通过，类型检查和 61 个模块的生产构建成功。
-- P2-W 的统一请求层必须在注入 OIDC 用户令牌前校验业务接口基址；生产仅允许 HTTPS，开发仅例外允许 localhost/127.0.0.1 的 HTTP，并拒绝嵌入凭据、查询或片段的基址。
-- P2-W 的令牌刷新必须绑定发起时的内存会话代次；退出或重新登录后到达的旧刷新结果不能覆盖新会话，也不能由旧 Promise 的清理逻辑释放新会话的刷新锁。
-- P2-C 最终实现使用 Pillow 做真实像素解码与炸弹保护，使用标准库 HTTPS 客户端承载 7 个冻结契约操作；这一 P2 轻量选择记录在 ADR-0002，仍需在 G7 前评审是否迁移到目标 HTTPX/OpenCV 技术栈。
-- P2-C 的清理条件以中心最终状态、本地上传回执和最终回调确认共同约束；当前 v1 尚无中心签发的最终时间/签名回执字段，因此保留策略只能记录保守的本地观察时间与中心状态，不能冒充中心不可抵赖凭据。
-- P2-C 触发事件已持久化来源、事件标识、序号、关联触发、采集标识和结果；重复事件与崩溃重启保持原 `capture_id`，无法证明安全重采时进入质量拒绝/人工保持语义。
-- P2-C 网络鉴权或 mTLS 失败会持久化全局同步暂停，队列不被杀死；普通对象存储 403 不误触发全局暂停，恢复需显式授权。
-- P2-B 的完整验证不能只运行 Maven `test`：数据库、存储和消息任务依赖 `*IT`，统一 `make test-backend` 必须运行 Maven `verify`；无 Docker 时正确结果是失败而不是跳过。
-- P2-B 最终离线门禁为 28 项单元测试全通过；统一 Maven `verify` 随后真实发现 Docker 环境缺失并让 DatabaseMigration、S3Storage、ApplicationHealth、ReliableMessaging 四项集成测试全部报错，跳过数为 0。
-- PostgreSQL 18 官方镜像把默认 `PGDATA` 改为 `/var/lib/postgresql/18/docker`，声明卷改为 `/var/lib/postgresql`；开发编排采用独立 `postgres-data-v18` 卷，避免把 PostgreSQL 17 数据目录误当作可原地升级的数据。
+- 用户要求从 R0 阶段开始执行手工批量检测与管理简化整改。
+- 需求依据为 `Docs/16-手工批量检测与管理简化需求规格.md`。
+- 实施依据为 `Docs/17-手工批量检测整改实施计划.md`。
+- 必须使用 `planning-with-files` 持续记录进度。
+- 最终交付必须列出任务编号、契约版本、验证命令、结果和已知限制。
+
+## 调研发现
+
+- 仓库根目录开始时不存在 `task_plan.md`、`findings.md`、`progress.md`。
+- 跨进程字段、枚举、错误和事件只能以 `contracts/` 为来源。
+- 网络类型必须由 `tools/generate-contracts/` 生成，禁止手工修改生成文件。
+- 技术失败、状态未知、哈希冲突、契约不兼容和缺失前置条件必须失败或进入 `HOLD`。
+- `DOC-17` 版本为 `1.1.0`，需求基线 `DOC-16` 版本为 `1.1.0`；当前网络契约为 `v1 / 1.0.0`，目标为并行兼容的 `v2 / 2.0.0`。
+- R0 名称为“文档、追踪和架构决策闭合”，包含 `R0-01` 至 `R0-06` 六项任务；关闭前不得开始第二版消费者实现。
+- `RG0` 要求：所有 P0 需求均映射任务与验收场景；文档冲突闭合；取消清单有退役任务；追踪矩阵确定且锁验证通过；第一版实现与历史数据基线冻结。
+- R0 建议验证命令为 `python tools/traceability/build_matrix.py --summary`、`python tools/traceability/build_matrix.py --verify-lock Docs/traceability/matrix-lock.json`、`make verify-layout`。
+- R0 不修改目标网络契约；其职责是为后续 `v2 / 2.0.0` 契约阶段建立文档、决策、追踪和冻结基线。
+- 工作树初始仅有本次新建的三份规划文件，未发现需避让的既有未提交改动。
+- `R0-01` 已有明显基础：`Docs/README.md` 已登记 `DOC-16`、`DOC-17` 的职责和优先级，并把 `Docs/刀片缺陷识别系统功能文档.md` 标为仅保留的原始需求来源。
+- `R0-03` 目前只存在综合性 `ADR-0003`；它已覆盖取消内置数据集/训练、样本导出与模型直传独立、第一版兼容退役和历史快照，但其余要求的统一批次、多视角退役、两角色映射、模型上传安全边界尚需核对是否有独立或等价决策记录。
+- `R0-04` 尚未完成：追踪工具说明与实现明确只覆盖 `Docs/01—14`，`Docs/traceability/README.md` 将 `DOC-16`、产品编号、稳定编号和 `R0—R9` 任务映射列为待办。
+- 当前追踪生成器模式版本和生成器版本均为 `1.0.0`，需在扩展输出结构时进行兼容设计并更新锁文件。
+- `Docs/01—14` 已广泛同步取消内置数据集/训练、样本导出、外部模型直传与隔离边界；`02`、`04` 等少数文档对手工批次、单项质量、三按钮或两角色的显式目标仍需逐章核对。
+- `contracts/consumers/v1-consumers.json` 当前模式仅记录消费者、语言、生成包、HTTP 操作和事件操作，不具备 R0-05 要求的所有者、版本、迁移状态、最后调用证据和遥测来源字段。
+- 现有 `Docs/baseline/` 只描述 P0 基线，没有 R0 第一版消费者、采集代理、角色用户、活动部署、历史多视角数量和取消清单的冻结产物。
+- 追踪工具当前强制验证文档集合必须恰为 `01—14`，需扩展为保留原稳定编号的同时纳入 `DOC-16` 产品编号和 `R*`/`AT-*` 映射。
+- R0 开始时 `build_matrix.py --verify-lock` 实际通过，生成 463 条旧设计要求、614 个测试链接；但 `tests.test_traceability` 仍硬编码 355 条及过期摘要而失败，属于测试与锁文件漂移。
+- `DOC-16` 的 P0 要求数量较多，现有验收表使用范围引用；必须支持范围展开并检查每项 P0 至少一个验收场景，不能只检查字符串存在。
+- 新生成器识别出 `DOC-16` 共 104 条正式要求，其中 P0 为 88 条、验收场景 19 个；首次真实验证发现 14 条 P0 缺少验收映射：`FR-GOV-001/002/003/005`、`FR-INF-001/003/004/009`、`FR-REV-006`、`FR-SMP-009`、`FR-MDL-012`、`NFR-CONS-001`、`NFR-AUD-001`、`NFR-RET-001`。
+- 补充 4 个验收场景并扩展现有场景后，23 个 AT 场景已覆盖全部 88 条 P0；当前追踪验证只剩锁文件版本漂移。
+- R0-06 全仓扫描确认取消对象真实存在：前端数据集/训练页面与路由、旧人员角色选择、数据集/训练权限，业务后端数据集模块与第一版安全规则，模型页对冻结数据集和成功训练运行的硬依赖，`jobs/dataset-builder/worker.py`、`jobs/training-pipeline/` 及开发启动脚本中的在线执行端。
+- 第一版多视角语义仍存在于边缘数据库、边缘运行代码、第一版公共模式、生成包和业务消费者中；这些属于兼容与历史冻结对象，不应在 R0 删除。
+- 可重复的源码资产已冻结哈希。最初因无法仅靠源码证明运行状态而保持 `HOLD`；随后项目所有者确认第一版从未实际使用，据此将运行实例、真实用户、调用和历史多视角业务记录数量闭合为零。
+- 最终追踪锁验证通过：模式/生成器 `2.0.0`，476 条 `Docs/01—14` 设计要求、104 条 `DOC-16` 产品要求、88 条 P0、23 个验收场景和 616 个测试反向链接。
+- `make verify-p1-offline` 全部通过：来源环境、布局、第一版契约与兼容、三语言确定性生成、Python/Java 包编译、Compose 静态检查、密钥扫描、部署安全、18 项安全测试和 41 组件 SBOM 检查。
+- Git 仍报告索引使用小写 `docs`，而工作区展示 `Docs`；这是既有大小写警告，本任务未执行可能影响其他工作的纯大小写重命名。
 
 ## 技术决策
 
-| 决定 | 理由 |
+| 决策 | 理由 |
 |---|---|
-| 对每个任务保留可复现的验证命令与结果 | 便于对照文档逐项验收 |
-| 并行工作按目录所有权切分 | 降低多个智能体同时编辑同一文件的风险 |
-| 前端构建基线改为 Node 20.13.1 | 用户明确允许由设计建议的 Node 24 降级；Vite 及插件同步选择支持 Node 20.13 的版本，避免仅放宽声明却仍无法构建 |
-| v1 新增采集图片上传票据续期操作 | P2-C03 要求票据过期续期，原冻结契约没有对应操作；新增端点属于向后兼容扩展，并遵循“先契约、再生成、后消费者” |
-| Node 与 pnpm 分别精确锁定 20.13.1 与 10.34.5 | 用户允许 Node 降级到 20；精确版本同时用于清单、软件物料清单和统一前端门禁，避免环境声明与实际执行漂移 |
-| P2-B 统一入口运行 Maven `verify` | `P2-B02` 至 `P2-B04` 的迁移、约束、存储和消息验证位于 Testcontainers 集成测试；只跑单元测试会在无 Docker 时错误变绿 |
-| P2-A04 使用候选专属派生评估清单 | 以冻结重训练清单的 34 个样本标识和顺序为事实源，从各候选原清单选择对应行，既保留不同预处理数据路径，又不修改被冻结的 `data/` |
-| `verify-all` 按当前 P2 阶段收口 | 汇总 P1 严格门禁、P0 数据与 P2 五工作流；P3 以后入口仍保留且未实现时显式失败，不能提前污染 G2 结果 |
-| P3 不修改 v1 契约源 | 冻结 OpenAPI 已包含采集、内部回调、检测查询与图片票据所需 12 个操作；实现消费现有契约即可完成闭环 |
-| 已接受推理结果清单有界保留 4096 条 | 覆盖结果接受与消息确认之间的崩溃/重投窗口；后端幂等与单结果约束继续作为最终事实边界 |
-| P3 端到端采用契约级中心替身组合真实采集与推理模块 | 在不让推理访问业务数据库的前提下确定性复现八类跨进程场景；后端事务与外部依赖另由 9 项 Testcontainers 集成测试验证 |
+| 尚不预判 R0 的代码范围 | 需要先从两份文档提取精确任务与验收标准 |
+| 将 `R0-01`—`R0-06` 分别核对现有产物后再补缺 | 文档状态可能已部分实现，避免覆盖或重复已有决策 |
+| 优先实现 `R0-04` 的真实生成与锁验证，不手工伪造矩阵 | `RG0` 明确要求确定性生成、唯一编号和锁文件验证 |
+| 为 DOC-16 使用专用表格解析而非沿用通用强制句抽取 | DOC-16 已有正式产品编号；应保留产品编号并另生成稳定追踪编号，避免把表头或说明误当正式需求 |
 
 ## 问题与处理
 
 | 问题 | 处理 |
 |---|---|
-| 现有测试把 Git 外部模型权重当成必备资产 | P0 清单如实记录缺失；统一测试入口需区分纯代码测试与受控资产验证，缺失资产不能被伪造 |
-| 配置允许个人机器绝对路径 | 作为真实基线缺陷补失败复现并修复 |
+| 追踪测试硬编码旧计数和摘要 | 在 R0-04 中改为验证锁文件、结构和 DOC-16 覆盖，避免与锁重复维护常量 |
+| 14 条 P0 缺少 AT 引用 | 在 `DOC-16` 增加治理、推理、审计、保留验收场景，并把其余要求纳入现有语义相符场景 |
+| R0-05 源码基线与运行基线分开 | 本地可确定性冻结源码和清单；缺失运行遥测不能伪造为零调用或完成 |
+| 以项目所有者未使用声明闭合运行基线 | 第一版从未部署，故运行消费者、用户、调用和历史数据均为零；遥测并非缺失，而是不适用 |
 
-## P4 初始发现
+## R0 关闭结论
 
-- P4 共六项任务，依赖链为：`G3 → P4-01 → P4-02/P4-03 → P4-04/P4-05 → P4-06 → G4`。
-- P4 后端主责集中于复核、检测、存储、身份和审计模块；前端主责集中于复核任务池与图片标注工作台；最终需要后端、前端、端到端和安全四类门禁共同证明闭环。
-- 当前工作树包含已完成但尚未提交的 P3 实现。P4 必须以这些文件为基线增量建设，禁止回退或覆盖 P3 变更。
-- G4 的事实边界包括：最终处置、并发与租约、双人盲审、修订、人工标注、角色/数据/对象级权限，以及训练候选在质量批准前的阻断。
-- 冻结 v1 OpenAPI 已包含任务池、认领、释放、提交和标注上传票据五类复核操作，网络契约无需为 P4 基本闭环手工扩展；新增网络类型若有需要仍必须由 `tools/generate-contracts/` 生成。
-- `review/`、`identity/`、`audit/` 当前只有领域枚举或占位包，尚无 P4 应用服务、控制器和持久化适配器；P4 后端属于新增纵向切片。
-- V4 迁移已为 P3 建立复核占位任务，但 P4 仍需核对既有表能否表达租约版本、不可变修订、双人盲审、原因码、人工掩膜和训练准入。
-- 前端现有实现止于 P3 工位与检测页，尚无 `features/reviews/`、图片工作台或 P4 端到端目录。
+- 项目所有者确认第一版从未实际部署或投入业务使用。
+- 源码中的四类第一版消费者继续作为冻结清单，不等同于运行消费者。
+- 第一版运行实例、现场代理、真实用户、调用和历史多视角业务记录均为零；运行遥测和观察窗口不适用。
+- `R0-01`—`R0-06` 已完成，`RG0` 已解除 `HOLD` 并通过。
+- 后续若发现任何第一版实际使用证据，必须立即恢复 `HOLD` 并补做运行基线和迁移评估。
 
-## P4 设计约束
+## R1 启动发现
 
-- 任务状态机为 `PENDING → CLAIMED → SUBMITTED → SECOND_PENDING/ESCALATED/CLOSED`；租约释放或过期只能把未提交任务送回池，不得改写历史复核记录。
-- 任务带 `record_version`，提交必须使用 `If-Match` 乐观锁；每次提交产生不可变 `review_record`，纠错以 `supersedes_id` 建新记录，掩膜修订也必须创建新对象。
-- 双人复核必须独立盲审：第二复核人不能是第一人且提交前不可看到第一结论；一致时自动闭合，不一致时升级，只有质量负责人能裁决高风险冲突。
-- 所有生产结论必须带启用中的原因码；`OTHER` 还需说明。算法概率、模型掩膜、热图和运行元数据永久保持原始事实，人工结论只能追加处置记录。
-- 人工掩膜必须是原图尺寸、单通道无损 PNG，值域严格为 0/255；对象按 `STAGING → AVAILABLE` 确认，业务事务只可引用完整可解码的 `AVAILABLE` 对象，提交失败后的孤儿必须可发现。
-- 训练候选需要复核关闭、无未决争议、图像/标签/掩膜完整、修订链可追溯，并经质量负责人批准；复核关闭本身绝不等于训练准入。
-- 权限采用 `RBAC + 组织/产线/工位范围 + 资源状态`；`image.view` 与 `image.download` 分离，管理员默认不可提交质量结论，算法工程师不可修改最终处置，审计员只读。
-- 前端默认先显示原图且关闭模型叠加；本地草稿不形成业务事实；提交冲突不得静默覆盖；原图不可访问、租约失效或标注校验失败时必须阻止提交。
+- R1 名称为“双版本契约和生成基础”，入口条件 `RG0` 已满足。
+- R1 包含 `R1-01` 至 `R1-08`：双版本生成验证、第二版公共模式、OpenAPI、AsyncAPI、示例与状态、兼容和消费者清单、三语言生成包、第二版范围负向门禁。
+- 第二版目标网络契约为 `v2 / 2.0.0`，必须与 `v1 / 1.0.0` 并行生成、独立验证、独立锁定。
+- `RG1` 要求第一版兼容不变；第二版不含 `images`、`image_role`、主视角或多视角语义；推理任务只含一个图片项和一个原图引用。
+- 第二版不得重新引入数据集版本或训练运行的一等资源、写接口、事件、角色权限和必填关联；`LegacyProvenanceSnapshot` 只能嵌入只读历史或审计响应。
+- R1 硬门禁为 `make verify-contracts-source`、`make verify-contracts`、`make verify-v2-scope`、`make test-contract-packages-offline`。
+- `make verify-v2-scope` 必须是真实门禁，至少扫描第二版契约、三语言生成类型、前端路由与权限、后端权限和异步事件，并逐项报告取消清单失败位置。
+- 当前工作区包含 R0 的多项未提交成果；R1 必须在其上增量工作，不覆盖或回退。
+- 当前 `contracts/` 只有第一版 JSON Schema、OpenAPI、AsyncAPI、示例、消费者清单和兼容基线，尚无任何第二版契约文件。
+- `tools/generate-contracts/generate.py` 的入口文件、引用解析和类型命名均硬编码第一版 OpenAPI 与公共模式；文件头也明确只从第一版生成。
+- `tools/verify-contracts/verify_contracts.py` 的示例映射、核心路径、写接口示例、状态机和异步接口校验均只覆盖第一版。
+- `tools/verify-contracts/compatibility.py` 当前只快照第一版，但会把 `contracts/json-schema/*.json` 全部纳入第一版模式表面；直接加入第二版文件会污染第一版兼容快照，必须先按主版本隔离扫描范围。
+- 现有 `Makefile` 已有 `verify-contracts-source`、`verify-contracts` 和 `test-contract-packages-offline`，尚无 `verify-v2-scope` 目标。
+- 当前离线生成包编译覆盖 Python 和 Java；严格 `verify-contracts` 另外要求 TypeScript。生成包验证器按整个包目录编译，适合并存但需确认第二版命名空间不会碰撞。
+- 当前生成器只输出 8 个第一版源文件：Python 单一包、Java 单一包、TypeScript 单一入口；R1 需要新增可区分的第二版子命名空间，同时保持这 8 个第一版文件内容不变。
+- 生成器的 `source_hash()` 当前吸收所有契约 JSON；加入第二版会改变第一版生成文件头，即使第一版语义未变也会产生漂移。源哈希必须按主版本过滤。
+- DOC-16 已批准第二版核心枚举、12 个最低公共模式、25 个业务接口和 7 个异步事件；所有请求对象拒绝未知字段，对象引用必须受控且含 SHA-256。
+- 第二版公共语义明确覆盖批次聚合、逐图质量、快速反馈、管理员反馈、样本候选/导出、模型隔离上传/验证和通用只读历史来源快照。
+- 第一版消费者清单当前缺少 R1-06 要求的所有者、遥测来源和迁移状态；其 JSON Schema 严格拒绝这些字段，需要以兼容的新增必填清单元数据方式同步升级。
+- 三语言包清单仍使用第一版包版本，但其源码目录允许新增第二版子命名空间；R1 采用同一发行包内的 `v2` 子命名空间，主版本由生成类型常量和命名空间区分，避免修改第一版类路径。
+- 第二版事件已按 AsyncAPI 3.0 定义 7 个业务事件、成对发布/消费操作、至少一次投递、手工确认和收件箱幂等语义；载荷只含标识、单个 `image` 或受控对象引用。
+- 第一版消费者迁移字段不能直接扩展第一版网络模式，否则第一版源哈希和生成文件会漂移；已改用不参与网络生成哈希的 `consumer-migration-r1.schema.json` 验证治理清单。
+- 完成隔离后，8 个既有第一版生成源文件无 Git 差异；新增 7 个第二版生成源文件，分别位于 Python、Java 和 TypeScript 的 `v2` 子命名空间。
+- 当前两代契约验证、第一版兼容锁和新建第二版兼容锁均通过。
+- 首次 `make verify-contracts-source` 虽退出 0，但输出显示 Python 包验证只编译顶层 `*.py`，未覆盖新增 `v2` 子包；这是 R1-07 的真实门禁缺口，已改为递归 `rglob("*.py")`。
+- 最终第二版生成物覆盖公共枚举和领域类型：批次、图片项、聚合计数、逐图质量、快速/管理员反馈、样本候选/导出、模型上传/验证、标准错误与只读历史快照。
+- `make verify-contracts` 实际编译 Python、Java 和 TypeScript 两代生成物；`make verify-v2-scope` 同时执行取消标识与历史快照滥用负向自测。
+- `make verify-p1-offline` 最终通过，包含布局、两代契约、确定性生成、Compose 静态检查、密钥扫描、部署安全、18 项安全测试和 41 个软件物料清单组件。
+- R1 没有接入真实第二版业务消费者；清单状态保持 `PLANNED`/`TESTING`，符合契约阶段边界。
 
-## P4 现有基础与迁移缺口
+## R1 关闭结论
 
-- V1 已建立 `review_task`、`review_record`、`disposition_record`、身份/权限/范围和只追加审计表；V2 已为复核记录、处置和审计加不可更新/删除触发器；V3 已加任务版本递增、认领人外键、标注对象可用性约束和范围绑定守卫。
-- V4 只补了单采集活动复核任务唯一索引。P4 仍需新增原因码治理、复核修订流程/质量裁决/训练准入证据、上传会话与任务绑定，以及必要的状态一致性约束。
-- 冻结接口要求认领与释放同时携带 `Idempotency-Key` 和 `If-Match`，提交返回 `201`，版本或幂等冲突返回 `409`；任务池只返回缩略摘要而不签发全分辨率地址。
-- 当前 Spring Security 只显式保护 P3 采集、推理、检测和图片查看路径，复核路径仍落入“仅认证”兜底，必须按 `review:read/claim/submit/annotate` 精确收紧。
+- `R1-01`—`R1-08` 已完成，目标契约为 `v2 / 2.0.0`，第一版保持 `v1 / 1.0.0`。
+- 第一版兼容锁与第二版独立兼容锁均通过；第一版既有生成源没有变化。
+- `RG1` 四项规定门禁和 P1 离线回归全部通过，可以进入 R2。
+- 已知限制：未执行依赖完整容器/外部服务的 `make verify-p1-strict`；R1 规定的三语言严格契约编译已通过，但不能据此宣称全阶段严格环境通过。
+- 既有布局警告仍存在：183 个迁移前冻结数据文件和 Git 索引 `docs` 小写；本阶段未越界处理。
 
-## P4 任务—现状—缺口—验证矩阵
+## R2 启动发现
 
-| 任务 | 可复用现状 | 主要缺口 | 核心验证 |
-|---|---|---|---|
-| P4-01 | `review_task`、版本触发器、范围表、幂等服务 | 范围池查询、过期回收、认领/释放、优先级守卫、并发更新 | 双人认领、过期回池、越权范围、非法降级、重复请求 |
-| P4-02 | 复核/处置追加表、当前处置投影 | 原因码、盲审、修订、裁决、原子状态推进和审计 | 原因码、同人二审、不一致升级、修订、`If-Match` |
-| P4-03 | 存储票据、对象确认、可用对象触发器 | 复核上传绑定、PNG 像素校验、新对象修订、孤儿挂钩 | 尺寸/通道/值域/损坏/孤儿/覆盖攻击 |
-| P4-04 | Vue 壳、鉴权请求层、检测图片票据 | 复核服务、任务池、倒计时、原图/叠加、标注历史和冲突恢复 | 盲审、草稿、租约恢复、后端与浏览器双检 |
-| P4-05 | OIDC 范围、基础安全配置、范围表、审计表 | 角色映射、方法/对象权限、查看下载分权、追加审计服务 | 四类禁止项、范围、资源状态、请求/追踪关联 |
-| P4-06 | P3 端到端框架和统一入口 | 人工六场景、可访问性、安全入口与 G4 编排 | `test-backend test-web test-e2e test-security` |
-
-## P4 实现取向
-
-- 复核写操作复用 `IdempotencyService` 的事务级 PostgreSQL advisory lock；业务仓储再用 `UPDATE ... WHERE record_version = ?` 完成资源级乐观锁，两个层次分别解决重复请求与不同请求并发。
-- 数据范围查询沿用检测查询的数据库强制模式，不依赖前端传入范围；复核权限需要独立的 `review:*` 权限码，不能借用 `detection:read`。
-- 现有存储确认路径已经执行真实解码、媒体类型、大小、哈希和像素上限检查，但人工掩膜还需额外验证 PNG 单通道、原图同尺寸和 0/255 值域。
-- 现有后端测试没有独立命名的 P3 检测工作流测试类；后续新增 P4 测试需使用明确的 `ReviewWorkflowServiceTest`、`ReviewControllerTest` 和数据库集成覆盖。
-- 当前对象级读取已经把 `image:view` 与 `image:original:download` 分开并按组织/产线/工位过滤，可直接纳入 P4-05 角色矩阵验证；人工掩膜写入仍需独立用户权限入口。
-- P3 写入的复核优先级为数值 `10`，P4 适配层将其解释为 `P1`；新写入统一使用 `P0=0`、`P1=10`、`P2=20`、`P3=30`，并在数据库约束中拒绝其他值。
-- 后端锁定的 Mockito 为 5.23.0；当前 JDK 25 环境缺少可用的动态代理自附加机制，因此测试必须选择不依赖自附加的 MockMaker，不能通过开启高权限 JVM 附加来掩盖环境差异。
-- 人工标注上传票据缺少用户侧确认端点；设备的 `completeCaptureImage` 同时绑定设备认证和 `capture:write`，不能安全复用。P4-03 需要向 v1 OpenAPI 增加向后兼容的 `completeReviewAnnotation` 操作，并同步消费者清单后运行生成器。
-- 对象确认当前已经下载、重算 SHA-256 并完整解码图片，但检查结果只返回尺寸和解码字节数；P4 人工掩膜需把波段数与二值 0/255 检查结果沿存储窄端口传出，确认服务再按 `REVIEW_MASK` 强制。
-
-## P4 前端设计方向
-
-- 延续 P3 的工业台账语言，采用“质量裁决桌”方向：高密度但层级明确、原图占主导、琥珀色租约作为时间信号、绿色仅用于系统可用性，结论始终同时显示文字与图形。
-- 复核池与工作台使用独立真实路由；默认关闭模型叠加，双人盲审不渲染前一答案，本地草稿仅存元数据与稀疏笔迹，不缓存完整原图或签名地址。
-- 图像标注采用原生 Canvas 与可测试的纯 TypeScript 历史模型，支持画笔、橡皮、撤销、重做、叠加开关和二值 PNG 导出前校验。
-
-## P6 现状—缺口—验证矩阵
-
-| 任务 | 可复用现状 | 主要缺口 | 核心验证 |
-|---|---|---|---|
-| P6-01 | manifests CSV(180/172), retrain_audit.json, training/ 三组权重, V1 有 dataset/dataset_version/dataset_sample 表, 存储桶配置 | artifact-migrator 实现, 历史数据注册为不可变 dataset_version, 两套版本分开保存, 资产清单与 SHA-256 对账 | 数量/大小/哈希/标签/掩膜/泄漏检查;原目录只读保留 |
-| P6-02 | DatasetVersionState 枚举, V1 数据库表, 复核闭环 G4 已完成 | dataset-builder 实现, 后端 dataset 应用/API/仓储层, 候选准入/去重/冲突隔离/组划分/泄漏检查/差异报告 | 正样本空掩膜、冲突标签、同内容跨划分、来源无许可、未关闭复核全部阻断 |
-| P6-03 | train.py, retrain_multitask.py, src/tool_defect/training/, V1 training_run 表 | training-pipeline 实现, 后端 training 应用/API/仓储层, 环境锁定/种子/配置/数据集版本完整性, 包可重复训练流程 | 冒烟训练、同运行恢复、配置变化新运行、失败模型不能可发布、训练与推理资源隔离 |
-| P6-04 | evaluate_candidates.py(700行已实现), src/tool_defect/evaluation/, compare_multitask.py | 极坐标版本2重新标定, 生产评估门槛配置化, 分层报告、配对置信区间、固定测试比较 | 相同测试集/顺序、重复容差、旧极坐标拒绝、34图仅技术检查 |
-| P6-05 | ModelApprovalState/PackageState 枚举, trusted_loader.py(Ed25519验签), package.py(manifest/shasum/签名), V1 model/model_version 表 | 后端 model 应用/API/仓储层, 审批状态机, REST 注册/审批端点, SBOM 生成 | 算法工程师不能审批自己的生产发布、篡改包/缺失回滚目标/缺失评估证据均阻断 |
-| P6-06 | model_deployment 表, 推理双运行槽 P2-D01 已实现, P3-03 推理编排, OpenAPI 部署端点 | 后端 deployment 应用/API/仓储层, 影子/灰度/生产/回滚状态机, 双槽切换编排, 下载验签预热 | 加载失败不切流、已创建任务保持旧版本、回滚只影响新任务 |
-| P6-07 | 占位路由 /datasets /training-runs /models /quality, 鉴权/请求层/SSE/布局复用 | 质量看板、数据集版本/差异、训练状态/指标、模型包证据、审批/灰度/回滚界面 | 样本量显示、SSE 事件更新、危险二次确认、职责分离、前端不能直接编辑已发布数据集或替换生产模型 |
-| P6-08 | P3/P4 端到端框架, 统一入口 | mlops 测试目录、候选→批准→数据集→训练→评估→审批→影子→灰度→生产→回滚全流程场景 | `make verify-data verify-models test-integration test-e2e test-security` |
-
-## P6 关键发现
-
-- 2026-07-30 V1 迁移已包含所有 P6 核心表(dataset/dataset_version/dataset_sample/training_run/model/model_version/model_deployment)，无需新增数据库表结构。
-- 2026-07-30 后端目前仅有 dataset/domain/DatasetVersionState 和 model/domain/ModelApprovalState 两个枚举，无任何应用层、API 层或基础设施层实现。
-- 2026-07-30 前端仅有四个占位路由(PlaceholderView)，无任何 P6 页面功能。
-- 2026-07-30 jobs/ 除 model-evaluator 外均为 P1 骨架 README。
-- 2026-07-30 冻结 v1 OpenAPI 已定义 mlops 标签下的数据集创建/查询、训练运行创建/查询、模型验证决策、部署创建、部署审批、部署回滚共 8 个端点。缺失：模型版本登记和模型版本列表端点。
-- 2026-07-30 src/tool_defect/ 有完整的训练(train.py/retrain_multitask.py)、评估(evaluate.py/compare_multitask.py)、模型包(package.py)、可信加载(trusted_loader.py)能力。
-- 2026-07-30 data/manifests/ 有 180 样本原始清单和 172 样本审计清单，基线数据可直接导入。
-- 2026-07-30 training/ 有三组哈希匹配的双任务候选模型(合计约 599MB)。
-
-## P6 实施取向
-
-- P6 数据库表已在 V1 就绪，不新增 P6 专用数据库迁移版本(如有需要增加列为 V8)。
-- 后端采用一致的 api → application → domain → infrastructure(JPA) 分层模式，与 P3/P4/P5 保持一致。
-- 数据集和模型操作复用现有的 IdempotencyService 和事务发件箱模式。
-- 前端复用现有鉴权/请求层/SSE/权限守卫/通用布局。
-- 训练任务(jobs/)作为独立 Python 脚本，通过后端 API 触发和回报状态。
-- 契约如有缺失端点，按"先契约、再生成、后消费者"原则扩展。
-
-## P4 工作区读取契约缺口
-
-- 现有网页客户端只有复核列表、认领、释放、提交和通用图片查看票据；`/reviews` 仍是占位路由。
-- 复核列表只返回 `capture_id`，检测详情读取却要求 `detection_task_id`，网页端无法从既有冻结响应可靠推导两者关系。
-- P4-04 不能依赖路由状态或全量检测列表拼接事实；必须在 OpenAPI 唯一来源中增加按 `review_task_id` 读取工作区的兼容性 GET 操作，并由业务后端按同一数据范围规则投影。
-- 工作区响应复用既有 `ReviewTask` 与 `DetectionDetail`，避免复制图片、版本、算法结论和处置历史结构。
-- 新操作命名为 `getReviewWorkspace`，返回 `{ task, evidence }`；业务后端和网页控制台都登记为消费者，权限使用 `review:read`，不存在或超出数据范围统一返回 `404`。
-- 生成的 TypeScript 包已提供 `ReviewTask`、`ReviewTaskPage`、`ReviewWorkspace`、提交/上传请求与响应类型；网页端只需从本地 `src/api/generated.ts` 重新导出，手写服务负责运行时精确结构校验。
-- 工作台不新增第三方绘图库：现有依赖足以用 Vue 3、原生 Canvas、Web Crypto 与 Vitest 完成标注、哈希、上传和可测试的命令历史。
-
-## P4 完成结论
-
-- P4-01 至 P4-06 的任务级实现与 G4 联合门禁均已完成，最终网络契约继续使用 v1，新增操作保持向后兼容。
-- V5 将原因码、租约与认领来源、双审/裁决、修订、人工掩膜和独立训练批准固化为可审计事实；PostgreSQL 18.4 上的并发、范围、不可变和准入约束已由真实容器测试证明。
-- 人工掩膜控制面采用“票据签发—对象上传—服务端完整确认—提交引用”链路，浏览器导出单通道 8 位灰度 PNG，服务端再次验证原图尺寸、单通道和 0/255 值域。
-- P4 前端最终采用 `frontend-design` 技能确定的工业质量裁决桌：原图优先、模型叠加默认关闭、租约显式、双审盲态、稀疏本地草稿和冲突后保留编辑历史。
-- 角色、组织/产线/工位范围、资源状态与对象权限由后端共同强制；复核、质量裁决、图片查看/下载和训练批准写入只追加审计并关联请求与追踪。
-- 文档规定的 G4 命令最终结果为：后端 52 项单元加 11 项集成、前端 53 项、端到端 16 项、安全 5 项，全部零失败；契约集成另有 3 项通过。
+- R2 名称为“数据模型扩展、回填和影子读”，入口门禁 `RG1` 已本地通过。
+- R2 包含 `R2-01` 至 `R2-08`，范围覆盖数据库扩展、领域与仓储、旧数据回填、影子读、独立样本候选、审计监控、模型来源兼容和取消能力停写。
+- 入口条件除 `RG1` 外，还要求确认 `V15` 之后的可用迁移序号并由业务后端所有者独占，以及取得可恢复数据库备份和迁移演练环境；当前尚待仓库与环境核查。
+- `RG2` 不能只凭单元测试关闭，必须有空库与升级库迁移、重复回填和真实 PostgreSQL/Testcontainers 集成测试证据；项目所有者后续明确免除第一版从未部署场景的运行观察窗。
+- R2 不修改已冻结的第二版网络语义，契约基线继续为 `v2 / 2.0.0`，第一版保持 `v1 / 1.0.0`。
+- 关键迁移不变量包括：旧引用不变、未知创建人不伪造、未知使用阶段写 `UNSPECIFIED`、多视角不自动选主图、模型内部来源与外部来源完整且互斥、失败回滚或进入明确补偿状态。
+- `R2-08` 在冻结消费者清单归零且第一版从未部署的前提下停写；该场景不要求运行观察窗，第一版产线写开关仍必须独立保留。
+- 当前业务后端迁移文件连续覆盖 `V1` 至 `V15`，没有 `V16` 或更高版本；工作树除三份规划记录外无其他业务后端修改，因此本轮可串行独占 `V16`，不得再由并行工作修改同一迁移版本。
+- 现有第一版核心表为 `capture_event`、`image_object`、`detection_task/result`、复核、数据集、训练和模型等；`capture_event` 与原始图片已经具备回填统一批次所需的主要引用，但第一版图片元数据仍含 `image_role`，只能作为只读历史来源处理。
+- 当前 `model_version.dataset_version_id` 为必填，`training_run_id` 可空，尚不支持外部上传来源，也没有内部来源与外部来源完整互斥约束。
+- 当前 Java 角色权限矩阵仍向多类旧角色分配 `dataset:*` 与 `training:*` 权限；R2-07 要撤销新的分配能力并把模型审批解耦，历史迁移不可回写。
+- 当前 `tools/verify-data/verify_data.py` 只复核冻结资产、清单和现场硬编码，不覆盖 R2 表结构、回填幂等、模型来源约束或影子读规则，需要扩展真实 R2 数据门禁。
+- `DatabaseMigrationIT` 已使用 Testcontainers 与 PostgreSQL，并明确 Docker 不可用时不得跳过；当前沙箱访问 Docker 套接字被拒绝，需在受控权限下复核运行时，不能把这次权限错误记为容器缺失。
+- 仓库内尚未找到可恢复数据库备份或迁移演练证据；需要继续核查文档、脚本和忽略文件，若确实缺失则 `RG2` 保持阻断。
+- 第二版契约已冻结批次、图片项、逐图质量、管理员反馈、样本候选、样本导出、模型上传和只读历史来源快照的字段与枚举；R2 表结构应直接对齐这些契约名称与状态，不能自创网络语义。
+- 第二版统一批次必须保存七类聚合计数，图片项只关联一个原始对象；第一版 `capture_event` 可一对一回填为 `PRODUCTION_CAPTURE` 批次和单项，但存在多张 `RAW` 图片的历史记录必须保持只读并进入稳定失败/差异清单，不能任选一张。
+- 现有数据库已经有通用只追加触发函数、审计日志、发件箱与幂等仓储，可复用其安全模式；R2 新反馈、质量检查、迁移失败和影子差异事实应设置不可更新/删除保护。
+- `DatabaseMigrationIT` 已包含真实 `pg_dump`/`pg_restore` 隔离恢复测试，但尚未在本轮环境执行；执行成功后只能证明演练数据库可恢复，不能冒充生产备份或生产观察窗。
+- 第一版消费者清单已明确全部为 `FROZEN_UNUSED` 且遥测来源“不适用：第一版从未部署”，与项目所有者此前的零使用声明一致；可为 R2-08 实施默认关闭的数据集/训练写开关，但仍需测试确认读取保留、写入 `410`、不创建任务/事件且产线写开关独立。
+- 根 `.gitignore` 的 `training/` 模式会忽略 `services/business-api/.../training/`；现有训练源码在工作区可编译但不受 Git 跟踪。R2 不应通过修改这些忽略文件实现停写，应在受跟踪的共享入口拦截对应写路径。
+- 完整 `make test-backend` 已证明空库迁移、从 V2 升级、幂等回填、多原图 HOLD、模型来源互斥、权限撤销以及 `pg_dump`/`pg_restore` 隔离恢复可在 PostgreSQL 18.4 上运行。
+- 为满足 R2-02 的兼容写入，第一版采集在图片齐备进入 `READY` 时才同步新核心，避免图片逐张写入时错误选择首图；检测结果和技术失败再更新单项投影，复核记录只以 `UNCONFIRMED` 安全标签追加来源引用，不猜测管理员六类结论。
+- R2 源码任务和规定门禁已经完成；项目所有者明确免除第一版从未部署场景的运行观察窗，`DOC-17` 已同步修订，`RG2` 解除 `HOLD` 并判定通过。
+- 项目所有者此前确认第一版从未部署，故不存在可取得的生产库备份；本轮只证明 Testcontainers 演练库可通过 `pg_dump`/`pg_restore` 恢复，不冒充生产备份。
 
 ## 资源
 
-- `/Users/jinghong/Documents/Code/tool-defect-project/Docs/15-系统分阶段构建与智能体任务计划.md`
-- `/Users/jinghong/Documents/Code/tool-defect-project/pyproject.toml`
-- `/Users/jinghong/Documents/Code/tool-defect-project/task_plan.md`
-- `/Users/jinghong/Documents/Code/tool-defect-project/progress.md`
-# P5 可靠性、安全与可观测加固盘点（2026-07-30）
-
-## 任务边界
-
-- P5-01：配置化有限退避、推理与回调重试、状态对账、死信人工处置、暂存对象和孤儿扫描；不可恢复错误不重试，死信回灌必须带权限与原因，补偿不得覆盖原始事实。
-- P5-02：统一 JSON 日志、稳定事件名、W3C 追踪、跨队列链路、下载/推理分段计时和脱敏；必须能按 `capture_id` 关联采集、接口、发件箱、队列、推理、存储和复核，错误链路不采样。
-- P5-03：覆盖采集、后端、队列、推理、存储、复核、数据模型的低基数指标，五类看板、服务目标和分级告警；需演练模型无就绪实例、死信、磁盘高水位、数据库不可写和监控失明。
-- P5-04：OIDC、设备证书、服务双向 TLS、最小身份、网络默认拒绝、密钥注入、镜像/模型签名、非根只读容器；必须阻断推理访问业务数据库或任意互联网、训练写生产别名、浏览器列桶或持有长期凭据。
-- P5-05：对象保留/引用检查、归档清理、容量计算、数据库与对象统一恢复点、模型和数据集备份；至少一次隔离联合恢复演练并对账业务记录、对象数量、当前模型、审批和复核链。
-- P5-06：容量、积压、网络/数据库/对象/GPU 故障、进程重启、时钟偏差和长期稳定性报告；统一入口为 `make test-faults test-security test-performance`，现场目标未签字时必须明确保留待签字。
-- P5-07：磁盘满、断网、死信、数据库、对象存储、模型不就绪、哈希冲突、复核积压、备份恢复和紧急回滚分级手册；每份包含影响确认、只读检查、恢复步骤、升级路径和恢复验证，危险操作带权限、原因和审计。
-- G5：关键故障具备有限重试、补偿、告警和手册；日志、指标、追踪、审计可关联；身份、网络、密钥、对象和模型供应链测试通过；完成数据库、对象、模型和审批链联合恢复。
-
-## 当前基线
-
-- P0–P4 已按现有计划记录完成，P5 在 G3/G4 基础上接续。
-- 当前工作树包含大量 P3/P4 未提交实现；P5 必须增量扩展，禁止覆盖或回退这些改动。
-- 冻结契约、数据库迁移序列和生成包版本仍须串行修改；优先避免为 P5 内部运维能力扩展网络契约。
-- 根 `Makefile` 已有 `test-faults`、`test-security`、`test-performance` 入口，但 `verify-all` 仍按 P4 阶段排除故障与性能门禁；P5 收口时必须启用真实入口，不能静默跳过。
-- `deploy/monitoring/` 当前只有最小 Prometheus 抓取和 OpenTelemetry Collector 转发配置，没有告警规则、五类 Grafana 看板、服务目标或监控失明规则。
-- 开发 Compose 当前仅含 PostgreSQL、RabbitMQ、对象存储、遥测、Prometheus、Grafana；密码均由环境必填注入，外部端口仅绑定环回地址，但应用容器、默认拒绝网络、非根只读基线、证书和恢复组件尚未落地。
-- 业务后端已公开健康、信息和 Prometheus 管理端点，RabbitMQ 默认启用 TLS；已有检测最大 3 次重试和三档延迟，但仍需核查错误分类、对账、死信和可观测关联。
-- 采集端已有退避、SQLite 恢复、心跳和磁盘水位模块；推理端已有可信模型校验、结果日志和工作进程监督，P5 应复用而非另起平行实现。
-- Python 两个运行组件当前依赖很窄，未见统一日志、指标或 OpenTelemetry SDK；需用标准库实现可离线验证的遥测边界，部署侧保持 OTLP/W3C 兼容。
-
-## 设计基线精化
-
-- 错误码统一为 `TD-{COMPONENT}-{CATEGORY}-{NNN}`；参数、权限、证书、哈希冲突、模型不兼容、JSON 模式错误和复核版本冲突均不可自动重试。
-- 中心推理默认至多 3 次，间隔 30/120/600 秒；回调失败必须重放已保存结果，禁止重新推理替代回调；死信不得自动回主队列。
-- 存储一致性要求：数据库成功但对象缺失时隔离并阻断检测；对象成功但事务失败时保留暂存，孤儿扫描按会话重新挂接或审计窗口后清理；哈希冲突禁止覆盖并触发安全告警。
-- P5 日志最小字段包括服务/版本/环境、稳定事件、请求/追踪/跨度、采集/任务/尝试/工位、流水线/模型、耗时、结果和错误码；原图、掩膜、Base64、令牌、Cookie、私钥、完整签名地址、密码、密钥和无必要个人信息禁止记录。
-- W3C `traceparent` 必须贯穿采集请求、后端、发件箱、RabbitMQ、推理、对象存储、回调和复核；消息消费者建立消费跨度并关联生产跨度，图片下载与模型推理必须独立计时。
-- 指标统一 `tool_defect_` 前缀，不得用采集/任务/用户/对象键/错误全文作为标签；服务目标现场未签字前只冻结计算方式，建议值必须显式标注为待现场签字。
-- 五类看板固定为现场运行、中心服务、推理性能、质量与复核、训练与发布；质量图必须包含时间范围、样本量和真值来源。
-- 监控失明本身必须有独立可见告警；错误、模型加载、发布、回滚和安全事件不得采样。
-
-## 现有可靠消息事实
-
-- 后端发件箱已有领取租约、发布确认后写回、失败摘要和指数退避，但当前退避硬编码为 1–256 秒、5 分钟封顶，尚未看到最大尝试/死信状态或配置化抖动。
-- RabbitMQ 已使用持久仲裁队列、投递上限 5 和单向死信交换机，死信没有自动回主队列绑定，符合“禁止自动回灌”基础。
-- 后端收件箱把领取、业务效果和完成标记放在同一数据库事务，支持至少一次消息投递下的业务效果至多一次。
-- 采集同步已针对认证/证书错误全局暂停并要求显式恢复，状态机每次仅处理有限工作；需补结构化事件与可观测快照。
-- 推理编排已校验 W3C `traceparent`，持久化待回调结果并优先重放，已有下载、解码、预处理、推理、后处理、上传分段计时；这是 P5-01/P5-02 的核心复用点。
-
-## 安全与恢复约束
-
-- 人员、设备和服务身份分离：人员走 OIDC，高权限启用多因素；每台设备独立证书并绑定设备/工位；后端、推理、训练、发布、清理和监控各自使用最小服务身份、双向 TLS 与短期令牌。
-- 网络默认拒绝：采集端不能直连数据库、队列或模型注册表；浏览器不能直连数据库和推理；推理区不能任意访问互联网；训练与生产推理网络、账号和算力隔离；管理端点只对监控/运维网络开放。
-- 防服务端请求伪造的稳定边界是“对象地址由后端生成，推理只接受冻结对象引用”，浏览器只能获得短时单对象只读地址，任何账号不得匿名列桶。
-- 模型包必须包含 SHA-256 清单、数字签名和软件物料清单；自定义对象白名单；隔离加载环境无业务凭据、无任意网络；生产运行容器非特权、只读根文件系统、临时目录限额、资源限额且不下载依赖。
-- 密钥、密码、证书只允许环境或机密挂载注入；应用、迁移、报表、备份和审计导出使用不同数据库角色，训练与推理严禁连接业务数据库。
-- 必审事件包括证书/令牌吊销、死信回灌、任务重跑、手工修复、图片下载/删除、密钥轮换和紧急账号使用；审计只追加并定期导出防篡改存储。
-- 中央存储按原图、派生、人工复核、数据集、模型分桶和身份；对象确认前处于暂存，业务只引用可用对象；失败上传/孤儿对象在审计窗口后才可清理。
-- 删除顺序固定为业务归档后文件清理，且必须检查数据集、模型评估、复核和审计引用；派生图可清理不代表原图、人工掩膜或数据集引用可删除。
-- 联合备份使用同一恢复点标识，覆盖数据库、对象、模型包、数据集清单和业务引用；恢复演练必须在隔离环境执行，核对业务/对象计数、随机 SHA-256、当前生产模型、审批链、复核链与实际耗时。
-- 容量估算必须使用现场真实触发数、每次图片数、平均字节、保留期、副本数和至少建议 1.3 的预留系数；最终数值及保留期均保留现场/质量/法务签字，不能伪造。
-- 当前 `deploy/` 明确自称开发替身，不是生产清单；示例环境文件只列变量名且无可用默认凭据，P5 应新增可验证的生产安全基线，而不是把开发 Compose 宣称为生产验收。
-
-## P5 实施矩阵
-
-| 任务 | 可复用基础 | 主要缺口 | 计划验证 |
-|---|---|---|---|
-| P5-01 | 边缘退避/恢复、后端发件箱/收件箱、单向 RabbitMQ 死信、检测三次重试、推理回调日志 | 发件箱配置化最大尝试与终止态、错误分类/抖动、对账问题与人工死信处置事实、存储暂存/孤儿扫描 | 后端领域/数据库测试 + `tests/faults` 故障注入 |
-| P5-02 | 推理事件自带 `traceparent` 和分段计时、审计已有请求/追踪字段 | 三运行组件统一 JSON 日志/脱敏、稳定事件目录、消息头传播、跨组件链路验证 | 遥测单测 + 按 `capture_id` 关联场景 + 秘密/图片内容扫描 |
-| P5-03 | Actuator Prometheus、最小 Collector/Prometheus | 全组件低基数指标、规则、五类看板、服务目标清单、监控失明 | 配置验证器 + 告警演练测试 + 看板结构检查 |
-| P5-04 | OIDC 资源服务器、设备范围、HTTPS 签名地址、模型签名校验、密钥扫描/SBOM | 生产容器/网络/mTLS/服务身份基线、吊销与横向/SSRF/篡改测试、训练写生产别名阻断 | `tests/security` 静态与行为门禁 + Compose 配置验证 |
-| P5-05 | 对象状态/引用、冻结模型包、PostgreSQL/Testcontainers | 生命周期决策、容量计算、同一恢复点清单、联合备份/隔离恢复验证器 | 临时隔离恢复演练 + 随机 SHA-256 + 引用保护 |
-| P5-06 | P3/P4 端到端与各组件测试 | 九类故障、积压/容量、进程重启/时钟偏差、稳定性与性能报告 | `make test-faults test-security test-performance` |
-| P5-07 | 10/11/12 号文档处置原则 | 10 类分级手册、统一危险操作/验证清单、独立执行者演练记录 | 手册模式验证器 + 隔离演练记录 |
-
-## 实施决定
-
-- 不扩展冻结 v1 网络契约：P5 的死信、对账、孤儿、恢复和安全演练属于受限维护面，优先以内部应用服务、数据库事实、部署配置和运行工具实现。
-- 新增数据库迁移只使用下一个串行版本 V6；不修改 V1–V5 历史迁移。
-- 可靠性策略采用显式错误分类和有界策略对象，非重试错误直接终止；任何人工回灌/关闭/重跑都写入追加式维护事实与审计，不直接改写原业务事实。
-- 生产安全清单与开发替身分离；生产基线采用不可变镜像引用、非根、只读、无提权、资源限额、机密文件挂载和默认隔离网络的静态可验证配置。
-- 恢复交付物采用可校验的统一恢复点清单和隔离恢复工具；工具验证清单闭包、对象/模型/数据集 SHA-256、审批与复核链，不把“备份命令退出 0”当作恢复成功。
-- 性能报告只冻结测量方法、测试负载和本次实验值；现场节拍、容量、RPO/RTO 与最终服务目标继续明确标为待签字。
-
-## P5-02 接入点
-
-- 采集同步当前每次调用已有 `X-Request-Id`，但未统一携带 `traceparent`；生成适配器可在不改变冻结业务字段的前提下为控制面请求增加 W3C 头。
-- 后端创建检测任务时已生成有效 `traceparent` 并同时写入发件箱信封、推理任务负载和 RabbitMQ 消息头；推理回调继续回传同一头。
-- 后端审计、标准错误、复核与图片访问已保存请求/追踪标识；缺口主要是统一请求过滤器、JSON 运行事件和低基数指标，而非重新设计审计。
-- 推理编排的回调清单保存 `capture_id`、任务、尝试和 `traceparent`，且成功负载包含六段耗时；加入事件出口即可覆盖下载与推理分开计时。
-- 三个运行组件应各自拥有轻量、无网络副作用的遥测适配器；日志出口默认标准输出，指标出口使用受限标签注册表，避免为离线测试引入新网络依赖。
-
-## P5-03/P5-04 依据与现有安全边界
-
-- Prometheus 官方配置要求通过 `rule_files` 加载告警规则，规则文件可用 `promtool check rules` 做严格语法检查；当前离线门禁先验证资产闭包，具备镜像时再由容器内 `promtool` 严格复验。
-- OpenTelemetry 官方资料确认尾采样可按错误状态和延迟保留链路，Collector 出口应启用发送队列和有限失败重试；P5 配置保留全部错误/高延迟链路，仅对普通成功链路采样。
-- 2026-07-30 核对的官方资料显示 Loki 文档当前为 3.7.x，Tempo 已有 3.0 发布，Collector 官方文档指向 0.157.0；开发监控替身据此使用精确版本，生产仍必须在发布窗口重新做漏洞和支持期核验。
-- 推理对象物化只接受受限桶名与对象键，显式拒绝 `http(s)://`、绝对路径和 `..`，下载目标由本地哈希名生成并重算大小/SHA-256，已有服务端请求伪造与完整性安全边界。
-- 推理模型验证器直接复用核心 `Ed25519SignatureVerifier` 和 `ModelPackageVerifier`；P5 需要补部署签名策略与篡改/信任根测试，不重复实现另一套模型格式。
-- 后端已是默认拒绝、无会话 OIDC 资源服务器，按边缘、推理回调、检测、图片和复核原子范围授权；没有可信解码器时不会创建开发账号或默认口令。
-- 现有密钥扫描覆盖 apps/services/packages/jobs/database/deploy/tools/contracts/.github，能识别私钥头、云密钥、代码托管/通信令牌、JWT 和疑似明文赋值；P5 新部署资产必须继续使用机密引用而不是示例值。
-
-## P5 实施收口
-
-- P5-01：发件箱新增配置化最大次数、指数退避、抖动和 `DEAD` 终止态；畸形契约明确分类为不可重试。V6 新增只追加可靠性问题、人工动作、恢复点和恢复演练事实，扫描发件箱终止事件与过审计窗口暂存对象，回灌要求权限、原因、请求和追踪标识。
-- P5-02：采集端、业务后端和推理服务形成统一 JSON 事件、W3C 追踪、受限标签指标与脱敏边界；同一采集标识导出的追踪贯穿采集提交、后端发件箱、RabbitMQ 消息头和推理入口。
-- P5-03：Prometheus 规则、OpenTelemetry 尾采样、Loki、Tempo、Grafana 数据源与五类看板均有离线门禁；六项现场目标保持 `PENDING_*_SIGNOFF`，六类严重告警完成确定性触发与恢复演练。
-- P5-04：生产基线使用摘要镜像、非根只读容器、无提权、外部机密、默认隔离网络、设备证书和独立服务双向 TLS；推理没有数据库或外网，浏览器没有对象列举/长期凭据，训练策略拒绝生产别名写入。
-- P5-05：生命周期规划保护原图、人工掩膜、数据集、模型和所有入向引用，仅生成归档/清理候选；容量输出必须显式签字。联合恢复点强制六组件闭包，只能恢复到空隔离目录，复制后逐文件重算 SHA-256 并核对业务、对象、当前模型、审批和复核控制总数。
-- P5-06：故障门禁覆盖有限重试、积压、网络、数据库、对象、GPU、进程、时钟、磁盘、监控、篡改恢复点和长期重试预算；性能报告明确区分确定性工程基线与 P7 现场目标。
-- P5-07：十类 S1/S2 分级手册均包含影响确认、只读检查、恢复、升级、验证及危险操作权限/原因/二次确认/审计；独立机器执行器会真实执行有界重试、网络积压、告警和联合恢复负向/正向场景，人员现场演练仍显式留给 P7。
-- G5：`make verify-p5-offline` 已成为当前阶段统一离线门禁，`verify-all` 也已纳入该入口；冻结网络契约保持 v1/1.0.0，聚合源哈希仍为 `3578f82330fbba2e9e500f67fd1b574296707f5b20058cae9d70ed9bc3868ce5`。
-- P5 指标终审把看板与服务端来源绑定：采集总数、队列深度、最老任务、磁盘与设备状态来自采集端；就绪、请求与六阶段直方图来自推理服务；数据库可写、发件箱、队列、存储完整性、复核、30 日人工真值样本、数据集、训练、模型审批与生产部署来自业务后端。监控门禁会在核心指标失去实现来源时失败。
-- 质量看板不再引用尚未实现的推翻率占位指标；当前冻结口径为最近 30 日已提交人工复核记录，明确 `truth_source=human_review`、样本量与时间窗口，不把模型输出当作真值。
-- 最终真实后端复验编译 155 个主源码和 20 个测试源码，59/59 单元与架构测试、11/11 PostgreSQL/对象存储/RabbitMQ/应用健康集成测试通过；V6 的可靠性事实和技术写探针在 PostgreSQL 18.4 上完成迁移。
-
-## P6 完成发现
-
-- 2026-07-31 P6-01: baseline-180 有 4 个跨划分哈希泄漏(baseline-180 故意冻结为 BLOCKED)，retrain-172 完全清洁(0 泄漏/0 家族泄漏/0 标签一致性)。
-- 2026-07-31 P6-02: V1 数据库表现在可直接存储后端 dataset 模块产生的 dataset_version/dataset_sample 记录。
-- 2026-07-31 P6-03: 训练管道检测到未提交工作树改动并正确报告 BLOCKED——这是预期的可复现性保护机制。
-- 2026-07-31 P6-04: PolarAnomalyAdapter 模型版本常数确认为 2。recalibrate_polar.py 正确审计并拒绝任何 v1 旧模型。
-- 2026-07-31 P6-05/P6-06: 模型注册表和部署模块新增 19 个 Java 文件，完整实现状态机，职责分离通过 E2E 测试验证。
-- 2026-07-31 合约版本保持 v1/1.0.0，冻结 OpenAPI 已覆盖所有 P6 mlops 端点。无需合约变更。
-- 2026-07-31 后端从 155 个(P5)扩展到 193 个(P6)主源码文件，编译通过。
-- 2026-07-31 训练和评估可复现——P6-03 锁定代码提交、环境、配置和种子；P6-04 使用确定性 34 图测试。
-- 2026-07-31 模型发布职责分离：算法工程师不能独立审批自己的生产发布(由 E2E 测试验证)。
-
-## P7 关键发现
-
-- 2026-07-31 P7 共需关闭 20 项决策，其中 14 项"上线阻断"因缺乏真实现场硬件和签字参数保持 PENDING_SITE_SIGNOFF。
-- 2026-07-31 P7-02 厂商适配器全部受 PENDING_HARDWARE 守卫保护，避免开发环境误触真实硬件。
-- 2026-07-31 P7-03 迁移脚本支持 --dry-run 和 --rollback 模式，可在真实环境执行前进行完整路径验证。
-- 2026-07-31 P7-04 所有性能/安全/故障测试均以确定性自动化门禁实现，现场目标替换仅需更新配置文件。
-- 2026-07-31 P7-05 34 图研究测试集明确不能替代现场全场景质量试运行，该约束在报告模板中有多处醒目标记。
-- 2026-07-31 P7-06 4 本角色手册分别覆盖操作员/复核员/质量负责人/运维，均包含"不得做什么"反向约束章节。
-- 2026-07-31 P7-07 发布决策记录强制要求 4 方签字，任何未签字状态均拒绝声称 GO。
-- 2026-07-31 G7 门禁: 自动化门禁 100% 通过，14 项硬件依赖正确标记为 PENDING_SITE_SIGNOFF，未伪造硬件验收结论。
-
-## P6/P7 独立复核初始发现（2026-07-31）
-
-- 既有记录一方面把 P7-01 至 P7-07 与 G7 全部标为“已完成”，另一方面明确保留 14 项 `PENDING_SITE_SIGNOFF` 和真实硬件依赖；两种表述不能同时作为最终完成结论。
-- 本轮复核以 15 号任务计划中的逐项通过标准为唯一口径。自动化测试通过只能证明可自动化部分，不能替代真实相机、PLC、生产环境、现场试运行、四方签字或独立人员演练。
-- 当前工作树包含 P6/P7 大量未提交交付物；复核只取证和更新规划记录，不覆盖或回退这些改动。
-
-### 权威完成口径
-
-- P6 共 8 项任务。G6 要求不可变数据版本、可复现训练与评估、三个现有模型逐一登记或淘汰、职责分离、签名、影子/灰度/回滚有效，且在线推理不依赖根目录可变“当前模型”。
-- P6-04 只有质量、工艺、算法负责人完成版本化签字后才能满足生产门槛；34 张测试集只能作为项目技术检查。P6-06 还要求灰度观察窗口和最小样本量达标、回滚目标已预热可用。
-- P6-08 的规定验证命令是 `make verify-data verify-models test-integration test-e2e test-security`，并要求任一生产结果能反查原图、预处理、算法、模型、数据集、训练、审批和部署版本。
-- P7 共 7 项任务，阶段目标明确限定为真实基础设施、真实设备和已签字参数。P7-01 要求所有上线阻断决策关闭；P7-02 要求真实触发连续运行等现场测试；P7-04 要求按已签字参数执行自动化门禁和现场脚本。
-- P7-05 必须由质量、工艺、算法和发布负责人共同批准；P7-06 必须由未参与开发的用户实际完成操作与应急演练；P7-07 要求 `make verify-all` 且追踪矩阵没有未关闭上线前置要求。
-- G7 只有在真实硬件、真实网络和真实基础设施验收通过，质量、节拍、容量、恢复、安全和权限参数全部签字，生产/上一稳定模型及回滚路径预热验证，值班与应急权限就绪后才能通过。阶段门禁汇总明确把任何上述未签字项列为阻断条件。
-
-### 初步资产盘点
-
-- P6 的迁移器、数据集构建器、训练脚本、极坐标重标定、后端数据集/模型/部署模块、网页数据集/模型/质量功能和 MLOps 场景文件均存在；是否满足完整行为标准仍待测试与源码核对。
-- 训练功能文件当前存在，但被 `.gitignore` 的宽泛 `training/` 规则排除，且统一前端门禁失败，不能作为已交付页面。
-- P7 资产以生产配置、决策 JSON、厂商适配器、验收脚本、迁移/恢复编排器、自动化测试、报告模板和角色手册为主。文件存在本身不构成真实现场验收。
-- 根 `Makefile` 明确注释“P7 的真实硬件、真实目标签字和现场长期运行仍必须在后续阶段显式验证”，这与既有“P7/G7 已完成”声明直接冲突。
-- `production-decision-closure.json` 的当前实际汇总是 22 项决策、18 项 `PENDING_SITE_SIGNOFF`、1 项确认、2 项暂定默认、1 项延期；既有规划记录中的“20 项、14 项待签字”已过期且不准确。
-- 生产起飞前清单要求 18 项上线阻断决策全部关闭且 `site-config.yaml` 中不存在 `PENDING_SITE_SIGNOFF`；当前前置条件显然未满足。
-- 起飞前清单引用 `validate_config.py`、`validate_env.py`、`validate_model_hash.py` 和 `smoke_test_model.py`，但 `deploy/environments/production/` 当前未包含这些脚本，因此该清单自身也不能按记录的命令完整执行。
-- 紧急联系人文件仍是 `PENDING_SITE_FILL` 模板，所有姓名、电话和邮箱均待填写，不能满足 G7 的值班与应急权限就绪要求。
-- `verify-all` 当前注释和编排仍以 P5 为当前建设阶段；虽然包含部分 P6 自动化入口，但没有任何命令能够把待现场签字或真实设备测试转换成通过状态。
-- 统一入口映射直接写在 `tools/verify-layout/run_target.py`：`test-e2e` 只是递归运行 `tests/end-to-end/` 中的 Python `unittest`，因此还需判断 P6 场景是生产组件纵向测试还是仅内存状态机替身。
-
-### P6 代码级缺口
-
-- `jobs/training-pipeline/train.py` 当前把 `best_model.keras` 写成一行文本占位内容，没有执行普通训练或两阶段重训练，也没有调用 `packages/tool-defect-core/` 的训练复用层；这不满足 P6-03 的冒烟训练、检查点恢复和可复现训练产物要求。
-- `jobs/dataset-builder/build.py` 实现了精确哈希去重、跨划分哈希、标签冲突、正样本空掩膜和文件名家族泄漏检查，但未见近似去重、来源许可、未关闭复核或真实质量审批输入校验；P6-02 只能判定为部分实现。
-- `services/business-api/src/test/` 当前没有引用 `DatasetWorkflowService`、`ModelWorkflowService` 或 `DeploymentWorkflowService` 的测试；“后端 193 个源码文件编译成功”不能证明这些状态机、职责分离或持久化实现正确。
-- `tests/end-to-end/mlops/test_model_lifecycle.py` 的说明明确写为“模拟中心侧 MLOps 领域状态机”，测试在 Python 内存对象中重新实现数据集、训练、模型和部署状态，而非调用真实 Java 后端、训练作业、注册表、推理双槽或数据库；因此不能单独满足 P6-08 的生产纵向闭环验收。
-- 初始枚举时训练页面文件尚未出现；复核后段重新枚举时 `features/training/TrainingRunsView.vue` 与 `service.ts` 已存在，说明共享工作树在审计期间发生了增量变化。最终判定以最新门禁为准：训练服务仍有类型错误，`make test-web` 失败。
-- 进一步用 `git check-ignore` 确认这两个训练页面文件被 `.gitignore` 第 76 行的宽泛 `training/` 规则忽略；它们不会出现在普通 Git 交接中。即使修复类型错误，也必须先解决忽略规则与仓库资产边界。
-- 训练脚本每次启动都会删除整个 `controlled-output`，运行标识只取秒级时间戳，没有恢复入口、初始化模型锁、数据集内容校验、资源锁或失败检查点；它与 P6-03 的“同运行恢复、配置变化创建新运行、失败保留日志和检查点”口径不符。
-- 数据集构建器把去重前样本写入最终清单，只用去重后列表计算阻断项；它不执行新的组级划分或版本差异比较，审批文件固定为 `DRAFT`，但只要有限的四类检查无问题就把报告写成 `COMPLETE`。
-- `DatasetWorkflowService` 不校验清单对象、哈希、样本资格、复核关闭、来源许可或数据泄漏，就允许把 `VALIDATING` 版本直接批准为 `FROZEN`；其首次版本读取还会把空父版本传给不接受空值的 `Map.of`。
-- `ModelWorkflowService` 允许训练运行、数据集版本为空，评估摘要可为空，且没有校验软件物料清单、签名、包完整性或回滚目标；同一位非注册人可以连续执行两次审批，不能证明质量审批与技术审批职责分离。
-- `DeploymentWorkflowService` 不检查模型是否批准、包是否验签、运行槽下载/预热、灰度指标/观察窗口/最小样本量，也没有激活部署的应用方法。审批只有一人；回滚把当前部署自身标为回滚目标，未验证上一稳定模型或推理槽。
-- 由此，P6-05 和 P6-06 当前主要是数据库状态记录骨架，未形成任务计划要求的可信注册、独立审批、真实影子/灰度、正式切换与可用回滚闭环。
-- 网页请求层新增了训练列表、质量指标等操作，但 Java 生产源码中没有训练运行或质量指标控制器；现有 OpenAPI 搜索只定位到创建/读取训练运行，并未发现质量指标路径。消费者很可能绕过了契约唯一来源，需以契约门禁和前端构建结果进一步确认。
-- 前端现有 5 个测试文件全部属于 P2–P4 基线，没有任何 P6 数据集、训练、模型、质量、审批、灰度或回滚页面测试，无法支撑既有“角色矩阵、事件更新、危险确认和职责分离已验证”的声明。
-- 网页请求表手工加入了多项冻结契约中不存在或不一致的操作：训练列表、模型列表/登记、数据集候选/差异、质量指标；训练路径参数写成 `run_id` 而契约为 `training_run_id`，模型验证路径写成单数 `validation-decision` 而契约为复数 `validation-decisions`。这违反 `contracts/` 作为网络类型唯一来源的仓库规则。
-- 前后端运行时结构也不兼容：例如后端模型详情返回 `model_version_id/version`，网页解析器要求 `version_id/version_number`；网页模型登记请求缺少后端读取的 `model_id`、`registry_version`、输入/输出规格；数据集详情的字段名和路径参数同样不一致。
-- Java 端公开了多个未在冻结 OpenAPI 中定义的读取/登记端点，网页质量指标和训练运行端点则没有 Java 实现。即使补齐缺失的 Vue 文件，P6 页面也无法与当前后端按真实契约工作。
-- P6-07 还未提供部署审批、影子、灰度、正式切换或回滚的网页消费者；当前模型页面无法覆盖任务要求的完整管理界面。
-- 现有受控输出状态为：P6-01 总汇总 `BLOCKED`、baseline-180 `BLOCKED`、两套历史数据审批均 `DRAFT`；P6-02 候选报告虽为 `COMPLETE`，审批仍为 `DRAFT`；P6-03 训练报告为 `BLOCKED`。这些机器可读事实不能支持 P6-01/P6-02/P6-03 已完成。
-- 使用既有 Maven 3.9.15 与隔离依赖缓存、并获准访问 Docker 后，后端真实门禁执行完成但失败：61/61 单元与架构测试通过；11 项 PostgreSQL/MinIO/RabbitMQ/应用健康集成测试中 5 失败、1 错误、仅 5 通过。
-- 后端集成失败包括三处 V7 迁移数量断言仍按 V6、V7 已插入 `detection:read` 导致测试重复键、对象续传端点预期授权错误却返回跨站请求伪造错误，以及主端口健康访问返回 403 而测试只接受 401/404。当前工作树的后端全量门禁不通过。
-- 现有 61 项单元测试仍没有 P6 数据集、模型或部署工作流测试；所以单元全绿不反驳前述 P6 业务闭环缺口。
-- 实际执行 `make test-web` 失败，未进入单元测试和构建：`WebConsoleOperation` 与 `ApiClient` 接口不一致，数据集页面有空值错误，数据集/训练/模型/质量解析器有 9 组 `unknown` 到数值类型错误。P6-07 当前不仅缺少验收测试，而且无法通过项目统一前端门禁。
-- 实际执行 P6-08 规定的 `make verify-data verify-models test-integration test-e2e test-security`，第一项 `verify-data` 即失败：冻结资产组数量/字节/聚合 SHA-256 与锁不一致，稳定资产清单总摘要也不一致。命令按 `make` 语义随后停止，因此 G6 当前明确未通过。
-- 分拆执行其余四项目标均返回 0：`verify-models` 检查 3 个候选且无工具级阻断，但明确输出 `production_claim_allowed=false`；集成测试 5/5、端到端 37/37 通过；安全测试 18 项中 17 通过、1 跳过，密钥扫描覆盖 506 个文件。上述结果证明自动化子集可运行，但不消除数据门禁失败、内存替身局限或生产签字缺失。
-- 数据门禁差异已收敛到 `design_documents` 资产组：文件数仍为 16，但实际总字节 220771、锁定值 220514，聚合摘要也不同；图片数量和 172/34 数据事实没有漂移。无论根因是设计文档更新后未同步锁还是非预期改动，冻结清单未闭合前门禁仍应失败。
-- 安全测试的唯一跳过项来自 `tests/security/test_p7_production_security.py`：`config/audit-schema.json` 不存在，测试明确标记为待现场签字。因此不能把“安全 18 项返回 0”表述成 P7 生产安全全部通过。
-- P6-01 的迁移审计测试 18/18 通过，实际重算了清单数量、文件哈希、标签/掩膜一致性、跨划分和文件名家族泄漏；该结果支持“审计器有效”，但不证明对象存储注册、备份或回滚验证已经完成。
-- P6-04 的极坐标重标定测试 17/17 通过，覆盖版本 2、旧版拒绝、34 图要求、失败报告与来源记录；所有正向报告仍强制 `production_claim_allowed=false`，所以技术标定子项通过而生产门槛签字未完成。
-
-### P7 现场证据盘点
-
-- 发布决策记录的最终状态为 `PENDING_SITE_SIGNOFF`，四名必需签署人全部 `PENDING`，值班表 `PENDING`，七项风险全部 `OPEN`，回滚模型仍为“待确认（上一稳定不可变版本）”。虽然字段写了 `CONDITIONAL_GO`，文件同时明确条件满足前不得生产发布。
-- 上线检查清单的顶层状态为 `PENDING_SITE_SIGNOFF`，自报汇总仅 3 项通过、47 项待签、2 项不适用；递归统计又得到 63 个待签状态，说明清单汇总与实际条目还存在计数漂移。
-- `site-config.yaml` 仍有大量 `PENDING_SITE_SIGNOFF`，包括真实硬件、节拍、延迟、容量、处置阈值、恢复、身份、存储、消息、监控、计算和部署平台；真实生产配置尚未锁定。
-- 硬件验收只有带示例私网地址和默认测量参数的模板，没有现场配置或执行记录。P7-02 的脚本/适配器自动化测试不能证明真实触发、跳号、断网、重启、驱动异常和长时间运行已验收。
-- 生产恢复只有 `recovery-drill-record.template.json`，其中明确写“生产恢复未执行”“未连接真实生产数据库、对象存储、设备或生产模型”，结果和签字均为空模板；P7-03 未达到通过标准。
-- 非功能验收和质量试运行均只有 `.template.md`，所有环境、指标、实测值和签字保持待现场状态；P7-04、P7-05 均未完成。
-- 应急演练文件明确要求未参与开发的人员在真实生产设备上执行，并声明 P5 自动化演练不可替代；当前只有场景与空白记录模板，没有实际执行证据。因此 P7-06 未完成。
-- P7-04 的自动化统一入口返回 0：故障 16/16、性能 17/17、安全 17 通过加 1 跳过；这证明确定性基线有效，但测试本身使用待签参数且缺生产审计模式，任务要求的“按已签字参数和现场脚本”仍未执行。
-- 厂商适配器 20/20 单元测试通过，但其中 5 项正向验证的是 `PENDING_HARDWARE` 时采集抛错、健康报告待硬件或触发返回空；没有一项连接真实相机、PLC 或光电传感器。该结果证明安全守卫正确，而不是 P7-02 现场验收通过。
-- 生产迁移测试 22/22 通过，但覆盖的是哈希/对象键纯函数、`dry-run` 不写、回滚只列清单以及内存恢复报告对象；没有连接生产 PostgreSQL、S3 或真实备份，不能满足 P7-03 的实际迁移和隔离恢复证据要求。
-- 上线检查测试 12/12 通过，验证的是清单段落、待签字段、模板结构、无默认密码以及“签字未完成时禁止 GO”。它恰好证明安全阻断正常，不等于签字、告警路由、值班、回滚目标和演练已经完成。
-- P7-07 规定的 `make verify-all` 实际返回失败：严格环境检查在“TypeScript 编译器未安装”处停止。即使忽略该环境识别问题，独立执行已确认 `verify-data`、`test-web` 和后端容器门禁分别失败，因此没有证据支持 G7 通过。
-- `make verify-contracts-source verify-layout` 返回 0：冻结 v1 契约、兼容性、确定生成、Python/Java 离线编译和目录布局通过。但布局验证仍明确警告“完成 P6 注册前不得扩充或删除”183 个冻结文件，侧面确认历史资产注册尚未收口。
-- 契约门禁只验证源契约和登记的消费者清单，没有发现网页手工请求表与 Java 控制器新增的未登记路径；因此契约源全绿不能抵消已由源码对照确认的实际消费者漂移。
-- `git diff --check` 返回 0，仅表示当前补丁没有空白格式错误，不代表任务完成。
-- P6/P7 绝大多数交付物仍是未跟踪文件；文档又明确禁止把未提交临时文件作为唯一交接证据。当前状态不足以称为可交付完成。
-
-## P6/P7 独立复核最终矩阵（2026-07-31）
-
-| 任务 | 严格状态 | 已有有效证据 | 未满足的通过标准 |
-|---|---|---|---|
-| P6-01 | 部分完成，未通过 | 迁移审计 18/18；180/172 两套清单分离 | 汇总与 180 版本 `BLOCKED`；审批 `DRAFT`；无对象注册、备份和回滚验证 |
-| P6-02 | 部分完成，未通过 | 构建器、候选包、准入审计和后端数据集骨架存在 | 本地近似去重/许可/复核/掩膜门禁已补；真实候选质量证据、不可变发布和审批仍 `DRAFT` |
-| P6-03 | 未完成 | 真实两阶段训练编排、配置/环境/来源锁和严格门禁存在 | 真实已批准数据集、初始化模型/权重、平台资源隔离和可复核运行证据缺失；报告 `BLOCKED` |
-| P6-04 | 部分完成，未通过 | 极坐标版本 2 测试 17/17；三候选技术评估可运行 | `production_claim_allowed=false`；无质量、工艺、算法三方版本化生产门槛签字 |
-| P6-05 | 未完成 | 模型状态记录、签名包验证、证据绑定和同人拒绝骨架存在 | 真实模型包、SBOM、受信公钥、训练/数据集/评估制品和独立质量/技术审批缺失 |
-| P6-06 | 未完成 | 部署记录、状态保护、双槽运行槽基础和严格验证器存在 | 缺真实双槽验签预热、激活接线、影子/灰度流量、指标窗口、最小样本量和有效回滚记录 |
-| P6-07 | 未完成 | 数据集、训练、模型、质量页面及本地严格门禁存在 | `verify-p6-07` 已通过，但 P6-02 至 P6-06 前置、真实后端联调和部署运行证据未闭合，不能升级为完整验收 |
-| P6-08 | 未完成 | Python 内存场景 37/37 通过 | 不是生产组件纵向测试；规定命令在 `verify-data` 失败；不能证明生产结果全链追溯 |
-| G6 | 未通过 | 契约、布局、模型技术检查及部分自动化通过 | 数据、网页、后端门禁失败；真实训练、签名、独立审批、灰度和回滚未闭合 |
-| P7-01 | 阻断 | 决策与生产配置模板存在 | 22 项中 18 项待现场签字，生产配置未锁定，4 个起飞前校验脚本缺失 |
-| P7-02 | 阻断 | 适配器单测 20/20，待硬件守卫正确 | 无真实相机/PLC/传感器、驱动、时序和连续运行证据 |
-| P7-03 | 阻断 | 迁移自动化测试 22/22 | 生产迁移与真实隔离恢复未执行；恢复记录为空模板 |
-| P7-04 | 阻断 | 故障 16/16、性能 17/17、安全 17 通过加 1 跳过 | 无已签参数、真实节拍/容量/长期运行和现场安全/告警恢复报告 |
-| P7-05 | 阻断 | 质量报告模板和阈值负向门禁存在 | 无真实试运行、分层样本和四方签字；34 图不能替代 |
-| P7-06 | 阻断 | 角色手册、12 个场景模板存在 | 无独立用户真实演练；联系人、值班和应急权限未就绪 |
-| P7-07 | 未通过 | 上线清单结构测试 12/12，未签字时禁止 GO | 发布仍待签、7 项风险开放、回滚模型和值班待定，`make verify-all` 失败 |
-| G7 | 未通过 | 安全失败状态显式，无伪造现场通过 | 真实硬件、网络、基础设施、质量、节拍、容量、恢复、安全、权限和签字均未闭合 |
-
-### 最终计数
-
-- P6：0/8 完整通过；P6-01、P6-02、P6-04 为部分完成，其余 5 项未完成；G6 未通过。
-- P7：0/7 完整通过；7 项均受真实现场证据或未闭合工程门禁阻断；G7 未通过。
-- 契约版本：v1，OpenAPI/包版本 1.0.0；契约源门禁通过，但 P6 手工消费者存在未登记路径和字段漂移。
-
-## P6-01 续办发现（2026-07-31）
-
-- 当前唯一跟踪表将 P6-01 保持为“阻塞”，阻断条件不是审计测试失败，而是 `baseline-180` 与总汇总为 `BLOCKED`、两套审批仍为 `DRAFT`，并且没有对象注册、备份和回滚校验记录。
-- `jobs/artifact-migrator/migrate.py` 当前能读取两份历史 CSV、计算图片/掩膜哈希、标签/掩膜一致性、跨划分哈希和文件名家族泄漏，并写出两个版本目录；其审批文件由脚本自动写成待审批说明，尚不是独立审批证据。
-- `jobs/artifact-migrator/controlled-output/` 当前只有报告、清单、校验、溯源和审批类文件，没有独立对象注册清单、备份快照证明或回滚验证结果；不能把目录存在误认为对象存储闭环。
-- 本回合的实现目标限定为：补足可重复、不可静默跳过的 P6-01 验证入口及本地可验证的注册/备份/回滚证据结构；真实对象存储、正式审批和真实恢复仍按安全失败保持阻塞。
-- 现有实现的具体缺口：`main()` 会先删除整个 `controlled-output`；`approval.json` 固定为 `DRAFT`；`check_directory_readonly()` 只检查目录存在并写说明，没有比较迁移前快照；没有 `object-registry.json`、备份清单、恢复校验或统一 `verify-p6-01`。
-- 修复方向：迁移生成阶段改为不删除已有受控输出、拒绝覆盖已存在的不可变版本；新增独立只读验证器，要求报告、清单、对象注册、备份/回滚证据完整且哈希一致，并在真实对象存储或独立审批证据缺失时明确返回非零和 `BLOCKED`。
-- 权威任务文档还要求对象清单包含数量、大小、SHA-256、标签/掩膜、排除样本、文件名家族和跨划分泄漏证据；存储设计要求对象键不可复用、数据集清单只引用不可变对象，并要求备份与恢复抽查哈希。
-- 本机源目录约 4.4GB 图片、3MB 掩膜、约 44KB 清单；不能把本地源目录本身当成独立对象存储或备份目标，也不复制这些大文件进入 Git。验证器将只接受显式配置且路径与源目录不同的对象/备份/恢复根目录。
-- 首轮 `make verify-p6-01` 实际返回 2，证明新增入口不是无操作成功；旧包还缺 `source-snapshot.json`、对象注册、备份/恢复证据和独立正式审批。首轮报告因逐行重复快照缺失达到 716 条，已修正为单次缺失错误并保留错误总数与前 100 条明细。
-- 修正后严格门禁仍返回 2，但报告已收敛为 12 个明确错误：两套版本各缺源快照且旧 provenance 没有生产声明否定字段；根级对象注册、备份/回滚证据和两套独立正式审批均缺失。baseline 的四个跨划分哈希和一个家族泄漏仍由现有报告保持 `BLOCKED`，未被新验证器掩盖。
-- 并行运行完整迁移测试时只收到部分点号输出；随后 `ps` 与 `pgrep` 均因沙箱无法读取进程表而不可用，未把该回合误报为通过。布局门禁、3 项新增安全单测和严格 P6-01 门禁均有独立终态。
-- 登记器在临时输出目录上的第一次运行因仓库外路径展示异常返回 `ValueError`，修复后第二次发现同内容哈希的合法复用被误报 `OBJECT_KEY_COLLISION`；现已改用仓库外绝对路径展示并按同版本/同类型/同哈希合并来源路径。
-- 空对象/备份/恢复根目录验证现在返回 2，登记摘要显示 613 个期望对象、0 个可用对象、备份/恢复各 0；这证明登记命令不会把空目录或本地源目录伪装成对象注册成功。
-- 最终回归：原有迁移测试 18/18 通过；新增 P6-01 安全单测 3/3 通过；`make verify-layout` 通过；`git diff --check` 通过；`make verify-p6-01` 返回 2，当前受控输出报告 13 个阻断错误。P6-01 状态继续保持“阻塞”，没有把本地实现完成误报为任务通过。
-
-## P6 全量收口回合（2026-07-31）
-
-- 当前目标是完成 P6-01 至 P6-08 与 G6，不以 P6-01 的局部实现替代全阶段完成。
-- 权威状态仍以 `task_plan.md` 的 P6/P7 唯一跟踪表为准：P6 为 0/8 已验证，G6 为阻塞；`progress.md` 中早期“P6 已完成”记录已被独立复核明确否定。
-- 当前工作树的 P6/P7 大量文件仍未提交；后续修改必须保持模块边界，契约先行，且不能覆盖其他未提交改动。
-- 下一项实施优先级为 P6-02：先核对数据集构建器的近似去重、来源许可、未关闭复核、质量审批、不可变发布和后端集成测试，再补严格 `verify-p6-02` 入口；P6-01 的外部对象/审批条件继续保持安全失败。
-
-## P6-02 全量核对发现（2026-07-31）
-
-- `jobs/dataset-builder/build.py` 当前固定读取 `data/manifests/retrain.csv`，没有读取候选池或后端复核事实；这只能生成研究基线，不能证明生产候选准入。
-- 当前构建器只做精确哈希、跨划分哈希、标签冲突、按掩膜文件大小的空掩膜和文件名家族检查；没有近似去重、来源许可、复核任务关闭、掩膜尺寸/像素内容校验、困难/普通样本回流或质量审批绑定。
-- `main()` 会删除整个 `jobs/dataset-builder/controlled-output`，与不可变版本要求冲突；`approval.json` 固定为 `DRAFT`，没有发布前审批证据。
-- 后端 `DatasetVersion` 只提供状态转换骨架；严格准入事实没有在构建器和后端发布动作之间形成同一版本的不可变证据链，且根目录没有 `make verify-p6-02`。
-
-## P6-02 实施与验证结果（2026-07-31）
-
-- 新增 `jobs/dataset-builder/curation.py`，将候选清单兼容映射为 `sample_key`，同时兼容历史 `sample_id`；准入要求来源许可 `APPROVED`、来源复核 `CLOSED`、质量状态 `APPROVED`、`capture_id`、复核记录、普通/困难标记和安全数据路径。
-- 构建阶段现在复算图像/掩膜 SHA-256、解码尺寸、掩膜像素内容和正样本空掩膜；审计精确重复、近似重复、跨划分哈希、标签冲突、文件家族跨划分和普通/困难覆盖。
-- 受控版本目录不可覆盖；输出包含双侧哈希清单、版本差异、隔离项、拆分审计、统计、溯源和 `immutable=true` 标记。构建失败时输出 `BLOCKED`，不把缺证据样本转成 `PASS`。
-- 新增 `jobs/dataset-builder/verify_p6_02.py` 与 `make verify-p6-02`；验证器不信任构建报告，重新读取最终清单、解码并复算哈希，检查双侧校验、近似重复、泄漏、证据字段、普通/困难样本、版本差异和独立质量审批。
-- 新增 `jobs/dataset-builder/tests/test_curation.py`，覆盖历史字段映射、缺证据阻断、正样本空掩膜、近似跨划分、有效临时版本经独立审批后的严格复算以及不可覆盖。
-- 定向验证：`PYTHONDONTWRITEBYTECODE=1 python3 jobs/dataset-builder/tests/test_curation.py` 为 4/4 通过；Python 3.9 语法编译检查通过；`make verify-layout` 通过；`git diff --check` 通过。
-- 严格验证：`make verify-p6-02` 返回 2，现有旧候选包缺 `diff-report.json`、`quarantine.json`，且审批为 `DRAFT`；该非零结果符合安全失败要求，不是无操作通过。
-- 当前结论：P6-02 的本地实现和阻断门禁已补齐，但唯一跟踪表保持“阻塞”。P6-01 未提供对象/备份/正式审批，现有 172 候选也未提供来源许可、关闭复核和独立质量批准，不能宣称 P6-02 或 P6 全部完成。
-
-## P6-03/P6-04 启动核对（2026-07-31）
-
-- `jobs/training-pipeline/train.py` 当前会先删除整个 `controlled-output`，只写文本 `best_model.keras` 伪检查点和模拟 loss/accuracy；没有读取真实数据集、执行普通训练、两阶段重训练或同运行恢复。
-- 训练来源记录虽然有代码提交、配置和环境快照，但 `started_at` 在来源记录时尚为空；未锁定数据集清单哈希、初始化模型哈希、工作树状态快照、资源隔离策略或失败检查点。
-- `verify_reproducibility()` 把工作树存在未提交改动作为阻断，但没有验证锁文件内容与运行配置、输出检查点或数据版本之间的哈希关系；旧受控输出因此为 `BLOCKED`，不能支持 P6-03 完成。
-- P6-04 现有三候选评估和极坐标 v2 脚本主要属于 P2/P6 技术检查：报告明确 `production_claim_allowed=false`，尚缺版本化生产门槛、质量/工艺/算法三方独立签字和可复算门槛摘要。
-- 本轮继续保持安全失败边界：不伪造训练权重、生产审批或质量签字；下一步先补训练协议与严格 `verify-p6-03`，再补 P6-04 门槛验证。
-
-### P6-03 现有可复用实现
-
-- `src/tool_defect/training/retrain_multitask.py` 已有真实 TensorFlow 双输出模型训练、阶段 1/2 冻结策略、验证集联合分数、恢复权重和 `history.csv`；`tests/test_retrain_multitask.py` 已覆盖 smoke 运行、源模型不覆盖和恢复辅助函数。
-- 该实现仍未形成 P6-03 作业级证据：没有数据集版本严格校验、数据清单哈希/初始化模型哈希的统一 provenance、失败检查点报告、运行级资源隔离声明，也没有对配置变化必须新建运行的严格门禁。
-- 因此优先采用现有真实训练实现作为消费者，重构 `jobs/training-pipeline/train.py` 为非破坏性作业编排和严格报告入口，而不是再造一套伪训练逻辑。
-
-- 运行时检查确认 `.venv` 提供 TensorFlow 2.13.0、Keras 2.13.1、NumPy 1.24.3，未提供 PyTorch；项目已有 TensorFlow `retrain_multitask()` 可执行真实两阶段训练，不能再用与模型无关的文本占位检查点。
-
-### P6-04 收口设计
-
-- 现有 `evaluate_candidates.py` 已能把三候选绑定到同一 34 样本顺序并输出逐图指标/置信区间，但其报告只是技术评估，当前 `production_claim_allowed=false`，没有重复运行容差或生产门槛签字结构。
-- 现有 `recalibrate_polar.py` 已拒绝旧版本 1、要求 34 张输入并生成 v2 报告，但输出目录仍可被覆盖，且没有与三方生产门槛签字绑定的独立门禁。
-- P6-04 将新增 `verify-p6-04`：要求三候选技术评估、极坐标 v2 报告、固定测试集哈希/顺序、至少两次重复运行容差、非空版本化阈值和质量/工艺/算法三名不同审批人；缺任一项保持 `BLOCKED`。
-
-## P6-03/P6-04 实施与验证结果（2026-07-31）
-
-- `jobs/training-pipeline/train.py` 已改为作业编排器，复用 `src/tool_defect/training/retrain_multitask.py` 的真实 TensorFlow 两阶段训练；不再删除受控输出，不再写文本伪检查点或模拟指标。
-- 新入口锁定数据集版本与清单 SHA-256、初始化模型双文件哈希、配置/环境/代码工作树/随机种子、恢复兼容关系和资源池；训练失败写 `failure.json`，任何资源隔离只声明未获平台证明时保持 `BLOCKED`。
-- 新增 `jobs/training-pipeline/verify_p6_03.py`、`make verify-p6-03` 和 4 项安全失败测试；旧历史运行被识别为缺失真实权重、阶段检查点和作业来源锁，严格返回 2。
-- 新增 `jobs/model-evaluator/verify_p6_04.py`、`make verify-p6-04` 和 2 项验证器测试；门禁要求三候选固定 34 样本、极坐标 v2、旧 v1 拒绝、重复运行容差、版本化阈值和质量/工艺/算法三方不同独立审批。
-- `recalibrate_polar.py` 现在拒绝覆盖非空输出目录，并在溯源中写入不可变标记；现有极坐标回归仍为 17/17 通过。
-- 验证命令：重训练模块 `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest tests.test_retrain_multitask -v` 为 4/4；P6-03 作业测试 4/4；P6-04 门槛测试 2/2；极坐标测试 17/17；`make verify-layout` 通过；`git diff --check` 通过。
-- 严格结果：`make verify-p6-03` 返回 2，旧运行缺 14 项真实训练/来源文件；`make verify-p6-04` 返回 2，缺评估/极坐标/生产阈值门槛包。两项非零均符合安全失败要求。
-- 当前结论：P6-03/P6-04 的本地实现和阻断门禁已补齐，但真实已审批数据集、初始化模型、平台资源隔离证明和三方签字未提供，唯一跟踪表保持阻塞。
-
-## P6-05/P6-06 现状核对（2026-07-31）
-
-- 模型注册后端已有 `CANDIDATE -> VALIDATED -> APPROVED` 状态骨架，但登记请求没有强制训练运行、数据集版本、评估门槛、软件物料清单和制品签名证据；可选字段为空时仍可能创建候选版本。
-- 模型审批只校验部分同人关系，没有独立质量/技术角色、审批记录哈希、签名验真结果和不可变模型包摘要；因此不能把数据库状态 `APPROVED` 当成真实生产制品已批准。
-- 推理模型包验证器已有 manifest、权重、环境锁、校验和与 Ed25519 基础能力，但尚未与业务模型登记版本和审批记录形成同一制品哈希链；P6-05 仍缺 SBOM/签名/训练—数据集—评估三方证据的统一严格入口。
-- 部署域已有影子、灰度、生产和回滚枚举，但请求/批准没有读取已批准模型包、预热状态、指标窗口、最小样本量或有效历史稳定版本；回滚目前可以指向当前部署自身，不能证明回滚目标是不同且已验证的稳定版本。
-- 运行时 `RuntimeSlot` 已具备隔离进程、加载、预热、健康检查、串行执行和失败摘流能力；仍需补部署编排层的双槽验签、预热后才激活、灰度指标门槛和回滚目标绑定证据，且真实运行平台证明不可由本地测试替代。
-- 本轮实现边界：先补不改变冻结网络契约的内部证据校验、部署状态保护和 `verify-p6-05`/`verify-p6-06` 严格入口；缺少真实签名包、SBOM、独立审批、平台预热指标或稳定回滚制品时，门禁必须返回非零并保持 `BLOCKED/HOLD`。
-- 契约核对补充：冻结 OpenAPI 已要求模型验证请求携带 `evaluation_report_sha256`，部署创建请求携带 `station_ids`、`traffic_ratio` 和 `rollback_model_version_id`，审批请求携带角色和 `If-Match`；当前 Java 控制器仍按旧的 Map 形状读取，且模型注册端点未登记在 OpenAPI。该字段/路径漂移必须在契约源与生成包层修复，不能只改某一个消费者。
-
-## P6-05/P6-06 本地门禁实施结果（2026-07-31）
-
-- 新增 `jobs/model-evaluator/verify_p6_05.py`：通过 `ModelPackageVerifier` 重新计算模型包校验和并验证 Ed25519 签名，核对 CycloneDX SBOM、数据集/训练运行/评估门槛绑定、质量与模型发布双角色独立审批、生产和上一稳定不可变别名；不接受仅写入 `signature_verified` 的自声明。
-- 新增 `jobs/model-evaluator/verify_p6_06.py`：核对部署阶段序列、双槽已验签且预热健康、影子零流量、灰度比例/观察窗口/最小样本、正式切换顺序、加载失败摘流和非模拟回滚证据，并要求历史任务版本不变。
-- 新增 `make verify-p6-05`、`make verify-p6-06` 与布局登记；两项门禁默认受控目录当前分别缺 5 项、7 项必要文件，均返回 2，没有把缺证据标记为通过。
-- 新增验证器测试：P6-05 签名包/别名完整场景通过后篡改权重会阻断，2/2；P6-06 双槽/影子/灰度/回滚完整场景通过后将灰度流量置零会阻断，2/2。Python 编译检查通过。
-- 当前限制仍是外部证据：仓库没有真实受信公钥、已签模型包、SBOM、独立审批、平台双槽运行报告、真实灰度指标和回滚记录；P6-05/P6-06 任务表继续保持阻塞。
-
-## P6-05/P6-06 契约与后端接线结果（2026-07-31）
-
-- 契约源先行补齐模型登记/查询、评估报告哈希、部署回滚模型版本、双角色审批、`If-Match` 和部署记录版本；随后执行 `make verify-contracts-source`、`make generate-contracts`，生成包源哈希为 `acf7e8f7b7f4dfa1aa31a426891656f5a57de61e3bfeb1001dbf8fbb8c4dae62`，未手改生成文件。
-- Java 模型登记已校验训练运行、数据集、SBOM、签名密钥、评估报告和门槛摘要；审批转移为 `CANDIDATE -> VALIDATED -> APPROVED`，登记、验证、发布三类身份关系在领域对象和 V8 数据库触发器中拒绝不安全组合。
-- Java 部署已按 V1/V3/V8 实际列名接线：`model_deployment_id`、`station_scope`、`deployment_strategy`、`requested_by`、`rollback_model_version_id` 和双角色审批表；新增 `record_version` 乐观并发校验，当前模型与回滚模型必须都是 `APPROVED` 且不同。
-- 控制器现在严格消费 OpenAPI v1 的数组、哈希、角色、回滚目标和 `If-Match` 字段，并返回契约规定的异步/确认响应形状；部署审批与回滚不再忽略请求目标或原因。
-- `javac --release 25 -proc:none` 使用本机 Maven 缓存依赖编译 `services/business-api/src/main/java` 全部主源码，退出 0；`make test-backend` 仍因隔离 Maven 仓库无法解析 Spring Boot 父 POM 返回 1。改用本机缓存离线 Wrapper 后，68/68 单测与架构测试通过；完整打包仍因缺少 `org.codehaus.plexus.archiver.FileSet` 失败，但绕过打包直接执行的真实 Failsafe 集成已在 Docker 29.6.2 下 11/11 通过。
-- `make verify-contracts-source`、`make verify-layout` 已通过；前端 P6-07 已按生成类型接线并通过严格本地门禁。真实签名包、SBOM、独立审批、双槽预热、灰度窗口、最小样本和回滚制品缺失时，P6-05/P6-06 仍为阻塞。
-
-## P6-07/P6-08/G6 前端与全链路收口（2026-07-31）
-
-- P6-07 新增模型登记/验证、异步训练、部署创建、双角色审批、`If-Match` 回滚页面和严格解析器；训练队列态明确不显示为完成，生产切换没有被前端越权实现。
-- `make verify-p6-07` 通过：Node 20.13.1/pnpm 类型检查、6 个测试文件共 23 项测试和生产构建均通过。前端本地通过不等于真实后端联调或 P6-07 完整通过，唯一跟踪表仍受 P6-02 至 P6-06 前置阻断。
-- 新增 `verify_p6_08.py` 和 `verify_g6.py`，拒绝内存/模拟/干跑证据；`make verify-p6-08` 返回 2，缺少真实组件证据目录；`make verify-g6` 返回 2，缺少 `Docs/reports/P6-gate-acceptance.json` 和八项 `PASS` 证据。
-- `make verify-data` 返回 2，冻结资产组数量/字节/聚合 SHA-256 及稳定清单摘要不一致；`make verify-models` 虽返回 0 但输出 `production_claim_allowed=false`；拆分的集成测试 5/5、内存端到端 37/37，安全测试 18 项中 1 项跳过，均不能替代真实 P6-08 证据。
-- 契约版本为 v1、OpenAPI/生成包版本 1.0.0，当前生成源哈希为 `acf7e8f7b7f4dfa1aa31a426891656f5a57de61e3bfeb1001dbf8fbb8c4dae62`。当前结论仍为 P6 0/8，G6 阻塞。
-
-## P6-05/P6-06/P6-08 后端复验与历史记录安全边界（2026-07-31）
-
-- 修复 CSRF 过滤器全局注册问题：过滤器只挂入人员安全链，并通过禁用的 `FilterRegistrationBean` 防止 Spring Boot 作为全局 Servlet Filter 重复执行；edge JWT 和内部机器回调不再被人员 CSRF 规则拦截。
-- 修复 RabbitMQ mandatory return 竞态：发布器注册退回回调并按 `message_id` 等待异步退回结果；不可路由消息不会被确认结果误报为成功。
-- V8 对历史模型/部署记录不猜测补写供应链字段：严格领域对象允许历史空证据行进入查询映射，但 `ModelVersion` 的审批/部署和 `ModelDeployment` 的审批/激活/回滚会明确返回 HOLD；新登记/部署仍强制完整证据和独立审批。
-- 修复 P6 页面查询的空游标响应：模型、部署、数据集分页以及首个数据集版本详情不再使用拒绝 `null` 的 `Map.of`，避免没有下一页或没有父版本时发生运行时异常。
-- 本地验证：模型/部署状态机测试 7/7、后端单元/架构测试 68/68、契约源门禁通过；真实 PostgreSQL/Flyway、MinIO、RabbitMQ、应用健康 Testcontainers 集成 11/11 通过。`make verify-p6-05` 缺 5 项证据返回 2，`make verify-p6-06` 缺 7 项证据返回 2，P6-07 完整前端门禁通过。
-- 当前结论不变：真实模型包、SBOM、对象注册、正式审批、双槽预热、灰度窗口、最小样本和回滚记录仍缺失；P6 仍为 0/8，G6 阻塞。
-
-## P6-05/P6-06 接口权限复核（2026-07-31）
-
-- 新增 MLOps 路由原先落入人员安全链的 `anyRequest().authenticated()`，不能满足 P6 的角色矩阵；现已按 `dataset:create`、`dataset:approve`、`model:register`、`model:validate`、`model:deploy:execute`、`model:deploy:approve` 和 `model:rollback` 收紧。
-- 部署审批控制器现在按请求角色检查实际权限：质量审批必须持有 `dataset:approve`，发布审批必须持有 `model:deploy:approve`；领域层仍继续拒绝同人、单审批和非法状态转移。
-- 本地会话身份现在从 `LocalIdentity.userId` 转换为 actor UUID；JWT 仍使用 subject。该修复避免 `Authentication#getName()` 对 record principal 的默认字符串表示污染审批/登记外键。
-- `services/business-api/mvnw -o -B -Dmaven.repo.local=/Users/jinghong/.m2/repository -f services/business-api/pom.xml test` 结果为 68/68，架构测试通过；`mvn clean` 因本机插件缓存缺 `org.codehaus.plexus.util.Os` 返回 1，clean 构建未通过。
-- 这不是完整 P6 证据：真实签名包、SBOM、独立现场审批、双槽预热、灰度窗口、最小样本和真实回滚仍缺失；唯一跟踪表状态不变。
-
-## P6-02/P6-07 数据集契约和后端集成复验（2026-07-31）
-
-- **契约变更：** 以 `contracts/openapi/tool-defect-api-v1.json` 为唯一来源补齐数据集版本列表与差异接口；执行生成器后，生成源哈希为 `dc4fcbf59b91260bed31e409bc78fb82d56a4a401512c8d9b2ed5fe49772ed0d`。`make verify-contracts-source` 验证模式、示例、状态机、兼容性、确定性生成和离线 Python/Java 包编译均通过。
-- **数据库边界：** V9 仅由 `services/business-api/` 增加候选清单登记表、批准后不可变触发器、候选清单/用途字段和版本乐观并发字段；旧历史版本保留空值，不进行未经证据支持的回填。真实 DatabaseMigrationIT 7/7 和全量 Failsafe 11/11 已通过。
-- **接口行为：** 数据集创建只接受 `dataset_id`、`candidate_manifest_id`、`purpose`，并失败关闭缺失登记、跨数据集、非 APPROVED 候选或候选审批人本人发起；列表采用稳定 `(created_at, id)` 排序和不透明游标；差异接口逐样本比较 SHA-256，返回固定四类变更和汇总计数。
-- **消费者行为：** 前端数据集服务直接复用生成类型，列表、详情和差异路径/字段与 v1 对齐；页面不再读取旧的 `version_number`/`state` 字段，也不再调用未登记的候选列表操作。
-- **本地结果：** 数据集工作流测试 2/2；离线 Maven 单元/架构测试 70/70；`make verify-p6-07` 的类型检查、6 个测试文件/23 项测试和生产构建通过；`make verify-layout` 与 `git diff --check` 通过。
-- **门禁结果：** `verify-p6-02` 仍因旧受控候选包缺 `diff-report.json`、`quarantine.json` 返回 2；P6-01、P6-03、P6-04、P6-05、P6-06、P6-08 和 G6 仍分别缺真实数据、训练、评估、供应链、部署或全链路汇总证据而返回 2。P6 仍为 0/8，G6 仍阻塞。
-- **环境限制：** `mvn clean compile` 因本机离线 Maven clean 插件依赖缺失 `org.codehaus.plexus.util.Os` 返回 1；普通离线 `mvn test` 成功，不能以 clean 工具链缺件替代或掩盖生产证据。
-
-## P6 全量后端安全收口与严格门禁复验（2026-07-31）
-
-- 真实 Spring 上下文复验发现并修复三个新增代理缺陷：质量 JDBC 仓储、质量查询服务和训练 JDBC 仓储不能声明为 `final`，否则事务代理会使 S3、健康和可靠消息上下文失败。
-- 训练状态回报已形成契约—生成类型—内部权限—服务状态机—V10 数据库触发器的闭环；模型注册跨生命周期读取成功训练、同数据集和冻结清单；部署激活不再接受单独的数据库状态切换。
-- 回滚安全边界已进一步收紧：V11 增加 `rollback_evidence_sha256` 和数据库触发器；`withStatus(ACTIVE -> ROLLED_BACK)` 与公开回滚请求均失败关闭；只有 `executeRollback` 携带目标模型验签、预热、健康证据时才更新状态。
-- 验证通过：契约源、布局、差异检查、后端单元/架构 78/78、真实容器 Failsafe 11/11、P6-07 前端 23/23 加生产构建。
-- 验证阻断：P6-01 至 P6-06、P6-08、G6 严格入口均返回 2。缺失项仍是实际对象/备份恢复、批准候选、真实训练与评估、签名模型包/SBOM、独立审批、双槽灰度回滚以及全链路验收证据；不能用当前本地测试替代。
-
-## P6 阻塞续办现场恢复（2026-07-31）
-
-- 唯一跟踪表当前仍为 P6 0/8、G6 阻塞；`verify-p6-07` 的本地通过只证明前端消费者门禁，不满足 P6-07 的真实后端联调与前置闭合标准。
-- P6 严格入口均为真实验证器：P6-01 至 P6-06、P6-08 和 G6 在证据缺失时返回 2，不存在无操作成功或静默跳过。
-- 本轮先复跑各严格入口，随后把阻断拆成两类：仓库内可修复项（例如冻结资产哈希漂移、安全测试跳过、完整 Maven 打包缓存问题）与必须由外部现场提供项（正式审批、真实对象存储/备份、训练资源、签名模型、双槽灰度和回滚记录）。
-- 当前工作树包含大量既有 P6/P7 未提交文件；所有续办修改必须增量进行，不能回退或覆盖其来源不明的改动。
-- 2026-07-31 首轮当前态复跑：P6-01/P6-02/P6-03/P6-04/P6-05/P6-06/P6-08/G6 退出码均为 2。P6-01 报告 365 项，主体是清单中的 `images/qualified/...` 与真实目录大小写不一致；P6-02 仅报告缺少 `diff-report.json` 和 `quarantine.json`。其余入口分别缺真实训练、评估、供应链、部署、端到端和阶段汇总证据，未出现验证器崩溃。
-- P6-01 路径漂移根因已定位：冻结源清单使用 `images/qualified`/`images/unqualified`，真实图片目录为 `data/images/Qualified`/`data/images/Unqualified`；掩膜目录则确实为小写。macOS 大小写不敏感使旧迁移器的 `Path.exists()` 没有报错，但严格验证器按目录项精确检查后正确阻断跨平台不可复现路径。
-- 现有 `controlled-output` 生成于迁移器补充 `source-snapshot.json`、来源清单哈希和审批模式字段之前，不能通过追加文件把旧不可变包冒充为新包；若要闭合本地技术项，应生成新的受控版本并保留旧包，而不是覆盖现有目录。
-- `baseline-180` 旧报告本身仍有 4 个跨划分哈希问题和 1 个文件名家族泄漏，状态为 `BLOCKED`；`retrain-172` 的旧技术报告为 `COMPLETE`，但审批仍为 `DRAFT`。因此修复大小写与快照只能减少噪声，不能使 P6-01 达到正式通过。
-- P6-02 现有 `production-candidate-v1` 同样是旧模式制品：缺少候选准入字段、清单哈希、不可变标记、版本差异和隔离报告；当前验证器因必需文件检查而只先显示两个缺件，补空文件或拼装旧报告后仍会被完整语义校验阻断。
-- 新版构建器默认读取冻结 `retrain.csv`，而该文件没有来源、许可、复核关闭、质量批准、难例标记、采集编号和复核编号；并且图片路径仍有大小写漂移。直接重跑只会安全地产生空的阻断包，不能构造生产候选事实。
-- 因此 P6-02 的两个缺失文件不是独立可修的根因。正确收口需要新的真实候选清单和独立审批；现阶段可做的是加强门禁与测试，不能从旧 172 清单推断或伪造准入字段。
-- P6-08 基础入口当前复现：`make verify-data` 返回 2，实际子验证器状态 `FAILED`，错误为资产组数量/字节/聚合哈希与冻结锁不一致、稳定资产清单总摘要不一致；样本计数仍为 180/172/34。需先查明是哪一资产组漂移，不能直接刷新冻结锁。
-- `make test-security` 当前返回 0，但 18 项中跳过 1 项；跳过项是 P7 审计日志完整性测试，原因是 `config/audit-schema.json` 缺失且待现场签字。该行为违反严格入口不得以缺前置条件跳过冒充通过的规则，也会使 P6-08 的安全子门禁出现假绿。
-- `verify-data` 的资产差异已缩小到唯一分组 `design_documents`：期望 16 文件/220514 字节/摘要 `af65f964...`，当前 16 文件/220771 字节/摘要 `f17296a5...`；原始图片、掩膜、清单、处理数据、模型、源码、配置和测试分组均与锁一致。不能刷新整个锁，下一步只审计设计文档相对冻结提交的变更归属。
-- `test-security` 的统一执行器只是透传 `unittest` 进程返回码，不读取 `skipped` 计数；因此任何 `skipTest` 都会被当作入口成功。需要在统一入口层让跳过显式非零，或将该现场前置改为断言失败，避免其他目录测试出现同类假绿。
-- 设计文档漂移还受已知路径大小写治理问题影响：工作树目录是 `Docs/`，Git 索引中该路径以 `docs/` 登记，导致用 `Docs/...` 查询冻结提交时全部返回空，普通 `git diff -- Docs` 也无法揭示内容来源。不能把这种路径别名下的 257 字节差异当作已授权锁更新。
-- 当前 HEAD 为 `b82b3d0...`，冻结锁来自提交 `20fcb42`，资产扫描固定源修订为 `97c88cb...`。下一步须按索引中的小写路径精确比较锁生成点、冻结修订和当前 HEAD，判断是锁陈旧还是文档被后续提交合法修改。
-- 精确复核确认 257 字节来自已提交的 `b7667d2` 本地密码认证设计更新，涉及 05/06/12/14/15 五份文档，不是本轮未提交篡改。冻结锁期望的文档摘要仍准确对应 `97c88cb` 基线。
-- 根因是资产扫描器对源码、配置、测试使用冻结 Git 快照，却唯独对设计文档读取当前工作树；后续合法文档演进因此破坏 P0 冻结门禁。使用 `97c88cb` 的小写索引路径读取 blob，再把记录路径规范回历史 `Docs/` 形式，可精确重现锁值 16 文件/220514 字节/`af65f964...`，无需刷新冻结锁。
-- 冻结扫描修复后，`make verify-data` 返回 0：180/172/34、9 个预期历史阻断和稳定摘要 `37301fdc...c396ba` 全部恢复，未修改冻结锁或现行设计文档。
-- 严格 unittest 执行器新增回归测试 3/3 通过；`make test-security` 现在按预期返回 2，并精确指出唯一跳过项及 `config/audit-schema.json` 缺失原因，已消除“18 项中跳过 1 项仍返回 0”的假绿。
-- 仓库没有 `config/`，也没有审计事件 JSON Schema；直接新增 `config/audit-schema.json` 会与“跨进程字段只由 `contracts/` 定义”冲突。现有权威实现是后端 `audit_log` 数据库结构、`AuditRecord` 领域记录和 V2 只追加触发器，P7 静态测试使用的 `event_id/timestamp/principal/source_ip` 与项目内部字段 `audit_id/occurred_at/actor_id/actor_ip` 不一致。
-- 因此安全跳过项可内生修复方向是：让测试验证实际 V1 表字段、V2 追加写保护和审计启用配置，不创建第二套手工 schema；现场防篡改归档与签字仍由 P7 门禁单独保持阻塞。
-- 审计测试已按真实实现接线，`make test-security` 现为 18/18 普通通过、退出码 0；没有新增跨进程 Schema，也没有把防篡改归档或现场签字标记为完成。
-- P6-08 其余基础复验：`make verify-models` 返回 0（3 个候选，仍明确 `production_claim_allowed=false`）；`make test-integration` 5/5、`make test-e2e` 37/37，严格执行器均确认零跳过；`make verify-p6-07` 类型检查、6 文件/23 测试和 96 模块生产构建通过。
-- 上述结果关闭了 `verify-data` 漂移与安全跳过两个仓库内基础阻断，但不改变 P6-08 的真实组件证据缺失：现有 37 项端到端仍是内存场景，模型验证仍禁止生产声明，P6-07 仍受 P6-02 至 P6-06 前置约束。
-- 当前 `make test-backend` 第一次在沙箱 DNS 处失败；联网重试下载了隔离缓存的大部分锁定依赖，78/78 单元/架构测试零跳过并成功生成普通 JAR，随后在 Spring Boot `repackage` 获取 `commons-lang3:3.16.0` 时遭远端 TLS 握手中断。该结果不能算完整后端通过，但已把原先大量缓存缺件缩小为单个可定位制品。
-- 单独下载 `commons-lang3:3.16.0` 成功；官方 `.sha512` URL 为 404，因此按不重复失败原则改取 Maven Central `.sha1`。本地 JAR SHA-1 与官方值同为 `3eb54effe40946dfb06dc5cd6c7ce4116cd51ea4`，可安全写入项目隔离缓存后进行离线复验。
-- 校验后的 JAR 写入项目隔离 Maven 缓存后，统一入口 `make test-backend` 成功：单元与架构测试 78/78，真实 PostgreSQL、MinIO、应用健康和 RabbitMQ 容器集成 11/11，全部零失败、零错误、零跳过，Spring Boot 重打包、V1 至 V11 数据库迁移与完整生命周期均成功。由此关闭仓库内后端完整构建阻断；P6 的生产对象、审批、训练、签名、部署和现场链路证据仍是独立外部阻断。
-- 最终严格复跑没有出现新的仓库内错误：P6-01 至 P6-06、P6-08、G6 继续以退出码 2 拒绝缺证据状态，只有 P6-07 本地门禁退出 0；五项目基础验收整体退出 0，但模型报告仍禁止生产声明，37 项端到端仍为内存场景。由此确认剩余 P6 阻断无法在不伪造外部事实的前提下由仓库内代码继续消除。
-## 2026-07-31：P7-03 数据库模式复核补充
-
-- `dataset_version`、`model_version`、`review_record` 位于 `V1__initial_business_schema.sql`；可用 `dataset_version.approved_by`、`model_version.approval_state` 与相关审批字段构造只读恢复核验。
-- 审计命令引用的 `V8__production_workflow_schema.sql` 不存在；后续不得假定固定迁移文件名，应先枚举实际迁移清单或查询 Flyway 元数据。
-## 2026-07-31：P7-03 实现与测试复核
-
-- 业务库实际迁移文件为 `V1`～`V11`，其中 `V8` 文件名是 `V8__model_supply_chain_and_deployment_guards.sql`；恢复核验应读取实际清单/Flyway 历史，不能写死旧文件名。
-- 现有 P7-03 测试包含条件跳过，并把任意两个自造场景全通过判为恢复成功；这会允许非生产等价、非完整场景证据生成 `SUCCEEDED`，必须改为严格六场景和来源约束。
-- 迁移客户端仍含可删除对象的能力，但生产回滚入口已开始收紧；后续门禁必须验证批次作用域、补偿记录与源数据保留证明。
-## 2026-07-31：P7-03 审批与恢复核验校正
-
-- `dataset_version` 有 `approved_by`，但 `model_version` 没有 `approved_by`；模型审批只能结合 `approval_state`、非空评估摘要以及 V8 供应链/部署守卫中的真实审批证据核验，不能查询不存在的列。
-- 当前 `verify_migration.py` 只对对象存储随机抽样，且业务审批核验仅覆盖冻结数据集审批人和模型评估摘要；这不足以证明 P7-03 的全量计数、字节与散列一致性。
-- `recovery_drill.py` 的六个阶段存在三处假通过：仅导入数据库驱动即通过业务记录、仅配置 S3 地址即通过对象存储、仅定义审批枚举即通过审批链；必须改成真实查询或明确 `BLOCKED`。
-- 快照散列循环会忽略清单中不存在的文件，隔离恢复只复制顶层文件；两者都必须收紧。
-## 2026-07-31：P7-03 上游证据与数据库版本补充
-
-- V8 确实为 `model_version` 增加 `validated_by/approved_by` 及独立审批表，因此恢复查询必须以 Flyway `V8` 已应用为前置；只看 V1 会误判字段不存在。
-- P6-01 当前 `summary.json` 总状态为 `BLOCKED`，`baseline-180` 存在跨划分与家族泄漏问题，且 `production_claim_allowed=false`；P7-03 真实迁移必须在写入前停止，不能把完整性散列检查通过等同于来源获批。
-- 仓库没有 `Docs/production-migration-plan.md`；实际计划文件是 `jobs/production-migration/migration-plan.json`。错误路径已记录，不据此判定文档缺失。
-## 2026-07-31：P7-03 验证器与迁移计划新增缺口
-
-- `verify_migration.py` 在未配置 S3/DB 时直接“跳过”且不添加失败类别，最终可能仅凭源清单把总体结果判为 `PASSED`；这是安全失败违规，必须改为 `BLOCKED(2)`。
-- 迁移对象键由当前日期生成，而独立验证器使用固定日期，无法稳定复算；正式证据必须绑定不可变迁移 ID、对象清单和逐对象散列，不能靠重算日期键。
-- 迁移计划仍写 Flyway V1～V7、随机抽样、根据历史标签自动生成最终处置，以及无批次范围的批量删除回滚；均与当前 V11、全量证据和安全回滚要求冲突。
-- 生产模型冒烟已有严格 `tool-defect-model-smoke/v1` 验证器，可直接复用到恢复演练，避免另造宽松格式。
-## 2026-07-31：P7-03 权威口径确认
-
-- 权威计划要求六类资产的源目标数量、总大小与散列对账，隔离恢复、当前模型与复核证据可用，并记录恢复点与实际恢复耗时；严格证据模式已按此设计。
-- P7-03 无法因仓库自动化本身转为通过：当前 P6-01 来源被阻断，且生产迁移、全量对账、隔离恢复与签署证据均缺失，正确结果必须为退出码 2。
-## 2026-07-31：P7-03 门禁实测
-
-- `make verify-p7-03` 正常执行并返回 2；汇总 70 个阻断、0 个实现/输入错误，其中 67 个继承自 P7-01，3 个是缺少生产迁移、全量验证和恢复记录。
-- P7-03 严格证据单测与迁移/恢复单测共 33/33 通过；干跑、抽样和不完整恢复场景均被明确拒绝。
-## 2026-07-31：P7-04 复核补充
-
-- 故障测试明确由桩函数模拟数据库、对象存储、消息代理、推理服务和边缘断电；性能测试在阈值待签时跳过关键断言，并用桩函数伪造数据集、模型预热、备份恢复和水位响应。这些测试只能作为确定性逻辑回归，不能生成现场验收通过。
-- 安全测试主要检查静态配置/源码，不能证明真实证书吊销、轮换、身份提供方、网络策略或攻击测试已在生产基础设施执行。
-- 非功能报告仍是 Markdown 模板；缺少机器可验证的来源、环境、签署阈值、零跳过结果、原始日志摘要和各领域批准。
-## 2026-07-31：P7-04 门禁实测
-
-- 统一严格测试执行器原先未把仓库根加入模块搜索路径，导致 `make test-faults` 无法导入 `tools`；修复后故障 16/16、安全 18/18、性能 17/17 均为普通通过，零跳过。
-- `make verify-p7-04` 随后正常完成自动化回归并返回 `BLOCKED(2)`：140 个前置/现场阻断、0 个实现错误；P7-04 自身新增阻断仅为缺少真实非功能现场报告。
-## 2026-07-31：P7-05 门禁实测
-
-- Markdown 质量模板覆盖了所需维度，但不能机器验证分母闭合、置信区间、选择偏差、配对样本或签字人独立性；已新增结构化 `tool-defect-quality-trial/v1` 证据契约。
-- `make verify-p7-05` 返回 `BLOCKED(2)`：141 个前置/现场阻断、0 个实现错误；P7-05 自身新增阻断仅为缺真实质量试运行报告。
-## 2026-07-31：P7-06 手册与场景复核
-
-- 原 14 个场景覆盖设备/基础设施故障，但没有独立验证正常用户闭环、权限拒绝、死信逐条重放、完整版本回滚、证书吊销和紧急账号；已新增 DRILL-15～DRILL-20 六类场景定义。
-- 现有操作员、复核员、质量和运维手册内容较完整，但没有统一显式列出“所需权限、操作原因、二次确认、审计事件”四项高风险控制；算法、发布、管理员和审计员手册原先缺失。
-- 紧急联系人仍是 `PENDING_SITE_FILL` 模板，不能作为生产联络链证据。
-## 2026-07-31：P7-06 门禁实测
-
-- 新增九类角色手册校验、20 场景目录校验、真实联系人和值班表校验，以及未参与开发用户的逐场景证据校验。
-- `make verify-runbooks` 继续通过；`make verify-p7-06` 返回 `BLOCKED(2)`：142 个前置/现场阻断、0 个实现错误。P7-06 自身仅缺真实联系人文件与真实设备演练记录，说明手册和场景仓库内缺口已关闭。
-## 2026-07-31：P7-07/G7 发布资产复核
-
-- 上线清单 52 项中 47 项待签、3 项通过、2 项不适用；存在至少 1 项高风险未关闭。发布记录仍有 7 个开放风险、四方签字待定、回滚目标占位和值班表待排。
-- 在上述状态下发布记录使用 `CONDITIONAL_GO` 不符合安全失败要求；当前权威决定必须改为 `NO_GO`/`HOLD`，条件未满足时不得表达可上线。
-- 当前发布决定已改为 `NO_GO/BLOCKED`，并新增 P7-07 与 G7 严格验证器；它们不会把仓库内模板或自动化子测试当作现场通过证据。
-- P7-07 最终证据门禁要求 52 项逐项通过或具备完整批准豁免，并验证来源、证据哈希、开放风险、回滚目标预热、值班覆盖和四名独立签署；当前严格入口返回 78 个阻断、零实现错误。
-- G7 汇总要求七项 P7 任务全部绑定真实证据，并验证真实硬件/网络/基础设施、六类参数、双模型预热、回滚、值班告警、角色手册/外部用户、备份恢复和应急权限九组条件；修正基线门禁编号的占位误报后，当前严格入口返回 100 个阻断、零实现错误。
-- 51 项 P7-03 至 P7-07 相关单元测试通过；它们证明门禁实现和负向拒绝行为，不替代生产现场事实。
-- 发布值班表原校验只检查 `ACTIVE`、时间格式、非空班次和三类角色，不能证明窗口覆盖发布时间后的完整七天；最终门禁还必须要求带时区的起止时间、覆盖发布时点后至少七天、`coverage_complete=true` 且 `uncovered_seconds=0`。
-- 生产证据说明在联系人/外部用户段落后误写统一入口为 `make verify-p7-03`，且缺 P7-07/G7 最终证据格式；已修正为 P7-06，并补充清单、决定、七天零空档值班、九组 G7 条件和严格入口说明。
-- 值班补强后 P7 相关 59 项单元测试、边缘 116 项、故障 16 项、安全 18 项、性能 17 项和手册门禁全部通过；这些结果确认仓库内实现无回归，现场状态仍由严格证据入口单独判定。
-- `make verify-all` 当前先在严格环境检查返回 2：Node 20.13.1 与 pnpm 10.34.5 均匹配，但 TypeScript 编译器确实不存在于验证器指定的契约包本地路径，也不在全局路径；`packages/typescript-contracts/package.json` 已锁定 `typescript=5.9.2`，因此应先用锁文件恢复本地依赖，而不是弱化严格检查。
-- 交互式 `pnpm` 实际是 pnpm 11.9.0 / Node 24.14.0，不是项目基线；严格环境检查通过 npm 缓存定位到了 pnpm 10.34.5 并用 Node 20.13.1 执行。依赖恢复必须复用这组精确工具链，不能继续调用全局 `pnpm`。
-- 项目要求的 pnpm 10.34.5 缓存入口已精确定位到 `/Users/jinghong/.npm/_npx/381139ee5d646d31/node_modules/pnpm/bin/pnpm.cjs`；当前未设置 `TOOL_DEFECT_NODE` 或 `TOOL_DEFECT_PNPM`，需继续确认严格检查选中的 Node 20 可执行文件后再安装。
-- 使用 Node 20.13.1、pnpm 10.34.5 和冻结锁文件在 `packages/typescript-contracts/` 恢复 TypeScript 5.9.2 后，`make check-environment` 全部通过；此前 `verify-all` 的工具链阻断已真实关闭，没有放宽检查。
-- `make test-core` 最终跑完 192 项：3 失败、9 错误。9 个错误全部因 `artifacts/classification/weights.h5`、`artifacts/multitask/weights.h5` 缺失；项目明确禁止提交模型权重，因此不能通过跳过或生成假权重消除。仓库内可修复的是发布状态测试仍期待旧 `PENDING_SITE_SIGNOFF`，以及新增 3 条要求后追踪矩阵冻结计数仍为 352。
-- 发布结构测试的旧断言位于 `tests/test_p7_release_checks.py:166`；需求矩阵由 `tools/traceability/build_matrix.py` 确定性生成，冻结摘要位于 `Docs/traceability/matrix-lock.json`，测试又把旧计数与摘要硬编码在 `tests/test_traceability.py:32-35`。修复必须用生成器重算锁并同步测试，不手填猜测哈希。
-- 当前矩阵确定性摘要为 355 条、`dd73a39...06c803`；变化涉及设计文档 05、06、12、14，其中新增要求分别使 05、12、14 各增加 1 条。已按生成器输出同步冻结锁和测试期望，并把发布结构测试收紧为明确断言 `BLOCKED/NO_GO`。
-- 发布结构与追踪矩阵定向测试 19/19 通过；矩阵锁验证返回 `valid=true`、0 错误、355 条需求和 592 条测试反向链接。
-- `make test-core` 复跑仍执行 192 项，但已从“3 失败 + 9 错误”收敛为“0 失败 + 9 错误”；剩余错误全部且仅由两组真实模型权重缺失引起，证明发布状态和追踪矩阵仓库内漂移已关闭。
-- P1 两级统一门禁均通过：`make verify-p1-offline` 完成源码工具链、布局、契约、离线生成包、安全和 SBOM；`make verify-p1-strict` 进一步完成精确 Node/pnpm/TypeScript、三语言编译与 Docker Compose 配置。
-- 最终差异检查 `git diff --check` 通过。工作树仍包含大量本轮开始前既有的 P6/P7 未提交修改和新增文件；本轮未回退或覆盖它们，也未提交任何图片、数据集、模型权重、运行输出或密钥。
-- 最终关键文件审计确认 Makefile 已串接 P7-01 至 P7-07/G7 且 `verify-all` 末端包含 G7；阻塞基线保持 `BLOCKED`，值班门禁和证据文档一致。八份关键 P7 JSON 经 `jq empty` 校验全部有效。
-- 上线清单 `GL-111` 含重复 `notes` JSON 字段，严格解析会判输入错误；需移除重复项。`GL-505` 仍写“14 个场景”，已落后于补齐后的 20 场景目录。
-
-更正：对 `GL-111` 精确行复核后确认仓库文件只有一个 `notes` 字段，先前重复显示来自长输出拼接，不是 JSON 缺陷；无需修改。`GL-505` 的场景数量已更新为 20。
+- `Docs/16-手工批量检测与管理简化需求规格.md`
+- `Docs/17-手工批量检测整改实施计划.md`
+- `AGENTS.md`
+
+## R3 启动发现
+
+- `RG2` 已通过，R3 的第一项入口条件满足。
+- R3 包含 `R3-01` 至 `R3-05`，范围依次为批次写服务、对象存储适配、事实驱动聚合、历史查询和错误审计。
+- 第二项入口条件要求手工原图对象前缀、配额、媒体类型和清理策略已经配置；在源码与配置核对完成前不能宣称入口完全满足。
+- `RG3` 要求至少 10 项批次、逐项独立确认、单次提交、每项唯一逻辑检测任务、单项失败隔离、严格所有权，以及对象存储和数据库故障的补偿对账证据。
+- R3 仍以第一版 `v1 / 1.0.0` 与第二版 `v2 / 2.0.0` 并存为契约基线；跨进程语义必须使用 R1 已生成的第二版类型。
+- 本轮在 R0—R2 未提交成果上增量实施，不回退现有迁移、契约、文档或追踪锁改动。
+- DOC-17 规定的 R3 验证命令为 `make test-backend`、`make test-integration`、`make test-security` 和 `make test-faults`。
+- R2 已建立 `detectionbatch` 聚合与 JDBC 数据迁移仓储，但尚无 R3 批次应用服务、第二版控制器或查询仓储。
+- 现有存储模块已经具备 S3 兼容适配、短时上传/读取票据、对象头校验、SHA-256、大小和媒体类型校验基础；R3 应复用并收窄为手工单对象流程，而不是另建不一致的存储协议。
+- 当前配置已有上传/读取票据有效期和最大对象大小，但尚未显式提供 `manual_detection_enabled`、手工原图前缀、每批配额、允许媒体类型与孤儿保留时间，第二项入口条件尚未完全满足。
+- 第二版已冻结 7 个 R3 接口：能力查询、批次列表/创建、批次详情、图片项新增/详情/删除、上传确认和批次提交；写请求字段分别为 `usage_stage`、文件元数据、上传摘要及 `expected_version`。
+- `V16` 的图片项要求唯一 `image_id`，而 `image_object.capture_id` 可空，因此手工新增项可以先创建 `STAGING` 原图对象并直接关联，不需要伪造第一版采集记录。
+- R3 应使用新的 `V17` 追加上传会话、逻辑任务、审计/补偿事实和必要约束，不改写已经关闭的 R2 `V16`。
+- 当前 R2 聚合触发器在新增 `PENDING_UPLOAD` 图片项后会把批次状态算为 `PROCESSING`，不符合 R3 草稿/上传状态机；R3 需要在 `V17` 中修正聚合函数，使未提交批次保持 `DRAFT`/`UPLOADING`/`READY`，提交后才进入 `PROCESSING`。
+- 人员安全链原先只匹配 `/api/v1/**`，第二版接口会落到非预期安全链；R3 已将人员会话安全链扩展到 `/api/v2/**`，并在通用认证回退前声明手工检测读、全量读和写原子权限。
+- 现有 R3 角色过渡策略为：`OPERATOR` 只读写本人批次，`SYSTEM_OPERATOR` 可读全部并可写本人批次；未来 R6 两角色迁移可将这些原子权限映射到正式两角色，不需改变 R3 接口。
+- `make test-backend` 会执行 Maven `verify`，包含单元测试和 Testcontainers 集成测试；其余 R3 门禁分别是仓库标准库集成、安全与故障测试入口。
+
+## 视觉或浏览器发现
+
+- 本任务尚未使用视觉或浏览器材料。
+
+## R3 关闭发现
+
+- `V17` 已建立手工上传会话、每项唯一逻辑检测任务、只追加补偿事实、R3 原子权限和手工批次聚合状态机；迁移连续到版本 17。
+- 应用层一次生成 `batch_item_id`，同一标识贯穿对象键、`image_object`、`detection_batch_item_v2` 和上传会话，避免对象定位与数据库条目标识漂移。
+- 功能开关关闭时，在存储组件启用的部署中能力接口仍可返回禁用状态；所有写操作安全失败，不创建批次或任务。
+- 上传确认以对象头、大小、媒体类型和 SHA-256 四项共同校验；过期或冲突明确失败并记录上传失败状态。
+- 孤儿清理通过抢占过期会话、对象删除和只追加补偿事实形成可重试闭环；删除失败保留 `HOLD` 事实，不伪造成功。
+- 列表按 `created_at, batch_id` 稳定排序并使用组合游标；普通操作员只读本人，具有全量读取原子权限的系统操作员可读全部。
+- 第二版请求统一返回冻结的 `error_code/message/request_id/retryable/details` 错误形状；第一版错误形状保持不变。
+- 完整后端门禁最终通过 91 项单元测试和 21 项真实容器集成测试；首次启用手工服务上下文时发现事务服务为 `final`，修复后复验通过。
+
+## R3 已知限制
+
+- `td.manual-detection.enabled` 默认关闭，正式环境必须显式开启，并同时提供可用对象存储和数据库配置。
+- 能力接口依赖业务后端启用对象存储组件；若整个存储模块关闭，该接口不会装配，属于部署前置条件而非“功能关闭”响应。
+- 本阶段只创建每项唯一逻辑检测任务，任务消费、算法回调和逐项最终结果闭环属于后续阶段。
+- 本轮未执行全阶段严格入口 `make verify-all`；R3 规定门禁、真实容器后端门禁及相关离线回归均已通过。
+# R4 后端真实基础设施发现（第二轮）
+
+- `image_object.state='AVAILABLE'` 受既有 `ck_image_available_dimensions` 约束保护；任何迁移/集成测试夹具也必须提供宽高，不能以测试便利绕过完整性规则。
+- 发件箱失败重试用例应把 `next_attempt_at` 设置为明确早于当前数据库时间，避免“恰好等于当前时间”在应用时钟与数据库时钟之间形成非确定性边界。
+- 最终差异审查发现产线仓储适配最初未把对象检查得到的宽高写入 `image_object`；这会触发既有可用图片完整性约束。产线服务现只接受正宽高，并将受控对象检查结果传入仓储层。
+# R5 启动发现（2026-08-03）
+
+- 用户明确要求开始 `R5`，并使用 `planning-with-files` 持续记录进度。
+- 现有 `task_plan.md`、`findings.md`、`progress.md` 均存在，不能重新初始化或覆盖历史记录。
+- R4 已关闭；真实硬件验收由项目所有者豁免且未执行，该限制必须继续保留，不能改写为通过。
+- 当前文档基线：`DOC-16 1.1.1`、`DOC-17 1.1.1`；目标跨进程契约为 `v2 / 2.0.0`，兼容期与 `v1 / 1.0.0` 并存。
+- `DOC-17` 将 R5 定义为“上传、结果、历史和三按钮页面”，依赖 `R3` 与 `R4`。
+- `R5-01`—`R5-06` 分别覆盖上传表单、前端上传服务、结果页面、历史页面、三按钮组件和全链路端到端测试。
+- R5 页面必须只展示后端事实；浏览器不得计算质量结论或批次终态。检测形成结果后应自动刷新或展开结果区域。
+- 第二版前端需满足键盘操作、清晰焦点、可读错误和非颜色唯一提示；三按钮不存在“提交全部”，无法判断必须保持 `HOLD`。
+- 工作树已有大量未提交 R4 生产代码、测试、迁移与文档改动。它们属于现有整改链路，R5 必须在其上增量实施，禁止覆盖或回退。
+- `git status` 将实施计划显示为小写 `docs/17-...` 的已修改路径，而用户引用为 `Docs/17-...`；当前文件系统大小写行为需谨慎处理，避免制造大小写重复文件。
+- `R5` 入口明确要求：`RG3` 通过、`RG4` 自动化门禁通过且按批准硬件豁免关闭、测试环境启用手工批次功能、页面使用第二版 TypeScript 生成类型。
+- `RG5` 指定命令为 `make test-web`、`make test-backend`、`make test-integration`、`make test-e2e`、`make test-security`。
+- 当前 `apps/web-console/` 是 Vue 3 + Vue Router + Pinia + Element Plus + Vitest，锁定 Node `20.13.1`、pnpm `10.34.5`。
+- 当前前端没有 R5 专属上传、批次结果、批次历史或快速反馈模块；需复用既有路由、API 客户端、会话与生成类型约定增量实现。
+- 核心需求范围已核对：`FR-BAT-001`—`011`、`FR-INF-005`—`009`、`FR-REV-001`—`005`、`FR-HIS-001`—`007`，以及 `NFR-IDEM-001`、`NFR-ACC-001`。
+- R3 后端已提供第二版能力、批次创建、加项并签发上传票据、上传确认、提交、删除、列表、批次详情和图片项详情接口；能力响应包含开关、数量、大小、媒体类型和票据有效期。
+- 第二版 OpenAPI 已声明快速反馈 `PUT /api/v2/detection-batches/{batch_id}/items/{item_id}/quick-review`，但当前 `ManualDetectionController` 未实现该路由，需要进一步核对是否有其他控制器或应用服务承担。
+- 现有通用 `ApiClient` 仅登记第一版操作，R5 需要把第二版操作加入同一认证、CSRF、请求标识和错误转换通道；不能绕过客户端自行散落 `fetch`。
+- 现有 `ApiClient` 会为每次非 GET 请求自动生成 `Idempotency-Key`；R5 重试必须允许复用原键，否则网络失败重试会变成新的业务请求。
+- 前端契约别名实际指向 `packages/typescript-contracts/src`，而非先前误查的 `generated/typescript`；后续从该生成包导入第二版类型。
+- 第二版生成包已具备 `DetectionBatch`、`DetectionBatchItem`、`QuickReviewRecord`、`BatchItemStatus`、`BatchStatus`、`QuickReviewDecision`、`UsageStage` 与 `ApiClientV2`，生成文件禁止手工修改。
+- 数据库 `V16` 已有只追加 `quick_feedback_v2` 表、提交者与幂等键唯一约束、修订外键，并在图片项保存当前快速反馈决策；缺失的是应用/仓储/API 接线，不需要新增迁移序列。
+- R3 返回的批次和图片项字段与第二版生成类型主体一致；图片项详情当前仅对 `READY`/`COMPLETED` 签发原图读取地址，结果图、质量详情、耗时和错误历史尚未出现在返回模型中，R5 需评估后端查询扩展。
+- R3 权限已有 `manual-detection:read`、`manual-detection:read:all`、`manual-detection:write`；快速反馈可先纳入现有手工检测写权限，R6 再做两类角色最终收敛。
+- 快速反馈请求的冻结结构只有必填 `decision` 和可选 `supersedes_record_id`；后端实现必须拒绝额外字段并验证修订目标属于同一图片项和同一提交者的当前记录。
+- `make test-web` 通过统一门禁脚本执行，R5 不新增空目标；前端严格 TypeScript 设置包含 `noUncheckedIndexedAccess`。
+- 现有人员会话权限是字符串原子权限，R5 新路由应使用既有 `manual-detection:read`/`write` 与 `read:all`，不手写角色判断。
+- 快速反馈应用接线已采用既有 `quick_feedback_v2` 与图片项当前决策字段；修订必须指向同一提交者在该图片项上的最新记录，保持只追加事实。
+- 实施中发现 R3 `GET /detection-batches/{id}` 只返回批次聚合，不返回图片项集合；R5 详情页无法仅凭冻结接口发现图片项标识。需在契约允许的批次详情响应中补齐项目集合，或新增契约化列表接口后再生成类型。
+- 第二版 `DetectionBatchItem` 生成类型目前缺少结果图引用、质量检查以外的执行元数据和错误历史；`FR-HIS-004/005` 与 `R5-03/04` 的完整展示不能靠手写网络字段规避，需先核对并修订契约源。
+- R5 详情发现图片项集合的缺口后，后端批次详情已扩展为组合现有生成 `DetectionBatch` 与 `DetectionBatchItem` 事实；没有复制第二版枚举。完整结果图/执行元数据仍是待闭合契约缺口。
+- 统一 API 客户端已登记 R5 所需第二版操作并允许调用者提供稳定 `Idempotency-Key`；未显式提供时仍保持原有自动生成行为。
+- 差异审查确认自动化已覆盖核心流，但当前详情只显示原图与状态，尚未展示 `detection_item_result_v2` 的派生结果图、已持久化逐项质量检查和执行错误；这是 `R5-03`/`FR-HIS-004` 的实质缺口，不能关闭 `RG5`。
+- 历史页当前支持来源/状态的当前已加载页筛选与游标翻页，后端尚未实现时间、操作人员和结果的服务端筛选；`FR-HIS-007` 的完整 P1 范围仍有限制。
+- 当前自动化不等于真实浏览器人工验收；尚未取得测试环境功能开关、人员会话、对象存储和推理服务联合运行证据。
+
+## R5 阶段性实施结论（2026-08-03）
+
+- 上传页已实现点击与拖拽、PNG/JPEG 魔数和大小校验、SHA-256、预览删除、数量/使用阶段、最多三路并发直传、稳定幂等重试、确认和单次提交；浏览器不持久化图片或上传票据。
+- 结果页以服务端状态和计数排序，终态前每两秒轮询；展示原图、逐项质量事实、技术错误和受控派生结果链接，不在前端计算质量或业务终态。
+- 历史页已实现权限范围内列表、稳定游标分页、详情、返回和深链接，但来源/状态筛选仅作用于当前加载页；时间、操作人员和结果筛选尚无服务端实现。
+- 三按钮反馈已接入既有只追加 `quick_feedback_v2`，网络失败重试复用稳定幂等键，修订关联当前记录；“无法判断”明确提示保持 `HOLD`，没有批量提交入口。
+- 业务后端批次详情已补齐图片项集合，并从已有 R4 持久事实返回质量检查、结果引用和错误；没有修改冻结契约或新增迁移。
+- 现有 R4 结果表没有完整模型版本、流水线版本和耗时字段，因此 `FR-HIS-005` 的管理员完整执行元数据仍不能展示；派生结果地址也不保证一定是可内嵌图片格式。
+- 五项 R5 自动化门禁均通过，但真实浏览器、人员会话、功能开关、对象存储、队列和推理服务联合链路未执行，故 `RG5` 保持未关闭。
+- 统一错误解析器必须同时兼容双版本错误形状：第二版读取 `error_code`，第一版回退读取 `code`；否则第二版页面只会显示按 HTTP 状态生成的回退错误码。
+- 第二版请求含可选字段时不能复用第一版“字段集合完全相等”读取器；必须分别声明允许字段和必填字段。否则省略合法可选字段会被误报为契约不一致，创建批次和快速反馈均会受影响。
+- 即使统一客户端已解析第二版错误，页面组件的通用 `catch` 若直接替换为固定文案，用户仍无法看到服务端事实；手工上传页应展示服务端消息、错误码和请求标识，仅对非接口异常使用安全回退文案。
+
+# R6 启动发现（2026-08-03）
+
+- 已按用户要求开始 R6，并恢复 `planning-with-files` 三份持久化记录。
+- 现有记录显示 R5 核心源码和规定自动化门禁已完成，但真实浏览器联合验收与完整历史筛选尚未闭合，`RG5` 未关闭。
+- R6 是否可以继续必须以 DOC-17 的明确入口条件为准；在确认前不得把 `RG5` 推断为通过。
+- DOC-17 第 12.1 节规定 R6 的三个入口条件：`RG5` 通过、`R0-05` 用户与旧角色基线完整、每个旧高权限账号已有明确目标角色决定。
+- 当前记录明确写着 `RG5` 未关闭，因此与 R6 入口条件冲突；必须先核验证据，缺失时 R6 进入 `HOLD`，不能因用户说“开始”而把门禁改写为通过。
+- R6 目标是人员角色安全收敛为 `PRODUCTION_EMPLOYEE` 与 `ADMINISTRATOR`，任务覆盖契约/身份、迁移预览与逐项确认、会话撤销、用户管理、菜单路由、手册审计以及数据集/训练撤权和模型专属审批权限。
+- `RG6` 核心安全不变量包括：未确认高权限用户不得自动成为管理员；生产员工不得管理用户、样本或模型；高风险操作必须不同账号并完整审计；第二版会话与菜单不得包含数据集/训练权限和入口。
+- DOC-17 为 R6 指定四项门禁：`make test-backend`、`make test-web`、`make test-security`、`make test-e2e`。
+- 初步源码扫描确认第二版公共契约的 `PersonRole` 已只有两类，但尚未发现逐账号角色映射决定清单；契约就绪不等于 R6 入口已满足。
+- 当前 `git status --short` 仅显示三份规划文件有修改，未发现其他未提交源码改动；后续仍需避免覆盖仓库历史成果。
+- `Docs/baseline/R0-v1-runtime-inventory.json` 明确记录运行用户总数为 0、旧角色分布为空，映射批准证据为 `NOT_APPLICABLE_NO_RUNTIME_USERS`；因此 R6 的逐账号旧高权限决定条件在当前冻结基线下不适用，而不是缺失账号清单。
+- `RG5` 是剩余唯一入口阻断：R5 记录明确缺少浏览器、后端、对象存储、队列和推理联合链路；历史页的时间、操作人员和结果服务端筛选也未完成。DOC-17 没有为 `RG5` 定义类似 R4 的默认豁免条款。
+- 在未闭合 R5 或未由项目所有者正式修改入口条件前，不应开始 R6 生产源码修改；可以保留已完成的契约与现状只读盘点。
+# R6 本轮源码复核补充（2026-08-03）
+
+- `RolePermissionMatrix.java` 的管理员权限集合曾缺少逗号，已修复；这是契约包校验无法覆盖的业务源码编译问题。
+- 模型部署质量审批仍依赖旧 `dataset:approve`，已改为 `model:approve`；安全配置与控制器保持一致，避免 R6 删除数据集权限后出现旧权限旁路。
+- 契约源、示例、确定性生成和 Python/Java 契约包编译已通过；该结果只证明契约层，不等同于业务后端、前端或真实浏览器联调通过。
+
+## R6 实施结果与边界（2026-08-03）
+
+- R6-01 至 R6-04 已由身份领域、V19 迁移、用户管理控制器/页面和本地会话解析共同闭合。新会话只暴露 `PRODUCTION_EMPLOYEE` 或 `ADMINISTRATOR`，未确认账号返回空的第二版人员权限；角色确认、角色变更和状态变更会撤销既有会话。
+- R6-02 的迁移规则是安全失败：旧 `OPERATOR` 单独存在时仅建议生产员工；无旧角色保持 `UNCONFIRMED`；多个旧角色或旧高权限角色进入 `CONFLICT`，管理员目标角色必须提供明确原因。重复确认相同目标幂等，改目标或缺少原因失败。
+- R6-05 已移除前端数据集/训练路由、菜单、懒加载入口以及模型页中的冻结数据集/成功训练运行选择器。旧组件、服务、第一版客户端方法和第一版兼容接口仍保留为不可达兼容代码，按 DOC-17 的 R9-04/R9-07 物理清理边界处理。
+- R6-07 已把部署质量审批从旧 `dataset:approve` 解耦为 `model:approve`；角色矩阵、V19 数据库授权、安全配置、控制器和前端模型路由/页面保持一致。旧数据集/训练授权仅作为历史兼容事实保留，新人员角色不再拥有。
+- 最终 `make test-backend` 通过 101 项单元测试和 25 项真实容器集成测试；`make test-web` 通过 44 项前端测试、类型检查和生产构建；`make test-security` 通过 21 项安全测试及密钥/部署扫描；`make test-e2e` 通过 42 项测试；`make verify-p1-offline` 通过。
+- V19 已在 PostgreSQL 18.4 Testcontainers 中验证空库迁移、升级迁移、角色映射、冲突拒绝、确认幂等、会话撤销、显示名称更新和历史夹具对账；这不是生产数据库切换或真实双管理员现场演练证据。
+- 自动化结果不能关闭 RG6：RG5 真实浏览器联合证据仍缺失，且尚未执行真实设备、对象存储/队列/推理外部服务联合验收和严格全阶段门禁；因此发布切换、功能开关切换和 RG6 保持 `HOLD`。
+
+## R6 开发账号落地结果（2026-08-03）
+
+- 开发数据库中存在唯一 `admin` 账号，原旧角色绑定为 `SYSTEM_OPERATOR`，V19 迁移后处于 `UNCONFIRMED`；按用户明确指定，仅对该账号执行一次显式管理员确认，不把规则扩大为所有旧高权限账号自动提权。
+- `admin` 已更新为 `ADMINISTRATOR`，保留旧角色绑定供历史追溯，迁移清单状态为 `CONFIRMED`，记录明确的系统初始化原因，并撤销原有会话。
+- 新密码只以 Argon2 哈希写入开发数据库；明文没有写入仓库或配置。账号遵循现有初始密码策略，登录响应标记 `password_change_required=true`。
+- 本地登录和 `/api/v1/auth/session` 均验证返回 `ADMINISTRATOR` 以及管理员权限；数据库复核确认无误后清理了临时会话文件。
+
+## R7 前端与分层复核（2026-08-03）
+
+- 前端统一客户端已注册 `listAdminDetectionItemsV2`、`createAdminFeedbackV2`、候选创建/列表/决策、导出创建/查询/下载票据共八个操作；请求封装会自动附带同源认证、CSRF、请求标识和幂等键。
+- R7 管理页应使用 `sample:read` 路由权限，不在前端计算最终处置规则；页面只提交反馈、候选纳入/排除和异步导出请求，展示后端返回的清单/失败事实。
+- 后端控制器要求管理员身份、稳定 `Idempotency-Key`、严格对象字段和 `v2` 路径；导出下载只在作业已有包引用时请求短时授权 URL。
+- 应用层游标编码已从 JDBC 仓储移到 `SampleCursor`，避免业务用例反向依赖基础设施；基础设施继续把非法游标映射为明确的完整性失败。
+
+## R7 前端实现与导出格式复核（2026-08-03）
+
+- `make test-web` 最终通过：类型检查、9 个测试文件 44 项测试和生产构建均通过；R7 管理页以异步作业状态和失败候选为后端事实来源。
+- 契约生成器曾因 R7 `SampleCandidate.source_snapshot` 使用 `JsonObject` 而未在 `v2/index.ts` 生成该类型声明；已修正生成源并重新生成，`make verify-contracts-source` 通过，未手改生成文件。
+- worker 的实际包布局为 `manifest.json` 与 `samples/{candidate_id}/original.(png|jpg)`、`record.json`，有结果 JSON 时另含 `result.json`；清单状态为 `EXPORTED` 或 `FAILED`，包整体有失败项时为 `FAILED`。
+- worker 严格要求原图/结果对象登记引用的媒体类型、大小、SHA-256 和版本证据；对象存储读写故障必须重试/HOLD，候选数据完整性失败进入逐项失败清单。
+
+## R7 后端真实容器复验（2026-08-03）
+
+- 首次 `make test-backend` 失败原因已闭合：V20 空库迁移实际成功但历史数量断言落后一版；`JdbcSampleLibraryRepository` 的 `final` 声明阻止既有事务 CGLIB 代理。
+- 修正后 `make test-backend` 通过：101 项单测、25 项集成测试，PostgreSQL 18.4、MinIO、RabbitMQ 均实际启动，失败/错误/跳过为 0。
+- V20 在空库和升级库均实际迁移至版本 20；R7 默认关闭时样本控制器/配置不装配，存储集成仍能正常启动。
+- 后端仍有一个交接缺口：worker 已能构建并发布包/清单，但尚未看到消费 `sample.export.completed.v2` 并回写 `sample_export_job_v2` 的完整运行接线；不能把导出作业状态投影视为已完成。
+- 复核发现既有 `ManualAckInboxConsumer` 硬编码推理队列和 `detection_task_id`，不能直接承载 R7 完成事件；R7 需要独立监听器，但仍可复用收件箱事务。现有 `JdbcInboxRepository` 对 `detection_task_id=NULL` 的重复消息比较还会触发空指针，需先改为显式空值安全比较。
+- 已补齐独立 `SampleExportCompletedConsumer`、完成事件严格处理器、`sample.export.completed.v2` RabbitMQ 队列/绑定和投影事务；完成事件要求完整压缩包引用，缺失时死信，不把缺少包哈希的旧事件当作成功。
+- 已新增 PostgreSQL 集成回归 fixture：一个候选成功、一个候选失败时作业必须为 `FAILED`，成功候选状态与包级哈希/大小落库，重复完成事件不得重复推进版本或报错。
+- 完成事件闭环后的本轮门禁均通过：worker 4 项单测及正负门禁、通用集成 8 项、数据门禁最新迁移 V20、安全 24 项、故障 24 项、端到端 44 项；密钥扫描检查 654 个文件。
+- 创建导出作业时现在先保存请求目标的桶/对象键；完成事件核对该位置后写入包/清单哈希、计数、失败候选和逐项状态。逐项 `exported_sha256/exported_size_bytes` 记录包级摘要，作为该导出项已包含在已校验包中的证据；包内成员哈希仍以清单为准。
+
+## R9 物理退役边界复核（2026-08-03）
+
+- 项目所有者补充确认：`business-api/.../training/` 已正式退役；当前无旧模型、无第一版业务数据残留，第一版运行代码可物理删除。
+- 已完成的运行时删除包含业务后端训练包、旧数据集包、旧模型登记/生命周期资格读取器、旧数据集/训练作业及受控输出、评审到训练准入消费者、第一版采集命令包、旧原始上传票据接口和对应测试；已将仍被复核策略使用的 `BusinessDisposition` 移到检测领域。
+- `services/business-api` 已执行 `clean test-compile`：主源码 217 个、测试源码 36 个编译成功；仅有既有过时 API 和未检查操作提示，无编译错误。
+- 第一版契约、兼容基线、生成物和已执行数据库迁移仍作为不可回写审计来源保留；本轮未通过物理删除运行代码来改写这些来源。
+- 当前仍需单独处理/验证的残留不是已确认退役的训练/数据集运行包：边缘端旧本地采集队列与 v1 同步器、推理服务旧多图编排/回调、部分 v1 检测/复核读模型以及数据库历史表/列仍与现有历史兼容测试或运行查询耦合。删除前需完成 v2 单图消费者接线或明确保留边界，不能只按字符串命中盲删。
+
+## R7 收尾复核（2026-08-03）
+
+- R7-05 已补充管理员检测项和候选列表的服务端游标分页、加载更多和刷新游标复位；前端只展示后端分页事实，不在浏览器推导最终处置。
+- R7-06 已补充 `POST /api/v2/sample-exports/{export_job_id}/external-receipts`、第二版契约生成类型、管理员权限、V20 追加式回执表和页面登记/展示。回执只允许在导出终态且已有完整包摘要后登记，支持稳定幂等键；不调用外部接口、不轮询、不订阅、不保存外部凭据。
+- 完成事件、回执字段和接口已从 `contracts/` 生成到 Python、Java、TypeScript 包；`make generate-contracts`、`make verify-contracts-source` 和 `make verify-p1-offline` 通过，契约保持 `v1 / 1.0.0`、`v2 / 2.0.0`，数据库最新迁移为 V20。
+- 新增回执后的真实投影回归先暴露 `findExportJob` 缺少清单媒体类型列的问题；已使用固定的 `application/json` 契约媒体类型补齐查询别名，随后 `DatabaseMigrationIT` 和完整 `make test-backend` 均通过。
+- 最终验证结果：`make test-web` 为 9 个测试文件、44 项测试并通过类型检查和生产构建；`make test-backend` 为 101 项单元测试和 26 项真实容器集成测试；`make verify-sample-export` 4 项 worker 测试及正负/部分失败/哈希/版本场景；`make test-integration` 8 项、`make verify-data` 状态 `PASSED` 且 V20、`make test-security` 24 项、`make test-faults` 24 项、`make test-e2e` 44 项，`git diff --check` 通过。
+- 自动化 RG7 标准已满足；但 `RG6` 仍因 `RG5` 真实浏览器联合证据缺失保持 `HOLD`，导出对象前缀、保留期、配额和审批阈值也没有批准配置事实，因此 R7 只判定为 `completed_with_hold`，不得面向用户启用。
+
+## R9 V21 数据库物理清理与后端回归（2026-08-03）
+
+- 项目所有者的“无旧模型、无第一版数据残留、允许物理删除”授权已落到实现：新增 `services/business-api/src/main/resources/db/migration/V21__r9_remove_retired_v1_sources.sql`，不改写 V1—V20 历史脚本。
+- V21 先检查 `model_version` 中旧内部来源/旧训练或数据集外键，以及六张数据集/训练历史表；任一非零都抛出 PostgreSQL 异常并进入 `HOLD`，不允许带数据误删。空库/升级库随后删除六张旧表、旧模型来源列、旧权限映射，并把模型来源收紧为带上传会话和外部来源快照的 `EXTERNAL_UPLOAD`。
+- `ModelVersion`、JDBC 模型仓储和数据库迁移测试已切换到外部上传来源；`DatabaseMigrationIT` 验证空库/升级库的六张旧表和旧模型列不存在，`ReliableMessagingIT` 使用 `model_upload_session_v2` 夹具。
+- 首次完整 `make test-backend` 的唯一失败是 pg_dump 恢复断言仍期待 20 条迁移，实际为 21；断言已修正。补充 V21 负向 HOLD 测试后，最终 `make test-backend` 通过 80 项单元测试和 24 项真实容器集成测试，失败/错误/跳过均为 0，PostgreSQL 18.4、MinIO、RabbitMQ 和 V21 迁移均实际执行。
+- 后端 `clean test-compile` 已通过（217 个主源码、36 个测试源码）。旧训练、数据集、旧模型登记运行包以及第一版采集/原始上传票据运行包已物理删除；契约版本保持第二版 `2.0.0`，第一版契约/兼容基线和历史迁移继续作为冻结审计来源。
+- 按授权，R9-08 不生成空 `LegacyProvenanceSnapshot`，而记录为无旧来源事实下的“不适用”。边缘旧队列/同步、推理旧多图回调和仍耦合当前复核事实的 v1 读模型未盲删，继续作为 R9-02/R9-04 的明确剩余边界。
+
+## R9 核心/边缘/推理/前端回归复核（2026-08-03）
+
+- `make test-edge` 通过 119 项，真实硬件验收前置项全部缺失并由测试日志明确记录，不能宣称真实设备通过；`make test-inference` 通过 36 项。
+- `make test-web` 通过类型检查、9 个测试文件 39 项测试和生产构建；前端旧数据集/训练页面与客户端删除未引入类型或构建回归。
+- `make test-core` 最终未通过：202 项中仅 9 项因 `artifacts/classification`/`artifacts/multitask` 的旧模型权重缺失而报错；角色手册断言已同步为现行“样本导出”并通过。旧模型不恢复、不补造，核心门禁保持 `HOLD`，与 `verify-model-supply` 缺外部模型包证据一致。
+- `src/tool_defect/training/` 仍按项目边界保留；本次核心回归的缺失权重属于未提交的旧研究模型资产，不得用生成/测试产物填充以制造通过。
+
+## R9 集成回归迁移（2026-08-03）
+
+- `make test-integration` 首次执行因 P5 追踪测试仍读取已删除的 `capture/application/CaptureWorkflowService.java` 而失败；该测试属于旧第一版采集运行面残留，不恢复已删除类。
+- 已将测试改为检查现行 `detectionbatch/application/ProductionDetectionService.java` 的 v2 `traceparent`、`pipeline_version=2.0.0` 和 `inference.item.requested.v2` 事件传播；重跑 `make test-integration` 通过 8 项。
+- 角色手册断言已改为“样本导出”，精确测试通过；旧模型权重仍缺失，核心研究测试继续保持 `HOLD`。
+
+## R9 严格 P1 门禁（2026-08-03）
+
+- `make verify-p1-strict` 通过：严格工具链（Python、Java、Maven、Node 20.13.1、pnpm 10.34.5、Docker/Compose）满足，契约全语言生成/编译、Compose、安全扫描、24 项安全测试、SBOM 和 Compose 配置检查均通过。
+- 严格 P1 通过不等于 RG9 通过；外部模型包证据、无训练隔离观察窗、真实设备和其余 v1 兼容消费者边界仍保持 `HOLD`。
+
+## R9 阶段性离线门禁汇总（2026-08-03）
+
+- `make verify-sample-export` 通过 4 项 worker 测试及正向/负向/部分失败/哈希/版本验证。
+- `make verify-p5-offline` 通过监控、部署安全、运行手册、24 项故障测试、密钥扫描、24 项安全测试和 17 项性能测试。
+- `make verify-g7` 返回 `BLOCKED`，阻断数 109，主要是既有 P6/P7 生产验收报告、站点参数签署、真实硬件、生产模型、恢复演练和发布签署证据缺失；没有把缺失证据标为通过。
+
+## R9 V21 安全失败测试补充（2026-08-03）
+
+- 新增 `DatabaseMigrationIT.v21RefusesRetiredRowsBeforeDestructiveCleanup`：在 V20 schema 预置旧 `dataset` 行，V21 必须抛出 R9 退役异常，旧行保留且 V21 不写入成功迁移历史。
+- 该测试证明“无第一版数据”是物理删除的前置事实，技术上即使前置事实失效也只会进入 `HOLD`，不会误删或产生 `PASS`；完整后端回归已通过 80 项单元测试和 24 项集成测试。

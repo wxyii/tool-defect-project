@@ -12,7 +12,7 @@ import org.springframework.http.MediaType;
 
 import tools.jackson.databind.ObjectMapper;
 
-/** 冻结 standard-error-v1.schema.json 的统一构造与写出入口。 */
+/** 按请求主版本构造冻结的第一版或第二版标准错误。 */
 public final class StandardErrorFactory {
     private StandardErrorFactory() {
     }
@@ -27,6 +27,16 @@ public final class StandardErrorFactory {
             safeMessage = "请求处理失败";
         } else if (safeMessage.length() > 512) {
             safeMessage = safeMessage.substring(0, 512);
+        }
+        if (request.getRequestURI() != null
+                && request.getRequestURI().startsWith("/api/v2/")) {
+            return Map.of(
+                "error_code", code,
+                "message", safeMessage,
+                "request_id", requestId(request),
+                "retryable", retryable,
+                "details", Map.of()
+            );
         }
         return Map.of(
             "code", code,

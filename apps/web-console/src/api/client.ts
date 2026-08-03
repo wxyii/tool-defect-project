@@ -2,6 +2,7 @@ import { ensureCsrf } from '@/auth/local-auth'
 
 import { toApiError } from './errors'
 import type { JsonObject } from './generated'
+import type { ApiClientV2 } from '@contracts/v2/client'
 
 type WebConsoleOperation =
   | 'getSystemOverview'
@@ -17,24 +18,10 @@ type WebConsoleOperation =
   | 'completeReviewAnnotation'
   | 'createImageAccessTicket'
   | 'streamAuthorizedEvents'
-  | 'listDatasets'
-  | 'createDataset'
-  | 'listDatasetVersionCatalog'
-  | 'createDatasetVersion'
-  | 'listDatasetVersions'
-  | 'getDatasetVersion'
-  | 'diffDatasetVersions'
-  | 'listDatasetCandidateManifests'
-  | 'approveDatasetCandidateManifest'
-  | 'approveDatasetVersion'
-  | 'createTrainingRun'
-  | 'listTrainingRuns'
-  | 'getTrainingRun'
   | 'listModels'
   | 'createModel'
   | 'listModelVersions'
   | 'getModelVersion'
-  | 'registerModelVersion'
   | 'submitModelValidationDecision'
   | 'createModelDeployment'
   | 'listModelDeployments'
@@ -42,6 +29,40 @@ type WebConsoleOperation =
   | 'approveModelDeployment'
   | 'rollbackModelDeployment'
   | 'getQualityMetrics'
+  | 'getManualDetectionCapabilitiesV2'
+  | 'listDetectionBatchesV2'
+  | 'createDetectionBatchV2'
+  | 'getDetectionBatchV2'
+  | 'addDetectionBatchItemV2'
+  | 'getDetectionBatchItemV2'
+  | 'deleteDetectionBatchItemV2'
+  | 'completeDetectionBatchItemUploadV2'
+  | 'renewDetectionBatchItemUploadV2'
+  | 'submitDetectionBatchV2'
+  | 'putQuickReviewV2'
+  | 'listAdminDetectionItemsV2'
+  | 'createAdminFeedbackV2'
+  | 'listSampleCandidatesV2'
+  | 'createSampleCandidateV2'
+  | 'decideSampleCandidateV2'
+  | 'createSampleExportV2'
+  | 'getSampleExportV2'
+  | 'createSampleExportDownloadTicketV2'
+  | 'createSampleExternalReceiptV2'
+
+type ManualDetectionApiV2 = Pick<ApiClientV2,
+  | 'getManualDetectionCapabilitiesV2'
+  | 'listDetectionBatchesV2'
+  | 'createDetectionBatchV2'
+  | 'getDetectionBatchV2'
+  | 'addDetectionBatchItemV2'
+  | 'getDetectionBatchItemV2'
+  | 'deleteDetectionBatchItemV2'
+  | 'completeDetectionBatchItemUploadV2'
+  | 'renewDetectionBatchItemUploadV2'
+  | 'submitDetectionBatchV2'
+  | 'putQuickReviewV2'
+>
 
 export type WebConsoleGeneratedApiClient = ApiClient
 
@@ -68,7 +89,7 @@ export class AuthenticationRefreshError extends Error {
 }
 
 interface OperationDefinition {
-  readonly method: 'GET' | 'POST'
+  readonly method: 'GET' | 'POST' | 'PUT' | 'DELETE'
   readonly path: string
   readonly response: 'json' | 'event-stream'
 }
@@ -146,71 +167,6 @@ const OPERATIONS = {
     path: '/api/v1/events/stream',
     response: 'event-stream',
   },
-  listDatasets: {
-    method: 'GET',
-    path: '/api/v1/datasets',
-    response: 'json',
-  },
-  createDataset: {
-    method: 'POST',
-    path: '/api/v1/datasets',
-    response: 'json',
-  },
-  listDatasetVersionCatalog: {
-    method: 'GET',
-    path: '/api/v1/dataset-versions',
-    response: 'json',
-  },
-  createDatasetVersion: {
-    method: 'POST',
-    path: '/api/v1/dataset-versions',
-    response: 'json',
-  },
-  listDatasetVersions: {
-    method: 'GET',
-    path: '/api/v1/datasets/{dataset_id}/versions',
-    response: 'json',
-  },
-  getDatasetVersion: {
-    method: 'GET',
-    path: '/api/v1/dataset-versions/{dataset_version_id}',
-    response: 'json',
-  },
-  diffDatasetVersions: {
-    method: 'GET',
-    path: '/api/v1/dataset-versions/diff',
-    response: 'json',
-  },
-  listDatasetCandidateManifests: {
-    method: 'GET',
-    path: '/api/v1/dataset-candidate-manifests',
-    response: 'json',
-  },
-  approveDatasetCandidateManifest: {
-    method: 'POST',
-    path: '/api/v1/dataset-candidate-manifests/{candidate_manifest_id}/approval',
-    response: 'json',
-  },
-  approveDatasetVersion: {
-    method: 'POST',
-    path: '/api/v1/dataset-versions/{dataset_version_id}/approval',
-    response: 'json',
-  },
-  createTrainingRun: {
-    method: 'POST',
-    path: '/api/v1/training-runs',
-    response: 'json',
-  },
-  listTrainingRuns: {
-    method: 'GET',
-    path: '/api/v1/training-runs',
-    response: 'json',
-  },
-  getTrainingRun: {
-    method: 'GET',
-    path: '/api/v1/training-runs/{training_run_id}',
-    response: 'json',
-  },
   listModels: {
     method: 'GET',
     path: '/api/v1/models',
@@ -229,11 +185,6 @@ const OPERATIONS = {
   getModelVersion: {
     method: 'GET',
     path: '/api/v1/model-versions/{model_version_id}',
-    response: 'json',
-  },
-  registerModelVersion: {
-    method: 'POST',
-    path: '/api/v1/model-versions',
     response: 'json',
   },
   submitModelValidationDecision: {
@@ -271,9 +222,69 @@ const OPERATIONS = {
     path: '/api/v1/quality/metrics',
     response: 'json',
   },
+  getManualDetectionCapabilitiesV2: {
+    method: 'GET', path: '/api/v2/capabilities/manual-detection', response: 'json',
+  },
+  listDetectionBatchesV2: {
+    method: 'GET', path: '/api/v2/detection-batches', response: 'json',
+  },
+  createDetectionBatchV2: {
+    method: 'POST', path: '/api/v2/detection-batches', response: 'json',
+  },
+  getDetectionBatchV2: {
+    method: 'GET', path: '/api/v2/detection-batches/{batch_id}', response: 'json',
+  },
+  addDetectionBatchItemV2: {
+    method: 'POST', path: '/api/v2/detection-batches/{batch_id}/items', response: 'json',
+  },
+  getDetectionBatchItemV2: {
+    method: 'GET', path: '/api/v2/detection-batches/{batch_id}/items/{item_id}', response: 'json',
+  },
+  deleteDetectionBatchItemV2: {
+    method: 'DELETE', path: '/api/v2/detection-batches/{batch_id}/items/{item_id}', response: 'json',
+  },
+  completeDetectionBatchItemUploadV2: {
+    method: 'POST', path: '/api/v2/detection-batches/{batch_id}/items/{item_id}/complete', response: 'json',
+  },
+  renewDetectionBatchItemUploadV2: {
+    method: 'POST', path: '/api/v2/detection-batches/{batch_id}/items/{item_id}/renew', response: 'json',
+  },
+  submitDetectionBatchV2: {
+    method: 'POST', path: '/api/v2/detection-batches/{batch_id}/submit', response: 'json',
+  },
+  putQuickReviewV2: {
+    method: 'PUT', path: '/api/v2/detection-batches/{batch_id}/items/{item_id}/quick-review', response: 'json',
+  },
+  listAdminDetectionItemsV2: {
+    method: 'GET', path: '/api/v2/admin/detection-items', response: 'json',
+  },
+  createAdminFeedbackV2: {
+    method: 'POST', path: '/api/v2/admin/detection-items/{item_id}/feedback', response: 'json',
+  },
+  listSampleCandidatesV2: {
+    method: 'GET', path: '/api/v2/sample-candidates', response: 'json',
+  },
+  createSampleCandidateV2: {
+    method: 'POST', path: '/api/v2/sample-candidates', response: 'json',
+  },
+  decideSampleCandidateV2: {
+    method: 'POST', path: '/api/v2/sample-candidates/{candidate_id}/decision', response: 'json',
+  },
+  createSampleExportV2: {
+    method: 'POST', path: '/api/v2/sample-exports', response: 'json',
+  },
+  getSampleExportV2: {
+    method: 'GET', path: '/api/v2/sample-exports/{export_job_id}', response: 'json',
+  },
+  createSampleExportDownloadTicketV2: {
+    method: 'POST', path: '/api/v2/sample-exports/{export_job_id}/download-ticket', response: 'json',
+  },
+  createSampleExternalReceiptV2: {
+    method: 'POST', path: '/api/v2/sample-exports/{export_job_id}/external-receipts', response: 'json',
+  },
 } as const satisfies Record<WebConsoleOperation, OperationDefinition>
 
-export class ApiClient {
+export class ApiClient implements ManualDetectionApiV2 {
   private readonly baseUrl: string
   private readonly fetcher: typeof fetch
   private readonly requestIdFactory: () => string
@@ -336,58 +347,6 @@ export class ApiClient {
     return this.invokeJson('createImageAccessTicket', request)
   }
 
-  listDatasets(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('listDatasets', request)
-  }
-
-  createDataset(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('createDataset', request)
-  }
-
-  listDatasetVersionCatalog(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('listDatasetVersionCatalog', request)
-  }
-
-  createDatasetVersion(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('createDatasetVersion', request)
-  }
-
-  listDatasetVersions(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('listDatasetVersions', request)
-  }
-
-  getDatasetVersion(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('getDatasetVersion', request)
-  }
-
-  diffDatasetVersions(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('diffDatasetVersions', request)
-  }
-
-  listDatasetCandidateManifests(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('listDatasetCandidateManifests', request)
-  }
-
-  approveDatasetCandidateManifest(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('approveDatasetCandidateManifest', request)
-  }
-
-  approveDatasetVersion(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('approveDatasetVersion', request)
-  }
-
-  createTrainingRun(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('createTrainingRun', request)
-  }
-
-  listTrainingRuns(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('listTrainingRuns', request)
-  }
-
-  getTrainingRun(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('getTrainingRun', request)
-  }
-
   listModels(request?: JsonObject): Promise<JsonObject> {
     return this.invokeJson('listModels', request)
   }
@@ -402,10 +361,6 @@ export class ApiClient {
 
   getModelVersion(request?: JsonObject): Promise<JsonObject> {
     return this.invokeJson('getModelVersion', request)
-  }
-
-  registerModelVersion(request?: JsonObject): Promise<JsonObject> {
-    return this.invokeJson('registerModelVersion', request)
   }
 
   submitModelValidationDecision(request?: JsonObject): Promise<JsonObject> {
@@ -434,6 +389,86 @@ export class ApiClient {
 
   getQualityMetrics(request?: JsonObject): Promise<JsonObject> {
     return this.invokeJson('getQualityMetrics', request)
+  }
+
+  getManualDetectionCapabilitiesV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('getManualDetectionCapabilitiesV2', request)
+  }
+
+  listDetectionBatchesV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('listDetectionBatchesV2', request)
+  }
+
+  createDetectionBatchV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('createDetectionBatchV2', request)
+  }
+
+  getDetectionBatchV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('getDetectionBatchV2', request)
+  }
+
+  addDetectionBatchItemV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('addDetectionBatchItemV2', request)
+  }
+
+  getDetectionBatchItemV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('getDetectionBatchItemV2', request)
+  }
+
+  deleteDetectionBatchItemV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('deleteDetectionBatchItemV2', request)
+  }
+
+  completeDetectionBatchItemUploadV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('completeDetectionBatchItemUploadV2', request)
+  }
+
+  renewDetectionBatchItemUploadV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('renewDetectionBatchItemUploadV2', request)
+  }
+
+  submitDetectionBatchV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('submitDetectionBatchV2', request)
+  }
+
+  putQuickReviewV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('putQuickReviewV2', request)
+  }
+
+  listAdminDetectionItemsV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('listAdminDetectionItemsV2', request)
+  }
+
+  createAdminFeedbackV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('createAdminFeedbackV2', request)
+  }
+
+  listSampleCandidatesV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('listSampleCandidatesV2', request)
+  }
+
+  createSampleCandidateV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('createSampleCandidateV2', request)
+  }
+
+  decideSampleCandidateV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('decideSampleCandidateV2', request)
+  }
+
+  createSampleExportV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('createSampleExportV2', request)
+  }
+
+  getSampleExportV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('getSampleExportV2', request)
+  }
+
+  createSampleExportDownloadTicketV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('createSampleExportDownloadTicketV2', request)
+  }
+
+  createSampleExternalReceiptV2(request?: JsonObject): Promise<JsonObject> {
+    return this.invokeJson('createSampleExternalReceiptV2', request)
   }
 
   async streamAuthorizedEvents(request?: JsonObject): Promise<JsonObject> {
@@ -521,7 +556,9 @@ export class ApiClient {
     const method = (init.method ?? 'GET').toUpperCase()
     if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
       headers.set('X-TD-CSRF', await ensureCsrf(this.fetcher))
-      headers.set('Idempotency-Key', this.requestIdFactory())
+      if (!headers.has('Idempotency-Key')) {
+        headers.set('Idempotency-Key', this.requestIdFactory())
+      }
     }
     const response = await this.fetcher(url, {
       ...init,

@@ -3,8 +3,13 @@
   "consumers": [
     {
       "consumer_id": "edge-agent",
+      "owner": "边缘采集所有者",
       "language": "python",
       "generated_package": "tool-defect-contracts",
+      "contract_version": "1.0.0",
+      "telemetry_source": "不适用：第一版从未部署",
+      "migration_status": "FROZEN_UNUSED",
+      "last_observed_call_at": null,
       "http_operations": [
         "createCapture",
         "completeCaptureImage",
@@ -18,8 +23,13 @@
     },
     {
       "consumer_id": "business-api",
+      "owner": "业务后端所有者",
       "language": "java",
       "generated_package": "local.tooldefect:java-contracts",
+      "contract_version": "1.0.0",
+      "telemetry_source": "不适用：第一版从未部署",
+      "migration_status": "FROZEN_UNUSED",
+      "last_observed_call_at": null,
       "http_operations": [
         "createCapture",
         "renewCaptureImageUploadTicket",
@@ -39,8 +49,13 @@
     },
     {
       "consumer_id": "inference-service",
+      "owner": "推理服务所有者",
       "language": "python",
       "generated_package": "tool-defect-contracts",
+      "contract_version": "1.0.0",
+      "telemetry_source": "不适用：第一版从未部署",
+      "migration_status": "FROZEN_UNUSED",
+      "last_observed_call_at": null,
       "http_operations": [
         "startDetectionAttempt",
         "submitDetectionResult",
@@ -55,8 +70,13 @@
     },
     {
       "consumer_id": "web-console",
+      "owner": "前端所有者",
       "language": "typescript",
       "generated_package": "@tool-defect/contracts",
+      "contract_version": "1.0.0",
+      "telemetry_source": "不适用：第一版从未部署",
+      "migration_status": "FROZEN_UNUSED",
+      "last_observed_call_at": null,
       "http_operations": [
         "getCsrfToken",
         "loginLocalUser",
@@ -67,6 +87,7 @@
         "createLocalUser",
         "updateLocalUserStatus",
         "updateLocalUserRoles",
+        "updateLocalUserDisplayName",
         "resetLocalUserPassword",
         "getSystemOverview",
         "listAuditRecords",

@@ -85,15 +85,6 @@ public interface ReviewRepository {
         Instant createdAt
     );
 
-    void appendTrainingDecision(
-        UUID decisionId,
-        UUID reviewRecordId,
-        String actorId,
-        String decision,
-        String reason,
-        Instant createdAt
-    );
-
     record ReviewRecordState(
         UUID reviewRecordId,
         String reviewerId,
