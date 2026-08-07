@@ -65,6 +65,7 @@ build/sbom/
 .env.*
 !.env.example
 !*.env.example
+.venv.legacy/
 
 # P7 现场证据只允许提交契约说明，真实运行输出通过受控挂载提供。
 deploy/environments/production/evidence/*
