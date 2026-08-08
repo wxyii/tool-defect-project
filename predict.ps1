@@ -1,25 +1,23 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Tool Defect Inference Runner - 一键执行车刀缺陷推理
-.DESCRIPTION
-    自动设置 PYTHONPATH 并执行推理任务，输出可视化叠加图。
-    无需手动激活虚拟环境或设置环境变量。
+    Run tool-defect inference with the project virtual environment.
 .EXAMPLE
     .\predict.ps1 -Task multitask -Input data\images\unqualified\100.png -Output outputs\result
 .EXAMPLE
-    .\predict.ps1 -Task multitask -Input data\images\unqualified -Output outputs\batch
+    .\predict.ps1 -Task classification -Input data\images\qualified -Output outputs\batch
 #>
 
 param(
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory = $true)]
     [ValidateSet("classification", "multitask")]
     [string]$Task,
 
-    [Parameter(Mandatory=$true)]
-    [string]$Input,
+    [Parameter(Mandatory = $true)]
+    [Alias("Input")]
+    [string]$InputPath,
 
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory = $true)]
     [string]$Output,
 
     [string]$ModelDir,
@@ -27,67 +25,52 @@ param(
     [string]$Config = "configs\default.json"
 )
 
-# 获取脚本所在目录（项目根目录）
-$ProjectRoot = $PSScriptRoot
-if (-not $ProjectRoot) {
-    $ProjectRoot = (Get-Location).Path
-}
-
-# Python 解释器路径（使用虚拟环境中的 Python）
+$ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $PythonExe = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
 
-# 检查 Python 是否存在
-if (-not (Test-Path $PythonExe)) {
-    Write-Error "虚拟环境 Python 不存在: $PythonExe"
-    Write-Host "请先创建虚拟环境并安装依赖。" -ForegroundColor Yellow
+if (-not (Test-Path -LiteralPath $PythonExe)) {
+    Write-Error "Virtual-environment Python was not found: $PythonExe"
+    Write-Host "Create .venv and install requirements.txt first." -ForegroundColor Yellow
     exit 1
 }
 
-# 设置 PYTHONPATH（关键！让 Python 能找到 src 下的模块）
-$SrcDir = Join-Path $ProjectRoot "src"
-$env:PYTHONPATH = $SrcDir
+$env:PYTHONPATH = Join-Path $ProjectRoot "src"
 
-# 构建推理命令参数
 $Arguments = @(
     "-m", "tool_defect.cli",
     "predict",
     "--task", $Task,
-    "--input", (Join-Path $ProjectRoot $Input),
+    "--input", (Join-Path $ProjectRoot $InputPath),
     "--output", (Join-Path $ProjectRoot $Output),
     "--config", (Join-Path $ProjectRoot $Config)
 )
 
 if ($ModelDir) {
     $Arguments += "--model-dir"
-    $Arguments += (Join-Path $ProjectRoot $ModelDir)
+    $Arguments += Join-Path $ProjectRoot $ModelDir
 }
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  车刀缺陷推理任务" -ForegroundColor Cyan
+Write-Host "  Tool Defect Inference" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "任务类型 : $Task" -ForegroundColor White
-Write-Host "输入路径 : $Input" -ForegroundColor White
-Write-Host "输出目录 : $Output" -ForegroundColor White
-Write-Host "PYTHONPATH: $env:PYTHONPATH" -ForegroundColor DarkGray
+Write-Host "Task       : $Task"
+Write-Host "Input      : $InputPath"
+Write-Host "Output     : $Output"
+Write-Host "PYTHONPATH : $env:PYTHONPATH" -ForegroundColor DarkGray
 Write-Host "----------------------------------------" -ForegroundColor Cyan
 
-# 执行推理
 & $PythonExe @Arguments
-
 $ExitCode = $LASTEXITCODE
 
 Write-Host "----------------------------------------" -ForegroundColor Cyan
-
 if ($ExitCode -eq 0) {
-    Write-Host "推理完成！" -ForegroundColor Green
-    Write-Host ""
     $OutputFullPath = Join-Path $ProjectRoot $Output
-    Write-Host "输出文件位置:" -ForegroundColor Yellow
-    Write-Host "  - 可视化叠加图: $OutputFullPath\visualizations\" -ForegroundColor White
-    Write-Host "  - 二值掩码图  : $OutputFullPath\masks\" -ForegroundColor White
-    Write-Host "  - 预测结果CSV : $OutputFullPath\predictions.csv" -ForegroundColor White
+    Write-Host "Inference completed." -ForegroundColor Green
+    Write-Host "Predictions    : $OutputFullPath\predictions.csv"
+    Write-Host "Masks          : $OutputFullPath\masks\"
+    Write-Host "Visualizations : $OutputFullPath\visualizations\"
 } else {
-    Write-Host "推理失败，退出码: $ExitCode" -ForegroundColor Red
+    Write-Host "Inference failed with exit code $ExitCode." -ForegroundColor Red
 }
 
 exit $ExitCode
