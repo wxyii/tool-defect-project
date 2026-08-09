@@ -46,6 +46,7 @@ Windows 版本要求 PostgreSQL、RabbitMQ、对象存储、OpenTelemetry Collec
 
 ```powershell
 .\tools\dev\setup-windows-infrastructure.ps1 -Action install
+.\tools\dev\setup-windows.ps1
 ```
 
 该独立入口按 `deploy/compose/development.yml` 锁定的版本安装 PostgreSQL、RabbitMQ、MinIO、OpenTelemetry Collector、Prometheus、Grafana、Loki 和 Tempo，并将程序、数据、配置、日志与下载缓存放在 `.build\windows-infrastructure`。首次安装会生成随机凭据到根目录 `.windows.env.ps1`，随后使用：
