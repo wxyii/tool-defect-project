@@ -22,10 +22,15 @@ outputs/*
 !outputs/.gitkeep
 *.log
 
-# Large raw dataset
-data/images/
-data/annotations/labelme_json/
-data/
+# Local dataset: keep one shared working-tree data directory.
+# Track only the versioned manifests; images, masks, JSON annotations,
+# and generated/preprocessed data remain local and are shared by branches.
+data/*
+!data/manifests/
+data/manifests/*
+!data/manifests/curated_v1.csv
+!data/manifests/curated_v1_retrain.csv
+!data/manifests/curated_v1_retrain_audit.json
 data_old/
 
 # Local credential file used by the legacy application
@@ -46,5 +51,3 @@ docs/reference/基于机器视觉的刀具缺陷识别研究汇报.pptx
 
 # Alternative dependency manager lock file
 uv.lock
-
-data/processed/

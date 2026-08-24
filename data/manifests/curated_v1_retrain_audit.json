@@ -1,0 +1,31 @@
+{
+  "seed": 1,
+  "validation_fraction": 0.16,
+  "test_fraction": 0.2,
+  "source_samples": 180,
+  "excluded_conflicting": 2,
+  "conflicting_sample_ids": [
+    "unqualified/16.png",
+    "unqualified/2.png"
+  ],
+  "deduplicated_exact": 6,
+  "final_samples": 172,
+  "cross_split_duplicate_hashes": 0,
+  "split_counts": {
+    "train": 111,
+    "validation": 27,
+    "test": 34
+  },
+  "class_split_counts": {
+    "qualified": {
+      "train": 46,
+      "validation": 11,
+      "test": 14
+    },
+    "unqualified": {
+      "train": 65,
+      "validation": 16,
+      "test": 20
+    }
+  }
+}
