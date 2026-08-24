@@ -1,6 +1,0 @@
-<RCC>
-  <qresource prefix="新前缀">
-    <file>tyut.jpg</file>
-    <file>logo.tyut.png</file>
-  </qresource>
-</RCC>

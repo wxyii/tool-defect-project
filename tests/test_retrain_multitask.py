@@ -78,7 +78,7 @@ def _write_fixture(root):
                     "split": split,
                 }
             )
-    manifest = data_root / "manifests" / "retrain.csv"
+    manifest = data_root / "manifests" / "curated_v1_retrain.csv"
     manifest.parent.mkdir(parents=True, exist_ok=True)
     with manifest.open("w", newline="", encoding="utf-8-sig") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
@@ -98,7 +98,7 @@ def _write_fixture(root):
         "seed": 1,
         "paths": {
             "data": "data",
-            "manifest": "data/manifests/retrain.csv",
+            "manifest": "data/manifests/curated_v1_retrain.csv",
             "multitask_model": "artifacts/multitask",
             "outputs": "outputs",
         },

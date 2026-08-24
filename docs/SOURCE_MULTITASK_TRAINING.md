@@ -23,7 +23,7 @@ python -m tool_defect.cli train-multitask-source `
 
 使用 `--resume artifacts\multitask_source_trained\<实验编号>` 可从该实验的
 `weights_last.h5` 继续。默认训练清单是无跨集合重复的
-`data/manifests/retrain.csv`，正式权重保存在各实验目录的 `weights.h5`；
+`data/manifests/curated_v1_retrain.csv`，正式权重保存在各实验目录的 `weights.h5`；
 `weights_last.h5` 仅表示最后一轮。
 
 ## 三模型比较

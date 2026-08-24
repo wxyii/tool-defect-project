@@ -1,6 +1,7 @@
 """Unified command-line entry point."""
 
 import argparse
+import csv
 import json
 from pathlib import Path
 
@@ -12,25 +13,60 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _data_check(args):
-    rows = build_manifest(
-        args.data_root,
-        validation_fraction=args.validation_fraction,
-        test_fraction=args.test_fraction,
-        seed=args.seed,
-    )
-    qualified = sum(row.label_name == "qualified" for row in rows)
-    unqualified = sum(row.label_name == "unqualified" for row in rows)
-    annotations = sum(bool(row.annotation_path) for row in rows)
-    if args.manifest:
-        write_manifest(rows, args.manifest)
+    manifest_path = args.manifest
+    if manifest_path is None and args.data_root.resolve() == (PROJECT_ROOT / "data").resolve():
+        manifest_path = PROJECT_ROOT / "data/manifests/curated_v1_retrain.csv"
+
+    if manifest_path is not None and manifest_path.is_file():
+        with manifest_path.open(newline="", encoding="utf-8-sig") as handle:
+            rows = list(csv.DictReader(handle))
+        required = {
+            "sample_id",
+            "image_path",
+            "mask_path",
+            "annotation_path",
+            "label",
+            "label_name",
+            "split",
+        }
+        for row in rows:
+            missing = required.difference(row)
+            if missing:
+                raise ValueError(
+                    f"manifest is missing columns: {sorted(missing)}"
+                )
+            for field in ("image_path", "mask_path"):
+                path = args.data_root / row[field]
+                if not path.is_file():
+                    raise ValueError(f"missing {field} for {row['sample_id']}: {path}")
+            if row["annotation_path"]:
+                path = args.data_root / row["annotation_path"]
+                if not path.is_file():
+                    raise ValueError(
+                        f"missing annotation for {row['sample_id']}: {path}"
+                    )
+    else:
+        generated_rows = build_manifest(
+            args.data_root,
+            validation_fraction=args.validation_fraction,
+            test_fraction=args.test_fraction,
+            seed=args.seed,
+        )
+        if args.manifest:
+            write_manifest(generated_rows, args.manifest)
+        rows = [vars(row) for row in generated_rows]
+
+    qualified = sum(row["label_name"] == "qualified" for row in rows)
+    unqualified = sum(row["label_name"] == "unqualified" for row in rows)
+    annotations = sum(bool(row["annotation_path"]) for row in rows)
 
     print(f"qualified images: {qualified}")
     print(f"unqualified images: {unqualified}")
     print(f"masks: {len(rows)}")
     print(f"annotations: {annotations}")
-    print(f"train samples: {sum(row.split == 'train' for row in rows)}")
-    print(f"validation samples: {sum(row.split == 'validation' for row in rows)}")
-    print(f"test samples: {sum(row.split == 'test' for row in rows)}")
+    print(f"train samples: {sum(row['split'] == 'train' for row in rows)}")
+    print(f"validation samples: {sum(row['split'] == 'validation' for row in rows)}")
+    print(f"test samples: {sum(row['split'] == 'test' for row in rows)}")
     return 0
 
 
@@ -383,7 +419,7 @@ def build_parser():
     compare_parser.add_argument(
         "--manifest",
         type=Path,
-        default=PROJECT_ROOT / "data/manifests/retrain.csv",
+        default=PROJECT_ROOT / "data/manifests/curated_v1_retrain.csv",
     )
     compare_parser.add_argument(
         "--baseline",
@@ -408,7 +444,7 @@ def build_parser():
     suite_parser.add_argument(
         "--manifest",
         type=Path,
-        default=PROJECT_ROOT / "data/manifests/retrain.csv",
+        default=PROJECT_ROOT / "data/manifests/curated_v1_retrain.csv",
     )
     suite_parser.add_argument(
         "--baseline",
@@ -528,7 +564,7 @@ def build_parser():
     ring_dataset_parser.add_argument(
         "--manifest",
         type=Path,
-        default=PROJECT_ROOT / "data/manifests/dataset.csv",
+        default=PROJECT_ROOT / "data/manifests/curated_v1_retrain.csv",
         help="源数据清单；原有训练、验证、测试划分会原样保留",
     )
     ring_dataset_parser.add_argument(

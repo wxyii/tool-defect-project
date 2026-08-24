@@ -9,7 +9,7 @@
   ],
   "paths": {
     "data": "data",
-    "manifest": "data/manifests/dataset.csv",
+    "manifest": "data/manifests/curated_v1_retrain.csv",
     "classification_model": "artifacts/classification",
     "multitask_model": "artifacts/multitask",
     "outputs": "outputs"

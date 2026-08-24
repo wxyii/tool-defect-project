@@ -7,7 +7,7 @@
   ],
   "paths": {
     "data": "data",
-    "manifest": "data/manifests/retrain.csv",
+    "manifest": "data/manifests/curated_v1_retrain.csv",
     "multitask_model": "artifacts/multitask",
     "source_trained_output": "artifacts/multitask_source_trained",
     "outputs": "outputs"

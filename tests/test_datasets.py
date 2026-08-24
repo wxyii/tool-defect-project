@@ -18,7 +18,7 @@ from tool_defect.models.generator import CustomDataGenerator
 class DatasetTests(unittest.TestCase):
     def test_real_manifest_loads_bound_images_labels_and_masks(self):
         """Catches training arrays becoming independently ordered or mis-shaped."""
-        manifest = PROJECT_ROOT / "data/manifests/dataset.csv"
+        manifest = PROJECT_ROOT / "data/manifests/curated_v1_retrain.csv"
         with manifest.open(encoding="utf-8-sig") as handle:
             rows = list(csv.DictReader(handle))
         split = rows[0]["split"]

@@ -1,13 +1,13 @@
 # 基于机器视觉的刀具缺陷识别
 
-本目录是整理后的唯一项目入口，包含 180 张图像及对应掩码、82 份 Labelme 缺陷标注、现有分类/双任务权重，以及训练、推理、评估和可视化代码。
+本目录是整理后的唯一项目入口，包含 180 张图像及对应掩码、108 份 Labelme 缺陷标注、现有分类/双任务权重，以及训练、推理、评估和可视化代码。
 
 ## 1. 环境
 
 项目使用本目录下的 Python 3.9 虚拟环境。在 VS Code 的 PowerShell 终端中执行：
 
 ```powershell
-cd F:\智奇资料\tool_defect_project
+cd E:\3-刀片缺陷识别系统\tool_defect_project
 .\.venv\Scripts\Activate.ps1
 python --version
 ```
@@ -104,7 +104,7 @@ python -m tool_defect.cli polar-detect `
 python -m tool_defect.cli ring-dataset `
   --mode adaptive-annular `
   --data-root data `
-  --manifest data\manifests\dataset.csv `
+  --manifest data\manifests\curated_v1_retrain.csv `
   --cache outputs\polar_cache `
   --output data\processed\adaptive_annular
 ```
@@ -115,14 +115,14 @@ python -m tool_defect.cli ring-dataset `
 python -m tool_defect.cli ring-dataset `
   --mode boundary-normalized `
   --data-root data `
-  --manifest data\manifests\dataset.csv `
+  --manifest data\manifests\curated_v1_retrain.csv `
   --cache outputs\polar_cache `
   --radial-samples 256 `
   --output data\processed\boundary_normalized
 ```
 
 每个输出目录包含处理后的 `images/`、同步变换的 `masks/`、
-`manifests/dataset.csv`、逐样本 `manifests/provenance.csv` 和
+该处理数据集自己的 `manifests/dataset.csv`、逐样本 `manifests/provenance.csv` 和
 `generation_report.json`。若任一样本处理失败，或原本含缺陷的掩膜在
 变换后变为空，命令会以失败状态结束且不会写入新的训练清单。
 原 Labelme 坐标不再适用于变换后的图像，因此不会写入新训练清单，仅在
@@ -164,14 +164,14 @@ python -m tool_defect.cli evaluate `
 
 ## 3. 数据划分
 
-- `data/manifests/dataset.csv`：整理项目时生成的原始确定性划分，保留不改。
-- `data/manifests/retrain.csv`：本次重训练专用的无泄漏划分。
-- `data/manifests/retrain_audit.json`：排除和去重审计。
+- `data/manifests/curated_v1.csv`：完成标注修正后的 180 张图片清单。
+- `data/manifests/curated_v1_retrain.csv`：推荐训练使用的无泄漏清单。
+- `data/manifests/curated_v1_retrain_audit.json`：排除和去重审计。
 
-重训练清单从 180 个样本中排除 `unqualified/2.png` 与 `unqualified/16.png` 这组“图像完全相同但掩码冲突”的样本，并对合格图像精确去重，最终保留 172 个样本：
+推荐重训练清单从 180 个样本中排除 `unqualified/2.png` 与 `unqualified/16.png` 这组“图像完全相同但掩码冲突”的样本，并去除 6 张完全重复图片，最终保留 172 个样本：
 
-- 训练集：110
-- 验证集：28
+- 训练集：111
+- 验证集：27
 - 测试集：34
 
 同一文件名家族和完全重复图像不会跨训练、验证、测试集合。
@@ -243,7 +243,7 @@ python -m tool_defect.cli retrain-multitask `
 python -m tool_defect.cli compare-multitask `
   --baseline artifacts\multitask `
   --candidate artifacts\multitask_retrained\<实验编号> `
-  --manifest data\manifests\retrain.csv `
+  --manifest data\manifests\curated_v1_retrain.csv `
   --output artifacts\multitask_retrained\<实验编号>\comparison
 ```
 

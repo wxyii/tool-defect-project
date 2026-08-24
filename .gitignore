@@ -1,5 +1,6 @@
 # Python virtual environments
 .venv/
+.venv-labelme/
 venv/
 
 # Python cache and build products
@@ -24,6 +25,8 @@ outputs/*
 # Large raw dataset
 data/images/
 data/annotations/labelme_json/
+data/
+data_old/
 
 # Local credential file used by the legacy application
 app/legacy/A_chedaoyuce0.txt

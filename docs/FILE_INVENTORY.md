@@ -4,14 +4,15 @@
 
 | 内容 | 数量 | 最终位置 | 来源 | 校验 |
 |---|---:|---|---|---|
-| 合格图像 | 98 | `data/images/qualified` | `yuan/Qualified` | 98/98 SHA-256 一致 |
-| 不合格图像 | 82 | `data/images/unqualified` | `yuan/Unqualified` | 82/82 SHA-256 一致 |
-| 合格掩码 | 98 | `data/masks/qualified` | `chedao/mask0/qualifiled` | 98/98 SHA-256 一致 |
-| 不合格掩码 | 82 | `data/masks/unqualified` | `chedao/mask0/unqualified` | 82/82 SHA-256 一致 |
-| Labelme JSON | 82 | `data/annotations/labelme_json` | `chedao/labelme_json` | 82/82 SHA-256 一致 |
-| 数据清单 | 180 行 | `data/manifests/dataset.csv` | 整理后生成 | 115 训练、29 验证、36 测试 |
+| 合格图像 | 72 | `data/images/qualified` | 修正后的正式数据 | 72 张 |
+| 不合格图像 | 108 | `data/images/unqualified` | 修正后的正式数据 | 108 张 |
+| 合格掩码 | 72 | `data/curated_v1/masks/qualified` | 合格样本二值掩码 | 72 张 |
+| 不合格掩码 | 108 | `data/curated_v1/masks/unqualified` | Labelme 转换后的二值掩码 | 108 张 |
+| Labelme JSON | 108 | `data/curated_v1/annotations` | 缺陷区域人工标注 | 108 份 |
+| 全量数据清单 | 180 行 | `data/manifests/curated_v1.csv` | 整理后生成 | 115 训练、29 验证、36 测试 |
+| 推荐重训练清单 | 172 行 | `data/manifests/curated_v1_retrain.csv` | 去除冲突和完全重复样本 | 111 训练、27 验证、34 测试 |
 
-清单按类别分别以固定随机种子 1 做分层划分：先保留20%测试集，再从剩余数据中取20%作为验证集，最终为115/29/36。合格与不合格图像存在同名文件，因此 `sample_id` 包含类别；只有不合格样本允许绑定 JSON，避免跨类别标注泄漏。合格掩码原有双扩展名被保留，配对逻辑兼容 `a.png.png`、`a.jpg.png` 和同 stem 的 `.png`。
+`curated_v1.csv` 按类别以固定随机种子 1 做分层划分，最终为 115/29/36。推荐重训练清单进一步排除了图像内容冲突样本和完全重复图像，最终为 111/27/34。同一文件名家族不会跨训练、验证、测试集合。`data/curated_v1` 是当前唯一正式标注目录；旧的 `data/annotations`、`data/masks` 和旧清单已清理。
 
 ## 权重
 
@@ -41,9 +42,8 @@
 ## 文档和平台
 
 - 5 份根目录文档原样迁移到 `docs/reference`，逐文件 SHA-256 一致。
-- PyQt 源码、UI、资源、账户文件和原始 EXE 保留在 `app/legacy`。
-- 平台主源码改为相对自身定位账户文件、项目数据和中央 `artifacts`；`daojulogo` 副作用导入保留。
-- 原始 EXE 仅作历史产物，不是正式复现入口。
+- 原学校 PyQt 平台及其旧 EXE 已清理，不属于当前正式复现入口。
+- 当前正式入口是项目根目录的命令行工具 `tool-defect`；模型位于中央 `artifacts`。
 
 ## 删除的冗余内容
 
@@ -52,6 +52,7 @@
 - `chedao`、`软件` 中迁移后重复的数据、代码和权重副本。
 - `yuan` 中迁移后重复的原始图像副本。
 - Python 缓存、失败安装遗留的 `UNKNOWN.egg-info` 和临时测试日志。
+- 旧的 `data/annotations`、`data/masks`、旧数据清单以及临时推理/验证输出。
 
 压缩包始终留在资料根目录，未移动、未改名、未删除。
 

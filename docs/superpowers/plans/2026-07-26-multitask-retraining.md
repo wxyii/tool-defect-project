@@ -4,7 +4,7 @@
 
 **Goal:** Retrain only the classification-segmentation multitask artifact from the supplied JSON/H5 weights, preserve the original artifact, and produce reproducible metrics and comparison evidence.
 
-**Architecture:** A leakage-aware manifest builder produces a new immutable experiment split without changing `dataset.csv`. A balanced Keras `Sequence` loads one qualified and one unqualified sample per batch and applies synchronized image/mask geometry plus mild image-only photometric augmentation. A dedicated two-stage retrainer loads the supplied artifact topology, trains frozen heads and then Xception blocks 11-14 (BatchNorm kept frozen), saves complete experiment provenance, and evaluates old and new artifacts on the same held-out test set.
+**Architecture:** A leakage-aware manifest builder produces a new immutable experiment split without changing `curated_v1.csv`. A balanced Keras `Sequence` loads one qualified and one unqualified sample per batch and applies synchronized image/mask geometry plus mild image-only photometric augmentation. A dedicated two-stage retrainer loads the supplied artifact topology, trains frozen heads and then Xception blocks 11-14 (BatchNorm kept frozen), saves complete experiment provenance, and evaluates old and new artifacts on the same held-out test set.
 
 **Tech Stack:** Python 3.9, TensorFlow/Keras 2.13, NumPy 1.24, scikit-learn 1.3, OpenCV/Pillow, standard-library `unittest`.
 
@@ -13,7 +13,7 @@
 - Train only the multitask model; do not train or overwrite the classification model.
 - Load initial architecture and weights from `artifacts/multitask/model.json` and `artifacts/multitask/weights.h5`.
 - Write every run beneath `artifacts/multitask_retrained/<run_id>/`; never replace `artifacts/multitask`.
-- Preserve `data/manifests/dataset.csv`; write the leakage-aware split to `data/manifests/retrain.csv`.
+- Preserve `data/manifests/curated_v1.csv`; write the leakage-aware split to `data/manifests/curated_v1_retrain.csv`.
 - Use input size 256x256, batch size 2, random seed 1, CPU-compatible TensorFlow 2.13.
 - Exclude the conflicting exact-image pair `unqualified/2.png` and `unqualified/16.png`.
 - Deduplicate exact qualified images and keep filename families such as `21-*`, `22-*`, `35-*`, and `37-*` in one split.
@@ -26,17 +26,17 @@
 **Files:**
 - Create: `src/tool_defect/data/retrain_manifest.py`
 - Create: `tests/test_retrain_manifest.py`
-- Create after verification: `data/manifests/retrain.csv`
+- Create after verification: `data/manifests/curated_v1_retrain.csv`
 
 **Interfaces:**
-- Consumes: original `data/manifests/dataset.csv`, files below `data/`.
+- Consumes: original `data/manifests/curated_v1.csv`, files below `data/`.
 - Produces: `build_retrain_manifest(source_manifest, data_root, seed=1, validation_fraction=0.16, test_fraction=0.20) -> tuple[list[dict], dict]` and `write_retrain_manifest(rows, destination)`.
 
 - [ ] Write tests proving that conflicting samples are excluded, exact duplicates cannot cross splits, related filename families remain grouped, both classes occur in every split, and output is deterministic.
 - [ ] Run `.\.venv\Scripts\python.exe -m unittest tests.test_retrain_manifest -v` and confirm failures are caused by the missing module.
 - [ ] Implement SHA-256 image grouping, canonical family keys, deterministic group-stratified allocation, and an audit dictionary containing source/excluded/deduplicated/final/split counts.
 - [ ] Run the new tests and the existing manifest tests.
-- [ ] Generate `data/manifests/retrain.csv` plus `data/manifests/retrain_audit.json` and inspect counts and cross-split hashes.
+- [ ] Generate `data/manifests/curated_v1_retrain.csv` plus `data/manifests/curated_v1_retrain_audit.json` and inspect counts and cross-split hashes.
 
 ### Task 2: Defect-aware losses and terminal metrics
 
@@ -101,7 +101,7 @@
 
 **Interfaces:**
 - Produces: `compare_multitask_models(config_path, manifest_path, baseline_model_dir, candidate_model_dir, output_dir, bootstrap_samples=1000, seed=1) -> dict`.
-- CLI: `python -m tool_defect.cli compare-multitask --baseline artifacts/multitask --candidate <run_dir> --manifest data/manifests/retrain.csv --output <run_dir>/comparison`.
+- CLI: `python -m tool_defect.cli compare-multitask --baseline artifacts/multitask --candidate <run_dir> --manifest data/manifests/curated_v1_retrain.csv --output <run_dir>/comparison`.
 
 - [ ] Write tests proving both models use the exact same test row order, metric deltas have candidate-minus-baseline sign, bootstrap output is deterministic, and report files are created.
 - [ ] Run the comparison tests and confirm expected failures.
@@ -126,7 +126,7 @@
 - [ ] Verify the SHA-256 values of `artifacts/multitask/model.json` and `weights.h5` are unchanged.
 - [ ] Start the full CPU retraining with a timestamped run id and logs inside that run.
 - [ ] Monitor epoch logs, checkpoint creation, finite losses, and validation metrics; stop if NaN/Inf or repeated hard failure occurs.
-- [ ] Evaluate best retrained weights against the original artifact on `retrain.csv` test rows.
+- [ ] Evaluate best retrained weights against the original artifact on `curated_v1_retrain.csv` test rows.
 - [ ] Apply the promotion rule: defect IoU and recall must each improve by at least 0.05 while classification ACC decreases by no more than 0.03; otherwise retain the result as experimental and keep the original default.
 - [ ] Update `README.md` with exact reproduction, resume, inference, and comparison commands.
 
@@ -134,4 +134,4 @@
 
 - Spec coverage: only multitask training, old-weight preservation, warm start, clean split, augmentation, two-stage fine-tuning, checkpoints, terminal metrics, artifact provenance, old/new comparison, school-claim context, and promotion gate are all mapped to Tasks 1-6.
 - Placeholder scan: no TBD/TODO/future implementation placeholders remain.
-- Type consistency: retraining and comparison commands consume the same run directory containing `model.json` and best `weights.h5`; `retrain.csv` uses the existing public manifest schema.
+- Type consistency: retraining and comparison commands consume the same run directory containing `model.json` and best `weights.h5`; `curated_v1_retrain.csv` uses the existing public manifest schema.
