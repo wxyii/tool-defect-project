@@ -128,6 +128,35 @@ python -m tool_defect.cli ring-dataset `
 原 Labelme 坐标不再适用于变换后的图像，因此不会写入新训练清单，仅在
 `provenance.csv` 中保留原标注路径用于追溯。
 
+在边界归一化数据集上生成八方向重叠圆周子图：
+
+```powershell
+python -m tool_defect.cli slice-dataset `
+  --data-root data\processed\boundary_normalized `
+  --manifest data\processed\boundary_normalized\manifests\dataset.csv `
+  --output data\processed\boundary_normalized_8patch `
+  --slice-count 8 `
+  --window-degrees 90 `
+  --stride-degrees 45 `
+  --min-foreground-pixels 1
+```
+
+该命令以 45 度为步长、每次取 90 度窗口，并在圆周接缝处循环取样，
+因此一张边界归一化图生成 8 张、相邻子图重叠 50%。输出子图保留
+`256×360` 的径向×角度尺寸；现有训练加载器再将其缩放到模型的
+`256×256` 输入尺寸。父图像的训练、验证、测试划分整体传递给 8 个子图，
+不会发生同一父图跨集合泄漏。
+
+新清单中的分类标签按子图掩膜重新确定：掩膜前景像素数至少为 1 时标为
+`unqualified`，否则标为 `qualified`。因此这组实验的分类含义是“局部子图
+是否包含缺陷”，不再是“来源刀片是否合格”；父图标签、切片序号、角度范围、
+接缝信息和掩膜统计保存在 `manifests/provenance.csv` 中。
+
+对应的双任务训练配置为
+`configs/multitask_boundary_normalized_8patch.json`。对整张刀片做推理时，
+需要将 8 个子图的预测聚合到父图级别，例如任一子图检出缺陷时判为不合格，
+不能直接把子图级准确率当作整图级准确率。
+
 分别训练两种数据：
 
 ```powershell

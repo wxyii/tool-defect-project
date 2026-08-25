@@ -10,10 +10,19 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC_ROOT))
 
-from tool_defect.cli import main
+from tool_defect.cli import build_parser, main
 
 
 class CliTests(unittest.TestCase):
+    def test_slice_dataset_parser_uses_safe_defaults(self):
+        args = build_parser().parse_args(["slice-dataset"])
+
+        self.assertEqual(8, args.slice_count)
+        self.assertEqual(90.0, args.window_degrees)
+        self.assertEqual(45.0, args.stride_degrees)
+        self.assertEqual(1, args.min_foreground_pixels)
+        self.assertTrue(str(args.output).endswith("boundary_normalized_8patch"))
+
     def test_data_check_reports_counts_without_importing_tensorflow(self):
         """Catches a data-only command being coupled to the ML runtime."""
         with tempfile.TemporaryDirectory() as temp_dir:

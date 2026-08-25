@@ -307,6 +307,36 @@ def _ring_dataset(args):
     return 0
 
 
+def _slice_dataset(args):
+    from tool_defect.data.circular_slice_dataset import (
+        build_circular_slice_dataset,
+    )
+
+    output = args.output
+    if output is None:
+        output = PROJECT_ROOT / "data/processed/boundary_normalized_8patch"
+
+    def report_progress(index, total, sample_id, patch_count):
+        if index == 1 or index % 10 == 0 or index == total:
+            print(
+                f"[{index}/{total}] {sample_id} "
+                f"（已生成 {patch_count} 个圆周子图）"
+            )
+
+    report = build_circular_slice_dataset(
+        source_data_root=args.data_root,
+        source_manifest=args.manifest,
+        output_root=output,
+        slice_count=args.slice_count,
+        window_degrees=args.window_degrees,
+        stride_degrees=args.stride_degrees,
+        min_foreground_pixels=args.min_foreground_pixels,
+        progress_callback=report_progress,
+    )
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 0
+
+
 def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -586,6 +616,52 @@ def build_parser():
         help="展开图固定径向采样数，仅用于 boundary-normalized",
     )
     ring_dataset_parser.set_defaults(handler=_ring_dataset)
+
+    slice_dataset_parser = subparsers.add_parser(
+        "slice-dataset",
+        help="从边界归一化数据集生成重叠圆周子图数据集",
+    )
+    slice_dataset_parser.add_argument(
+        "--data-root",
+        type=Path,
+        default=PROJECT_ROOT / "data/processed/boundary_normalized",
+        help="边界归一化图像和掩膜所在的数据根目录",
+    )
+    slice_dataset_parser.add_argument(
+        "--manifest",
+        type=Path,
+        default=(
+            PROJECT_ROOT
+            / "data/processed/boundary_normalized/manifests/dataset.csv"
+        ),
+        help="父图像清单；父图像划分会传递给全部子图",
+    )
+    slice_dataset_parser.add_argument(
+        "--output",
+        type=Path,
+        default=PROJECT_ROOT / "data/processed/boundary_normalized_8patch",
+        help="输出数据根目录；已存在目录不会被覆盖",
+    )
+    slice_dataset_parser.add_argument("--slice-count", type=int, default=8)
+    slice_dataset_parser.add_argument(
+        "--window-degrees",
+        type=float,
+        default=90.0,
+        help="每个子图覆盖的圆周角度，默认 90 度",
+    )
+    slice_dataset_parser.add_argument(
+        "--stride-degrees",
+        type=float,
+        default=45.0,
+        help="相邻子图起点间隔，默认 45 度",
+    )
+    slice_dataset_parser.add_argument(
+        "--min-foreground-pixels",
+        type=int,
+        default=1,
+        help="掩膜前景像素达到该值时子图标签为不合格，默认 1",
+    )
+    slice_dataset_parser.set_defaults(handler=_slice_dataset)
 
     return parser
 
