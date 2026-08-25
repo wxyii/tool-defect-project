@@ -17,11 +17,18 @@ class CliTests(unittest.TestCase):
     def test_slice_dataset_parser_uses_safe_defaults(self):
         args = build_parser().parse_args(["slice-dataset"])
 
+        self.assertEqual("boundary-normalized", args.input_mode)
         self.assertEqual(8, args.slice_count)
         self.assertEqual(90.0, args.window_degrees)
         self.assertEqual(45.0, args.stride_degrees)
         self.assertEqual(1, args.min_foreground_pixels)
-        self.assertTrue(str(args.output).endswith("boundary_normalized_8patch"))
+        self.assertIsNone(args.output)
+
+        adaptive = build_parser().parse_args(
+            ["slice-dataset", "--input-mode", "adaptive-annular"]
+        )
+        self.assertEqual("adaptive-annular", adaptive.input_mode)
+        self.assertIsNone(adaptive.data_root)
 
     def test_data_check_reports_counts_without_importing_tensorflow(self):
         """Catches a data-only command being coupled to the ML runtime."""

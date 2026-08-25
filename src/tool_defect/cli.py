@@ -309,12 +309,32 @@ def _ring_dataset(args):
 
 def _slice_dataset(args):
     from tool_defect.data.circular_slice_dataset import (
+        build_adaptive_annular_slice_dataset,
         build_circular_slice_dataset,
     )
 
-    output = args.output
-    if output is None:
-        output = PROJECT_ROOT / "data/processed/boundary_normalized_8patch"
+    defaults = {
+        "boundary-normalized": {
+            "data_root": PROJECT_ROOT / "data/processed/boundary_normalized",
+            "manifest": (
+                PROJECT_ROOT
+                / "data/processed/boundary_normalized/manifests/dataset.csv"
+            ),
+            "output": PROJECT_ROOT / "data/processed/boundary_normalized_8patch",
+        },
+        "adaptive-annular": {
+            "data_root": PROJECT_ROOT / "data/processed/adaptive_annular",
+            "manifest": (
+                PROJECT_ROOT
+                / "data/processed/adaptive_annular/manifests/dataset.csv"
+            ),
+            "output": PROJECT_ROOT / "data/processed/adaptive_annular_8patch",
+        },
+    }
+    default_paths = defaults[args.input_mode]
+    data_root = args.data_root or default_paths["data_root"]
+    manifest = args.manifest or default_paths["manifest"]
+    output = args.output or default_paths["output"]
 
     def report_progress(index, total, sample_id, patch_count):
         if index == 1 or index % 10 == 0 or index == total:
@@ -323,9 +343,14 @@ def _slice_dataset(args):
                 f"（已生成 {patch_count} 个圆周子图）"
             )
 
-    report = build_circular_slice_dataset(
-        source_data_root=args.data_root,
-        source_manifest=args.manifest,
+    builder = (
+        build_circular_slice_dataset
+        if args.input_mode == "boundary-normalized"
+        else build_adaptive_annular_slice_dataset
+    )
+    report = builder(
+        source_data_root=data_root,
+        source_manifest=manifest,
         output_root=output,
         slice_count=args.slice_count,
         window_degrees=args.window_degrees,
@@ -619,28 +644,28 @@ def build_parser():
 
     slice_dataset_parser = subparsers.add_parser(
         "slice-dataset",
-        help="从边界归一化数据集生成重叠圆周子图数据集",
+        help="从边界归一化或自适应环形数据集生成重叠圆周子图数据集",
+    )
+    slice_dataset_parser.add_argument(
+        "--input-mode",
+        choices=("boundary-normalized", "adaptive-annular"),
+        default="boundary-normalized",
+        help="输入数据表示方式，默认 boundary-normalized",
     )
     slice_dataset_parser.add_argument(
         "--data-root",
         type=Path,
-        default=PROJECT_ROOT / "data/processed/boundary_normalized",
-        help="边界归一化图像和掩膜所在的数据根目录",
+        help="输入图像和掩膜所在的数据根目录；不填时按 input-mode 选择",
     )
     slice_dataset_parser.add_argument(
         "--manifest",
         type=Path,
-        default=(
-            PROJECT_ROOT
-            / "data/processed/boundary_normalized/manifests/dataset.csv"
-        ),
-        help="父图像清单；父图像划分会传递给全部子图",
+        help="父图像清单；不填时按 input-mode 选择",
     )
     slice_dataset_parser.add_argument(
         "--output",
         type=Path,
-        default=PROJECT_ROOT / "data/processed/boundary_normalized_8patch",
-        help="输出数据根目录；已存在目录不会被覆盖",
+        help="输出数据根目录；不填时按 input-mode 选择，已存在目录不会覆盖",
     )
     slice_dataset_parser.add_argument("--slice-count", type=int, default=8)
     slice_dataset_parser.add_argument(

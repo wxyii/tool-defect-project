@@ -152,6 +152,25 @@ python -m tool_defect.cli slice-dataset `
 是否包含缺陷”，不再是“来源刀片是否合格”；父图标签、切片序号、角度范围、
 接缝信息和掩膜统计保存在 `manifests/provenance.csv` 中。
 
+在自适应环形数据集上生成同样的八方向重叠扇区：
+
+```powershell
+python -m tool_defect.cli slice-dataset `
+  --input-mode adaptive-annular `
+  --data-root data\processed\adaptive_annular `
+  --manifest data\processed\adaptive_annular\manifests\dataset.csv `
+  --output data\processed\adaptive_annular_8patch `
+  --slice-count 8 `
+  --window-degrees 90 `
+  --stride-degrees 45 `
+  --min-foreground-pixels 1
+```
+
+自适应环形图是 `512×512` 的笛卡尔图像，因此每个子图仍保持
+`512×512`，只保留对应的 90 度环形扇区，其余像素置黑；8 个子图保留
+同一个圆心和原始坐标，便于后续直接合并分割结果。对应的训练配置为
+`configs/multitask_adaptive_annular_8patch.json`。
+
 对应的双任务训练配置为
 `configs/multitask_boundary_normalized_8patch.json`。对整张刀片做推理时，
 需要将 8 个子图的预测聚合到父图级别，例如任一子图检出缺陷时判为不合格，

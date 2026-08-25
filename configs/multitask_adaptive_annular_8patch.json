@@ -1,0 +1,29 @@
+{
+  "image_size": 256,
+  "seed": 1,
+  "validation_fraction": 0.2,
+  "test_fraction": 0.2,
+  "class_names": [
+    "qualified",
+    "unqualified"
+  ],
+  "paths": {
+    "data": "data/processed/adaptive_annular_8patch",
+    "manifest": "data/processed/adaptive_annular_8patch/manifests/dataset.csv",
+    "classification_model": "artifacts/classification",
+    "multitask_model": "artifacts/multitask",
+    "outputs": "outputs"
+  },
+  "classification": {
+    "batch_size": 4,
+    "epochs": 50,
+    "learning_rate": 0.00001,
+    "backbone_weights": "imagenet"
+  },
+  "multitask": {
+    "batch_size": 2,
+    "epochs": 200,
+    "learning_rate": 0.001,
+    "backbone_weights": null
+  }
+}
