@@ -210,6 +210,46 @@ python -m tool_defect.cli evaluate `
   --full-metrics
 ```
 
+## 2.1 五类多任务模型统一编排
+
+服务器端可使用 `tools/run_multitask_suite.py` 自动检查五套模型工件；缺少
+`model.json` 或 `weights.h5` 的数据集才会重新训练。正式评估固定使用同一批
+父样本测试集，分块模型先按 `provenance.csv` 将 8 个子图合并回父图，再计算
+父图级分类和分割指标。每个模型的测试父图检测结果保存在对应目录的
+`visualizations/` 中，合并后的掩膜保存在 `masks/` 中。
+
+服务器使用 `tf_311` 环境时，先执行模拟运行检查路径、清单、工件状态和显卡分配：
+
+```bash
+conda activate tf_311
+python tools/run_multitask_suite.py --simulate
+```
+
+确认 `outputs/multitask_suite/run_plan.json` 后执行正式流程。默认将缺失模型
+分配到 0、1、2、3、5 号 2080 Ti，每张卡一个训练进程；可通过参数覆盖：
+
+```bash
+python tools/run_multitask_suite.py \
+  --gpus 0,1,2,3,5 \
+  --max-workers 5
+```
+
+结果结构为：
+
+```text
+outputs/multitask_suite/
+├─ run_plan.json
+├─ suite_metrics.json
+├─ summary.csv
+├─ SUITE_REPORT.md
+├─ logs/<数据集标识>.train.log
+└─ <数据集标识>/
+   ├─ metrics.json
+   ├─ predictions.csv
+   ├─ masks/
+   └─ visualizations/
+```
+
 ## 3. 数据划分
 
 - `data/manifests/curated_v1.csv`：完成标注修正后的 180 张图片清单。
