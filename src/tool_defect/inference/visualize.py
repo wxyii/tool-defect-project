@@ -139,6 +139,71 @@ def filter_display_components(defect_mask, min_component_area=12):
     return filtered, components
 
 
+def restore_normalized_mask_to_circle(
+    defect_mask,
+    inner_boundary,
+    outer_boundary,
+    output_shape,
+    center=None,
+):
+    """将边界归一化掩码反向映射到校正后的圆形坐标。"""
+
+    mask = np.asarray(defect_mask)
+    if mask.ndim != 2:
+        raise ValueError("defect_mask 必须是二维数组")
+    inner = np.asarray(inner_boundary, dtype=np.float32).reshape(-1)
+    outer = np.asarray(outer_boundary, dtype=np.float32).reshape(-1)
+    if inner.size < 2 or inner.size != outer.size:
+        raise ValueError("内外边界必须是长度相同且至少包含两个采样点的一维数组")
+    output_height, output_width = (int(value) for value in output_shape)
+    if output_height < 1 or output_width < 1:
+        raise ValueError("output_shape 必须包含正整数的高和宽")
+    if center is None:
+        center = (output_width / 2.0, output_height / 2.0)
+    if len(center) != 2:
+        raise ValueError("center 必须包含横坐标和纵坐标")
+    center_x, center_y = (float(value) for value in center)
+
+    y, x = np.indices((output_height, output_width), dtype=np.float32)
+    radius = np.hypot(x - center_x, y - center_y)
+    angle_fraction = np.mod(
+        np.arctan2(y - center_y, x - center_x),
+        2.0 * np.pi,
+    ) / (2.0 * np.pi)
+    boundary_position = angle_fraction * inner.size
+    left = np.floor(boundary_position).astype(np.intp) % inner.size
+    right = (left + 1) % inner.size
+    fraction = boundary_position - np.floor(boundary_position)
+    local_inner = inner[left] * (1.0 - fraction) + inner[right] * fraction
+    local_outer = outer[left] * (1.0 - fraction) + outer[right] * fraction
+    thickness = local_outer - local_inner
+    valid = (
+        (thickness > 0.0)
+        & (radius >= local_inner)
+        & (radius <= local_outer)
+    )
+    normalized_radius = np.divide(
+        radius - local_inner,
+        thickness,
+        out=np.zeros_like(radius),
+        where=thickness > 0.0,
+    )
+    normalized_radius = np.clip(normalized_radius, 0.0, 1.0)
+    map_x = (angle_fraction * mask.shape[1]).astype(np.float32)
+    map_y = (
+        (1.0 - normalized_radius) * max(0, mask.shape[0] - 1)
+    ).astype(np.float32)
+    sampled = cv2.remap(
+        (mask > 0).astype(np.uint8) * 255,
+        map_x,
+        map_y,
+        cv2.INTER_NEAREST,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=0,
+    )
+    return np.where(valid, sampled, 0).astype(np.uint8)
+
+
 def build_visualization_status(
     predicted_class,
     confidence,
@@ -217,7 +282,7 @@ def _mark_components(
     source_shape,
     overlay_alpha,
 ):
-    """Draw precise contours plus numbered callouts on the image body."""
+    """仅用不遮挡缺陷的空心红圈标记缺陷组件。"""
 
     height, width = image.shape[:2]
     resized_mask = cv2.resize(
@@ -225,32 +290,17 @@ def _mark_components(
         (width, height),
         interpolation=cv2.INTER_NEAREST,
     )
-    overlay = image.copy()
-    overlay[resized_mask > 0] = (0, 0, 255)
-    marked = cv2.addWeighted(
-        image,
-        1.0 - float(overlay_alpha),
-        overlay,
-        float(overlay_alpha),
-        0,
-    )
-
-    contours, _ = cv2.findContours(
-        resized_mask,
-        cv2.RETR_EXTERNAL,
-        cv2.CHAIN_APPROX_SIMPLE,
-    )
+    # 保留参数以兼容已有调用；生产现场标注不再绘制实心覆盖层。
+    del resized_mask, overlay_alpha
+    marked = image.copy()
     line_width = max(2, int(round(max(width, height) / 600)))
-    cv2.drawContours(marked, contours, -1, (0, 0, 255), line_width)
 
     source_height, source_width = source_shape
     x_scale = width / float(source_width)
     y_scale = height / float(source_height)
-    badge_radius = max(11, int(round(max(width, height) / 80)))
-    badge_font_scale = max(0.45, badge_radius / 22)
-    badge_thickness = max(1, line_width)
+    minimum_radius = max(10, int(round(max(width, height) / 80)))
 
-    for number, component in enumerate(components, start=1):
+    for component in components:
         center = (
             int(round(component.center_x * x_scale)),
             int(round(component.center_y * y_scale)),
@@ -258,40 +308,10 @@ def _mark_components(
         component_width = max(1, int(round(component.width * x_scale)))
         component_height = max(1, int(round(component.height * y_scale)))
         callout_radius = max(
-            badge_radius + 3,
+            minimum_radius,
             int(round(0.65 * max(component_width, component_height))),
         )
         cv2.circle(marked, center, callout_radius, (0, 0, 255), line_width)
-
-        badge_center = (
-            min(width - badge_radius, max(badge_radius, center[0])),
-            min(
-                height - badge_radius,
-                max(badge_radius, center[1] - callout_radius),
-            ),
-        )
-        cv2.circle(marked, badge_center, badge_radius, (0, 0, 255), -1)
-        label = str(number)
-        (text_width, text_height), _ = cv2.getTextSize(
-            label,
-            cv2.FONT_HERSHEY_SIMPLEX,
-            badge_font_scale,
-            badge_thickness,
-        )
-        text_origin = (
-            badge_center[0] - text_width // 2,
-            badge_center[1] + text_height // 2,
-        )
-        cv2.putText(
-            marked,
-            label,
-            text_origin,
-            cv2.FONT_HERSHEY_SIMPLEX,
-            badge_font_scale,
-            (255, 255, 255),
-            badge_thickness,
-            cv2.LINE_AA,
-        )
     return marked
 
 
@@ -342,7 +362,7 @@ def _draw_chinese_bars(body, status, font_path, top_height, bottom_height):
         fill=(255, 255, 255),
     )
 
-    legend = "红色区域和轮廓：模型识别的疑似缺陷位置"
+    legend = "空心红圈：模型识别的疑似缺陷位置"
     legend_font = _fit_font(
         font_path,
         legend,
@@ -352,14 +372,19 @@ def _draw_chinese_bars(body, status, font_path, top_height, bottom_height):
     )
     legend_y = top_height + height + max(4, padding // 2)
     marker_size = max(12, int(round(width * 0.014)))
-    draw.rectangle(
+    marker_center = (
+        padding + marker_size // 2,
+        legend_y + 2 + marker_size // 2,
+    )
+    draw.ellipse(
         (
-            padding,
-            legend_y + 2,
-            padding + marker_size,
-            legend_y + 2 + marker_size,
+            marker_center[0] - marker_size // 2,
+            marker_center[1] - marker_size // 2,
+            marker_center[0] + marker_size // 2,
+            marker_center[1] + marker_size // 2,
         ),
-        fill=(255, 0, 0),
+        outline=(255, 0, 0),
+        width=max(2, marker_size // 8),
     )
     draw.text(
         (padding + marker_size + max(6, padding // 2), legend_y),
@@ -367,14 +392,6 @@ def _draw_chinese_bars(body, status, font_path, top_height, bottom_height):
         font=legend_font,
         fill=(235, 235, 235),
     )
-
-    if status.component_count > 0:
-        border_width = max(3, int(round(width / 400)))
-        draw.rectangle(
-            (0, top_height, width - 1, top_height + height - 1),
-            outline=status_rgb,
-            width=border_width,
-        )
 
     return cv2.cvtColor(np.asarray(pil_image), cv2.COLOR_RGB2BGR)
 
@@ -389,6 +406,7 @@ def overlay_defect_on_image(
     max_dimension=1600,
     min_component_area=12,
     font_path=None,
+    original_image=None,
 ):
     """Create a compact Chinese result image from an auditable raw mask."""
 
@@ -413,7 +431,16 @@ def overlay_defect_on_image(
         component_count=len(components),
     )
     resolved_font = _resolve_font_path(font_path)
-    original = _read_color_image(original_path)
+    if original_image is None:
+        if original_path is None:
+            raise ValueError("original_path 和 original_image 不能同时为空")
+        original = _read_color_image(original_path)
+    else:
+        original = np.asarray(original_image)
+        if original.ndim != 3 or original.shape[2] != 3:
+            raise ValueError("original_image 必须是三通道彩色图像")
+        if original.dtype != np.uint8:
+            original = np.clip(original, 0, 255).astype(np.uint8)
 
     reference = min(int(max_dimension), max(original.shape[:2]))
     headline_size = max(18, int(round(reference * 0.028)))

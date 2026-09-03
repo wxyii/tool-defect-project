@@ -103,8 +103,8 @@ class VisualizationTests(unittest.TestCase):
         self.assertEqual(255, int(filtered[101, 121]))
         self.assertEqual(1, len(components))
 
-    def test_zero_overlay_alpha_keeps_outline_without_coloring_defect_fill(self):
-        """Catches custom alpha being applied after and erasing defect outlines."""
+    def test_mark_components_only_draws_hollow_circles(self):
+        """Catches filled defect regions, contours, and numbered badges."""
         parameters = inspect.signature(visualize._mark_components).parameters
         self.assertIn("overlay_alpha", parameters)
         image = np.full((256, 256, 3), 100, dtype=np.uint8)
@@ -112,25 +112,37 @@ class VisualizationTests(unittest.TestCase):
         mask[80:176, 80:176] = 255
         filtered, components = visualize.filter_display_components(mask)
 
-        transparent = visualize._mark_components(
+        marked = visualize._mark_components(
             image,
             filtered,
             components,
             source_shape=mask.shape,
             overlay_alpha=0.0,
         )
-        opaque = visualize._mark_components(
-            image,
-            filtered,
-            components,
-            source_shape=mask.shape,
-            overlay_alpha=1.0,
+
+        np.testing.assert_array_equal(marked[128, 128], [100, 100, 100])
+        red_pixels = (
+            (marked[..., 2].astype(np.int16) - marked[..., 1] > 100)
+            & (marked[..., 2].astype(np.int16) - marked[..., 0] > 100)
+        )
+        self.assertGreater(int(red_pixels.sum()), 100)
+        self.assertLess(int(red_pixels[90:166, 90:166].sum()), 5000)
+
+    def test_normalized_mask_can_be_restored_to_circular_coordinates(self):
+        """Catches wrong radial direction or angular placement during restoration."""
+        mask = np.zeros((256, 1440), dtype=np.uint8)
+        mask[50:80, :20] = 255
+        restored = visualize.restore_normalized_mask_to_circle(
+            mask,
+            inner_boundary=np.full(1440, 20.0, dtype=np.float32),
+            outer_boundary=np.full(1440, 40.0, dtype=np.float32),
+            output_shape=(101, 101),
+            center=(50.0, 50.0),
         )
 
-        np.testing.assert_array_equal(transparent[128, 128], [100, 100, 100])
-        self.assertGreater(int(transparent[128, 80, 2]), 200)
-        self.assertGreater(int(opaque[128, 128, 2]), 240)
-        self.assertLess(int(opaque[128, 128, 1]), 20)
+        self.assertEqual(255, int(restored[50, 85]))
+        self.assertEqual(0, int(restored[50, 70]))
+        self.assertEqual(0, int(restored[50, 95]))
 
     def test_chinese_paths_work_and_missing_font_has_clear_error(self):
         """Catches Windows Chinese-path failures or silently garbled text."""
