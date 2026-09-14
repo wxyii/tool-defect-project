@@ -15,6 +15,7 @@ from tool_defect.models.classifier import build_classifier
 from tool_defect.models.multitask import build_multitask
 from tool_defect.training.checkpointing import (
     ParentClassificationMetricsCallback,
+    parent_labels_for_rows,
 )
 from tool_defect.training.objectives import DefectDice, DefectIoU
 
@@ -23,7 +24,12 @@ _USE_CONFIG = object()
 
 
 def _checkpoint_callbacks(
-    output_dir, task, validation_data, validation_rows, batch_size
+    output_dir,
+    task,
+    validation_data,
+    validation_rows,
+    batch_size,
+    validation_parent_labels=None,
 ):
     """Save the classification-priority best weights and the last weights."""
     monitor = "val_parent_unqualified_recall"
@@ -45,6 +51,7 @@ def _checkpoint_callbacks(
         validation_data,
         validation_rows,
         batch_size=batch_size,
+        validation_parent_labels=validation_parent_labels,
     )
     callbacks = [parent_metrics, tf.keras.callbacks.TerminateOnNaN(), best, last]
     if task == "multitask":
@@ -128,6 +135,10 @@ def train(
             include_masks=False,
             return_rows=True,
         )
+        validation_parent_labels = parent_labels_for_rows(
+            validation_rows,
+            data_root / "manifests" / "provenance.csv",
+        )
         model = build_classifier(
             input_shape=(image_size, image_size, 3),
             backbone_weights=backbone_weights,
@@ -153,6 +164,7 @@ def train(
             validation_images,
             validation_rows,
             batch_size,
+            validation_parent_labels,
         )
         history = model.fit(
             train_images,
@@ -186,6 +198,10 @@ def train(
             include_masks=True,
             return_rows=True,
         )
+        validation_parent_labels = parent_labels_for_rows(
+            validation_rows,
+            data_root / "manifests" / "provenance.csv",
+        )
         model = build_multitask(
             input_shape=(image_size, image_size, 3),
             backbone_weights=backbone_weights,
@@ -217,6 +233,7 @@ def train(
             validation_images,
             validation_rows,
             batch_size,
+            validation_parent_labels,
         )
         history = model.fit(
             train_images,

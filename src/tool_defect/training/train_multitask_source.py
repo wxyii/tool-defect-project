@@ -22,6 +22,7 @@ from tool_defect.inference.input_pipeline import (
 from tool_defect.models.multitask import build_multitask
 from tool_defect.training.checkpointing import (
     ParentClassificationMetricsCallback,
+    parent_labels_for_rows,
 )
 from tool_defect.training.objectives import (
     DefectDice,
@@ -384,6 +385,10 @@ def train_multitask_source(
         validation,
         validation.rows,
         batch_size=int(settings["batch_size"]),
+        validation_parent_labels=parent_labels_for_rows(
+            validation.rows,
+            data_root / "manifests" / "provenance.csv",
+        ),
     )
 
     source_path = Path(__file__).resolve().parents[1] / "models" / "multitask.py"

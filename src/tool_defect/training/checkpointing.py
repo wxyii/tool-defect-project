@@ -1,5 +1,6 @@
 """Classification-priority validation metrics for model checkpointing."""
 
+import csv
 from collections import OrderedDict
 from pathlib import Path
 
@@ -20,14 +21,81 @@ def parent_id_from_row(row):
     return sample_id
 
 
+def parent_labels_for_rows(rows, provenance_path=None):
+    """Return labels for parent-level validation metrics in row order.
+
+    Patch training keeps local child labels for its classification loss.  When
+    the provenance file is available, checkpoint validation must instead use
+    the parent label so mixed child labels do not make one parent invalid.
+    Full-image datasets keep the manifest-label fallback for compatibility.
+    """
+    rows = list(rows)
+    fallback = [int(row["label"]) for row in rows]
+    if provenance_path is None:
+        return fallback
+
+    provenance_path = Path(provenance_path)
+    if not provenance_path.is_file():
+        return fallback
+
+    provenance_by_sample = {}
+    with provenance_path.open(newline="", encoding="utf-8-sig") as handle:
+        for metadata in csv.DictReader(handle):
+            sample_id = metadata.get("sample_id")
+            if not sample_id:
+                raise RuntimeError(
+                    f"provenance缺少sample_id：{provenance_path}"
+                )
+            if sample_id in provenance_by_sample:
+                raise RuntimeError(f"provenance存在重复sample_id：{sample_id}")
+            provenance_by_sample[sample_id] = metadata
+
+    labels = []
+    parent_labels = {}
+    for row in rows:
+        sample_id = str(row["sample_id"])
+        metadata = provenance_by_sample.get(sample_id)
+        if metadata is None:
+            raise RuntimeError(
+                f"验证集样本未在provenance中找到：{sample_id}"
+            )
+        raw_parent_label = metadata.get("parent_label")
+        if raw_parent_label in (None, ""):
+            raise RuntimeError(f"provenance缺少parent_label：{sample_id}")
+        parent_label = int(raw_parent_label)
+        if parent_label not in (0, 1):
+            raise RuntimeError(
+                f"provenance的parent_label不是0/1：{sample_id}={raw_parent_label}"
+            )
+        parent_id = metadata.get("parent_sample_id") or parent_id_from_row(row)
+        previous = parent_labels.get(parent_id)
+        if previous is not None and previous != parent_label:
+            raise RuntimeError(f"同一父样本存在不一致parent_label：{parent_id}")
+        parent_labels[parent_id] = parent_label
+        labels.append(parent_label)
+    return labels
+
+
 class ParentClassificationMetricsCallback(tf.keras.callbacks.Callback):
     """Compute parent-level classification metrics before checkpointing."""
 
-    def __init__(self, validation_data, validation_rows, batch_size=32):
+    def __init__(
+        self,
+        validation_data,
+        validation_rows,
+        batch_size=32,
+        validation_parent_labels=None,
+    ):
         super().__init__()
         self.validation_data = validation_data
         self.parent_ids = [parent_id_from_row(row) for row in validation_rows]
-        self.labels = [int(row["label"]) for row in validation_rows]
+        self.labels = (
+            [int(label) for label in validation_parent_labels]
+            if validation_parent_labels is not None
+            else [int(row["label"]) for row in validation_rows]
+        )
+        if len(self.labels) != len(self.parent_ids):
+            raise ValueError("父图验证标签数量与验证集清单行数不一致")
         self.batch_size = int(batch_size)
 
     def _classification_output(self, predictions):
