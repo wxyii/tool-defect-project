@@ -8,7 +8,7 @@ usage() {
 
 选项：
   --run-id ID       实验批次编号，默认 four_YYYYMMDD_HHMMSS
-  --gpu ID          使用的服务器显卡编号，默认 0
+  --gpus IDS        四张显卡编号，逗号分隔，默认 0,1,2,3
   --output-root DIR 权重输出根目录，默认 artifacts/four_group/<run-id>
   --result-root DIR 测试结果目录，默认 outputs/four_group/<run-id>
   --preflight-only  只做检查，不训练、不测试
@@ -21,7 +21,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 RUN_TF="$SCRIPT_DIR/run_tf.sh"
 
 RUN_ID="four_$(date +%Y%m%d_%H%M%S)"
-GPU_ID="0"
+GPU_IDS="0,1,2,3"
 OUTPUT_ROOT=""
 RESULT_ROOT=""
 PREFLIGHT_ONLY=0
@@ -33,9 +33,9 @@ while [[ $# -gt 0 ]]; do
       RUN_ID="$2"
       shift 2
       ;;
-    --gpu)
-      [[ $# -ge 2 ]] || { echo "--gpu 缺少参数" >&2; exit 2; }
-      GPU_ID="$2"
+    --gpus)
+      [[ $# -ge 2 ]] || { echo "--gpus 缺少参数" >&2; exit 2; }
+      GPU_IDS="$2"
       shift 2
       ;;
     --output-root)
@@ -68,10 +68,25 @@ if [[ "$RUN_ID" == */* || "$RUN_ID" == *"\\"* || -z "$RUN_ID" ]]; then
   echo "--run-id 只能是单个目录名：$RUN_ID" >&2
   exit 2
 fi
-if ! [[ "$GPU_ID" =~ ^[0-9]+$ ]]; then
-  echo "--gpu 必须是非负整数：$GPU_ID" >&2
+IFS=',' read -r -a GPU_LIST <<< "$GPU_IDS"
+if [[ "${#GPU_LIST[@]}" -ne 4 ]]; then
+  echo "--gpus 必须正好提供四张不同显卡，例如：0,1,2,3；当前为：$GPU_IDS" >&2
   exit 2
 fi
+for gpu in "${GPU_LIST[@]}"; do
+  if ! [[ "$gpu" =~ ^[0-9]+$ ]]; then
+    echo "显卡编号必须是非负整数：$gpu" >&2
+    exit 2
+  fi
+done
+for ((index = 0; index < 4; index++)); do
+  for ((other = index + 1; other < 4; other++)); do
+    if [[ "${GPU_LIST[$index]}" == "${GPU_LIST[$other]}" ]]; then
+      echo "--gpus 中不能重复使用同一张显卡：${GPU_LIST[$index]}" >&2
+      exit 2
+    fi
+  done
+done
 
 make_absolute() {
   local value="$1"
@@ -182,7 +197,11 @@ print(
 PY
 
 echo "检查 GPU 和 CuDNN"
-CUDA_VISIBLE_DEVICES="$GPU_ID" "$RUN_TF" "$SCRIPT_DIR/gpu_preflight.py"
+for gpu in "${GPU_LIST[@]}"; do
+  echo "检查 GPU $gpu"
+  CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES="$gpu" \
+    "$RUN_TF" "$SCRIPT_DIR/gpu_preflight.py"
+done
 
 for directory in "$A_WHOLE" "$A_PATCH" "$B_WHOLE" "$B_PATCH" "$RESULT_ROOT"; do
   if [[ -e "$directory" ]]; then
@@ -197,6 +216,44 @@ if [[ "$PREFLIGHT_ONLY" == "1" ]]; then
 fi
 
 mkdir -p "$OUTPUT_ROOT/logs"
+
+JOB_NAMES=()
+JOB_PIDS=()
+
+start_training_job() {
+  local name="$1"
+  local gpu="$2"
+  shift 2
+  local log_path="$OUTPUT_ROOT/logs/${name}.log"
+  (
+    echo "开始时间：$(date --iso-8601=seconds)"
+    echo "实验：$name"
+    echo "显卡：$gpu"
+    echo "命令：$*"
+    env CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES="$gpu" "$@"
+    echo "结束时间：$(date --iso-8601=seconds)"
+  ) >"$log_path" 2>&1 &
+  JOB_NAMES+=("$name")
+  JOB_PIDS+=("$!")
+  echo "已启动 $name，GPU $gpu，PID ${JOB_PIDS[-1]}，日志：$log_path"
+}
+
+wait_for_training_jobs() {
+  local failed=0
+  local index
+  for index in "${!JOB_PIDS[@]}"; do
+    if wait "${JOB_PIDS[$index]}"; then
+      echo "${JOB_NAMES[$index]} 训练完成"
+    else
+      echo "${JOB_NAMES[$index]} 训练失败，日志：$OUTPUT_ROOT/logs/${JOB_NAMES[$index]}.log" >&2
+      failed=1
+    fi
+  done
+  if [[ "$failed" -ne 0 ]]; then
+    echo "至少一组训练失败，不执行最终四组评估。" >&2
+    exit 1
+  fi
+}
 
 run_logged() {
   local name="$1"
@@ -233,41 +290,46 @@ verify_artifact() {
 echo "实验批次：$RUN_ID"
 echo "权重目录：$OUTPUT_ROOT"
 echo "测试目录：$RESULT_ROOT"
-echo "使用显卡：$GPU_ID"
+echo "并行显卡：${GPU_LIST[*]}"
+echo "显卡分配：A完整=${GPU_LIST[0]}，A八分块=${GPU_LIST[1]}，B完整=${GPU_LIST[2]}，B八分块=${GPU_LIST[3]}"
 
-run_logged "A_boundary_normalized" \
-  env CUDA_VISIBLE_DEVICES="$GPU_ID" "$RUN_TF" -m tool_defect.cli train \
+start_training_job "A_boundary_normalized" "${GPU_LIST[0]}" \
+  "$RUN_TF" -m tool_defect.cli train \
   --task multitask \
   --config "$CONFIG_A_WHOLE" \
   --backbone-weights none \
   --output "$A_WHOLE"
-verify_artifact "甲组完整图" "$A_WHOLE"
 
-run_logged "A_boundary_normalized_8patch" \
-  env CUDA_VISIBLE_DEVICES="$GPU_ID" "$RUN_TF" -m tool_defect.cli train \
+start_training_job "A_boundary_normalized_8patch" "${GPU_LIST[1]}" \
+  "$RUN_TF" -m tool_defect.cli train \
   --task multitask \
   --config "$CONFIG_A_PATCH" \
   --backbone-weights none \
   --output "$A_PATCH"
-verify_artifact "甲组八分块" "$A_PATCH"
 
-run_logged "B_boundary_normalized" \
-  env CUDA_VISIBLE_DEVICES="$GPU_ID" "$RUN_TF" -m tool_defect.cli train-multitask-source \
+start_training_job "B_boundary_normalized" "${GPU_LIST[2]}" \
+  "$RUN_TF" -m tool_defect.cli train-multitask-source \
   --config "$CONFIG_B_WHOLE" \
   --output-root "$OUTPUT_ROOT" \
   --run-id "$(basename "$B_WHOLE")"
-verify_artifact "乙组完整图" "$B_WHOLE"
 
-run_logged "B_boundary_normalized_8patch" \
-  env CUDA_VISIBLE_DEVICES="$GPU_ID" "$RUN_TF" -m tool_defect.cli train-multitask-source \
+start_training_job "B_boundary_normalized_8patch" "${GPU_LIST[3]}" \
+  "$RUN_TF" -m tool_defect.cli train-multitask-source \
   --config "$CONFIG_B_PATCH" \
   --output-root "$OUTPUT_ROOT" \
   --run-id "$(basename "$B_PATCH")"
+
+echo "四组训练已并行启动，等待全部完成。"
+wait_for_training_jobs
+
+verify_artifact "甲组完整图" "$A_WHOLE"
+verify_artifact "甲组八分块" "$A_PATCH"
+verify_artifact "乙组完整图" "$B_WHOLE"
 verify_artifact "乙组八分块" "$B_PATCH"
 
 mkdir -p "$RESULT_ROOT"
 run_logged "parent_level_test" \
-  env CUDA_VISIBLE_DEVICES="$GPU_ID" "$RUN_TF" -m tool_defect.cli compare-four-multitask \
+  env CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES="${GPU_LIST[0]}" "$RUN_TF" -m tool_defect.cli compare-four-multitask \
   --whole-config "$CONFIG_B_WHOLE" \
   --whole-a "$A_WHOLE" \
   --whole-b "$B_WHOLE" \
