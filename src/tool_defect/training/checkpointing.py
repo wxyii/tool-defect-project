@@ -40,7 +40,10 @@ def parent_labels_for_rows(rows, provenance_path=None):
 
     provenance_by_sample = {}
     with provenance_path.open(newline="", encoding="utf-8-sig") as handle:
-        for metadata in csv.DictReader(handle):
+        reader = csv.DictReader(handle)
+        fieldnames = set(reader.fieldnames or ())
+        provenance_rows = list(reader)
+        for metadata in provenance_rows:
             sample_id = metadata.get("sample_id")
             if not sample_id:
                 raise RuntimeError(
@@ -49,6 +52,16 @@ def parent_labels_for_rows(rows, provenance_path=None):
             if sample_id in provenance_by_sample:
                 raise RuntimeError(f"provenance存在重复sample_id：{sample_id}")
             provenance_by_sample[sample_id] = metadata
+
+    has_patch_schema = bool(
+        {"parent_sample_id", "patch_index"} & fieldnames
+    ) or any("__patch_" in str(row["sample_id"]) for row in rows)
+    if "parent_label" not in fieldnames:
+        if has_patch_schema:
+            raise RuntimeError(
+                f"八分块provenance缺少parent_label：{provenance_path}"
+            )
+        return fallback
 
     labels = []
     parent_labels = {}
