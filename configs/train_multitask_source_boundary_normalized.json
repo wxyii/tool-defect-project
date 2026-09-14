@@ -6,11 +6,11 @@
     "unqualified"
   ],
   "paths": {
-    "data": "data",
-    "manifest": "data/manifests/curated_v1_retrain.csv",
+    "data": "data/processed/boundary_normalized",
+    "manifest": "data/processed/boundary_normalized/manifests/dataset.csv",
     "imagenet_xception_weights": "artifacts/pretrained/xception/xception_weights_tf_dim_ordering_tf_kernels_notop.h5",
     "multitask_model": "artifacts/multitask",
-    "source_trained_output": "artifacts/multitask_source_trained",
+    "source_trained_output": "artifacts/multitask_source_trained/boundary_normalized",
     "outputs": "outputs"
   },
   "train_multitask_source": {
