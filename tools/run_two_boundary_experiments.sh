@@ -84,6 +84,21 @@ if [[ ! -x "$PYTHON_EXECUTABLE" ]]; then
     exit 1
 fi
 
+# TensorFlow 2.13 需要 cuDNN 8.6；服务器系统路径中的 cuDNN 8.0.1
+# 会被优先加载，因此让 tf_311 环境自带的 NVIDIA 库优先。
+PYTHON_SITE_PACKAGES="$($PYTHON_EXECUTABLE -c 'import site; print(site.getsitepackages()[0])')"
+CUDA_LIBRARY_PATHS=()
+for package in cudnn cublas cuda_runtime cufft curand cusolver cusparse nvjitlink; do
+    library_path="$PYTHON_SITE_PACKAGES/nvidia/$package/lib"
+    if [[ -d "$library_path" ]]; then
+        CUDA_LIBRARY_PATHS+=("$library_path")
+    fi
+done
+if ((${#CUDA_LIBRARY_PATHS[@]})); then
+    CUDA_LIBRARY_PATHS_TEXT="$(IFS=:; echo "${CUDA_LIBRARY_PATHS[*]}")"
+    export LD_LIBRARY_PATH="$CUDA_LIBRARY_PATHS_TEXT${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+fi
+
 declare -a DATASET_IDS=(boundary_normalized boundary_normalized_8patch)
 declare -a CONFIGS=(
     "$PROJECT_ROOT/configs/multitask_boundary_normalized.json"
@@ -112,6 +127,12 @@ restore_if_needed() {
         for index in 0 1; do
             local artifact="${ARTIFACTS[$index]}"
             local backup="$BACKUP_ROOT/${DATASET_IDS[$index]}"
+            local failed="$RUN_ROOT/failed_artifacts/${DATASET_IDS[$index]}"
+            if [[ -e "$artifact" && ! -f "$artifact/model.json" || \
+                -e "$artifact" && ! -f "$artifact/weights.h5" ]]; then
+                mkdir -p "$(dirname "$failed")"
+                mv -- "$artifact" "$failed"
+            fi
             if [[ ! -e "$artifact" && -e "$backup" ]]; then
                 mv -- "$backup" "$artifact"
                 echo "训练失败，已恢复原权重：$artifact" >&2
