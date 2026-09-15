@@ -15,15 +15,7 @@ import numpy as np
 import tensorflow as tf
 
 from tool_defect.config import load_config
-from tool_defect.inference.input_pipeline import (
-    inference_mode_from_data_path,
-    write_inference_metadata,
-)
 from tool_defect.models.multitask import build_multitask
-from tool_defect.training.checkpointing import (
-    ParentClassificationMetricsCallback,
-    parent_labels_for_rows,
-)
 from tool_defect.training.objectives import (
     DefectDice,
     DefectIoU,
@@ -85,24 +77,12 @@ def _imagenet_cache_path():
     )
 
 
-def initialize_imagenet_backbone(model, weights_path=None):
+def initialize_imagenet_backbone(model):
     """Copy all 234 ImageNet Xception weight arrays into the custom backbone."""
-    if weights_path is None:
-        selected_weights = _imagenet_cache_path()
-    else:
-        selected_weights = Path(weights_path).expanduser().resolve()
-        if not selected_weights.is_file():
-            raise FileNotFoundError(
-                f"ImageNet Xception权重不存在：{selected_weights}"
-            )
     image_size = int(model.input_shape[1])
     source = tf.keras.applications.Xception(
         include_top=False,
-        weights=(
-            str(selected_weights)
-            if selected_weights.is_file()
-            else "imagenet"
-        ),
+        weights="imagenet",
         input_shape=(image_size, image_size, 3),
     )
     target = tf.keras.Model(
@@ -132,14 +112,13 @@ def initialize_imagenet_backbone(model, weights_path=None):
     del source
     del target
     return {
-        "source": "tf.keras.applications.Xception(include_top=False, weights=selected_path)",
-        "selected_path": str(selected_weights),
+        "source": "tf.keras.applications.Xception(include_top=False, weights='imagenet')",
         "weight_arrays": len(source_weights),
         "parameters": transferred,
-        "cache_path": str(selected_weights),
+        "cache_path": str(_imagenet_cache_path()),
         "cache_sha256": (
-            _sha256(selected_weights)
-            if selected_weights.is_file()
+            _sha256(_imagenet_cache_path())
+            if _imagenet_cache_path().is_file()
             else None
         ),
     }
@@ -206,9 +185,7 @@ def _read_existing_best(history_path):
     best_epoch = None
     with history_path.open(newline="", encoding="utf-8") as handle:
         for absolute_epoch, row in enumerate(csv.DictReader(handle), start=1):
-            value = row.get("val_classification_priority")
-            if value in (None, ""):
-                value = row.get("val_joint_score")
+            value = row.get("val_joint_score")
             if value in (None, ""):
                 continue
             score = float(value)
@@ -227,12 +204,9 @@ def _completed_epoch_count(history_path):
 
 
 class _ComprehensiveBestCheckpoint(tf.keras.callbacks.Callback):
-    """Select weights by unqualified recall first, precision second."""
-
-    def __init__(self, destination, compatibility_destination, patience):
+    def __init__(self, destination, patience):
         super().__init__()
         self.destination = Path(destination)
-        self.compatibility_destination = Path(compatibility_destination)
         self.patience = int(patience)
         self.best = -np.inf
         self.best_epoch = None
@@ -246,31 +220,32 @@ class _ComprehensiveBestCheckpoint(tf.keras.callbacks.Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         logs = logs or {}
-        recall = logs.get("val_parent_unqualified_recall")
-        precision = logs.get("val_parent_unqualified_precision")
-        if recall is None or precision is None:
-            raise RuntimeError(
-                "验证集不合格召回率和精确率是分类优先选权重的必需指标"
-            )
-        score = float(recall) + 1e-6 * float(precision)
-        logs["val_classification_priority"] = score
+        accuracy = logs.get("val_cla_out_accuracy")
+        dice = logs.get("val_seg_out_defect_dice")
+        iou = logs.get("val_seg_out_defect_iou")
+        if accuracy is None or dice is None or iou is None:
+            raise RuntimeError("validation metrics required for joint score are missing")
+        score = (
+            0.30 * float(accuracy)
+            + 0.35 * float(dice)
+            + 0.35 * float(iou)
+        )
+        logs["val_joint_score"] = score
         absolute_epoch = self.global_epoch_offset + int(epoch) + 1
         if np.isfinite(score) and score > self.best + 1e-8:
             self.best = score
             self.best_epoch = absolute_epoch
             self.wait = 0
             self.model.save_weights(self.destination)
-            self.model.save_weights(self.compatibility_destination)
         else:
             self.wait += 1
             if self.wait >= self.patience:
                 self.model.stop_training = True
 
 
-def _callbacks(run_dir, stage, settings, parent_metrics, checkpoint):
+def _callbacks(run_dir, stage, settings, checkpoint):
     reduce_settings = settings["reduce_lr"]
     return [
-        parent_metrics,
         checkpoint,
         tf.keras.callbacks.TerminateOnNaN(),
         tf.keras.callbacks.ReduceLROnPlateau(
@@ -347,10 +322,7 @@ def train_multitask_source(
         input_shape=(config.image_size, config.image_size, 3),
         backbone_weights=None,
     )
-    imagenet_weights_path = None
-    if "imagenet_xception_weights" in config.values["paths"]:
-        imagenet_weights_path = config.path("imagenet_xception_weights")
-    initialization = initialize_imagenet_backbone(model, imagenet_weights_path)
+    initialization = initialize_imagenet_backbone(model)
     if resume_weights is not None:
         model.load_weights(resume_weights)
     run_dir.mkdir(parents=True, exist_ok=resume is not None)
@@ -381,15 +353,6 @@ def train_multitask_source(
         balanced=False,
         preprocessing="xception",
     )
-    parent_metrics = ParentClassificationMetricsCallback(
-        validation,
-        validation.rows,
-        batch_size=int(settings["batch_size"]),
-        validation_parent_labels=parent_labels_for_rows(
-            validation.rows,
-            data_root / "manifests" / "provenance.csv",
-        ),
-    )
 
     source_path = Path(__file__).resolve().parents[1] / "models" / "multitask.py"
     (run_dir / "model.json").write_text(model.to_json(), encoding="utf-8")
@@ -398,10 +361,6 @@ def train_multitask_source(
     )
     (run_dir / "preprocessing.json").write_text(
         json.dumps(_PREPROCESSING, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-    write_inference_metadata(
-        run_dir,
-        inference_mode_from_data_path(data_root),
     )
     shutil.copy2(manifest, run_dir / "manifest.csv")
     (run_dir / "environment.txt").write_text(
@@ -421,9 +380,9 @@ def train_multitask_source(
         "output_names": list(model.output_names),
         "input_shape": list(model.input_shape),
         "model_parameters": int(model.count_params()),
-        "classification_priority": (
-            "primary=val_cla_out_unqualified_recall; "
-            "tie_breaker=val_cla_out_unqualified_precision"
+        "joint_score": (
+            "0.30*val_cla_out_accuracy + 0.35*val_seg_out_defect_dice "
+            "+ 0.35*val_seg_out_defect_iou"
         ),
     }
     metadata_path = run_dir / "run_metadata.json"
@@ -435,7 +394,6 @@ def train_multitask_source(
     prior_best, prior_best_epoch = _read_existing_best(run_dir / "history.csv")
     global_epoch_offset = _completed_epoch_count(run_dir / "history.csv")
     checkpoint = _ComprehensiveBestCheckpoint(
-        run_dir / "weights_best_classification.h5",
         run_dir / "weights.h5",
         patience=int(settings["stage1"]["patience"]),
     )
@@ -458,7 +416,7 @@ def train_multitask_source(
                 "epochs": epochs,
                 "verbose": 2,
                 "callbacks": _callbacks(
-                    run_dir, stage, settings, parent_metrics, checkpoint
+                    run_dir, stage, settings, checkpoint
                 ),
                 "workers": 1,
                 "use_multiprocessing": False,
@@ -473,10 +431,9 @@ def train_multitask_source(
             model.save_weights(run_dir / f"stage{stage}_last.h5")
             model.save_weights(run_dir / "weights_last.h5")
 
-        if not (run_dir / "weights_best_classification.h5").is_file():
+        if not (run_dir / "weights.h5").is_file():
             raise RuntimeError("training produced no finite validation checkpoint")
-        model.load_weights(run_dir / "weights_best_classification.h5")
-        model.save_weights(run_dir / "weights.h5")
+        model.load_weights(run_dir / "weights.h5")
         (run_dir / "model.json").write_text(model.to_json(), encoding="utf-8")
         (run_dir / "history.json").write_text(
             json.dumps(_json_history(histories), ensure_ascii=False, indent=2),
@@ -487,27 +444,9 @@ def train_multitask_source(
                 "status": "completed",
                 "finished_at": datetime.now().astimezone().isoformat(),
                 "epochs_completed": global_epoch_offset,
-                "best_classification_priority": float(checkpoint.best),
+                "best_joint_score": float(checkpoint.best),
                 "best_epoch": checkpoint.best_epoch,
             }
-        )
-        (run_dir / "weight_selection.json").write_text(
-            json.dumps(
-                {
-                    "primary_metric": "val_parent_unqualified_recall",
-                    "tie_breaker": "val_parent_unqualified_precision",
-                    "decision_threshold_for_selection": 0.5,
-                    "parent_id_rule": "parent_sample_id or patch filename before __patch_",
-                    "best_epoch": checkpoint.best_epoch,
-                    "best_value": float(checkpoint.best),
-                    "weights_h5": "weights_best_classification.h5",
-                    "weights_last_h5": "weights_last.h5",
-                    "weights_compatibility_alias": "weights.h5",
-                },
-                ensure_ascii=False,
-                indent=2,
-            ),
-            encoding="utf-8",
         )
     except Exception as error:
         metadata.update(

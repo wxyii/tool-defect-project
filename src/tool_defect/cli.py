@@ -193,28 +193,6 @@ def _compare_multitask_suite(args):
     return 0
 
 
-def _compare_four_multitask(args):
-    from tool_defect.evaluation.compare_four_multitask import (
-        compare_four_multitask,
-    )
-
-    result = compare_four_multitask(
-        project_root=PROJECT_ROOT,
-        whole_config=args.whole_config,
-        whole_a=args.whole_a,
-        whole_b=args.whole_b,
-        patch_config=args.patch_config,
-        patch_a=args.patch_a,
-        patch_b=args.patch_b,
-        patch_parent_data=args.patch_parent_data,
-        output_dir=args.output,
-        split=args.split,
-        threshold=args.threshold,
-    )
-    print(json.dumps(result, ensure_ascii=False, indent=2))
-    return 0
-
-
 def _ring_compare(args):
     from tool_defect.data.ring_geometry import (
         process_image_path,
@@ -534,24 +512,6 @@ def build_parser():
     suite_parser.add_argument("--bootstrap-samples", type=int, default=1000)
     suite_parser.add_argument("--seed", type=int, default=1)
     suite_parser.set_defaults(handler=_compare_multitask_suite)
-
-    four_parser = subparsers.add_parser(
-        "compare-four-multitask",
-        help="统一按父图评估甲乙两种初始化下的完整与八分块四组模型",
-    )
-    four_parser.add_argument("--whole-config", type=Path, required=True)
-    four_parser.add_argument("--whole-a", type=Path, required=True)
-    four_parser.add_argument("--whole-b", type=Path, required=True)
-    four_parser.add_argument("--patch-config", type=Path, required=True)
-    four_parser.add_argument("--patch-a", type=Path, required=True)
-    four_parser.add_argument("--patch-b", type=Path, required=True)
-    four_parser.add_argument("--patch-parent-data", type=Path)
-    four_parser.add_argument(
-        "--split", choices=("train", "validation", "test"), default="test"
-    )
-    four_parser.add_argument("--threshold", type=float, default=0.5)
-    four_parser.add_argument("--output", type=Path, required=True)
-    four_parser.set_defaults(handler=_compare_four_multitask)
 
     ring_parser = subparsers.add_parser(
         "ring-compare", help="定位、校正并展开合格与不合格刀片的环形区域"

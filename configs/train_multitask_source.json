@@ -8,7 +8,6 @@
   "paths": {
     "data": "data",
     "manifest": "data/manifests/curated_v1_retrain.csv",
-    "imagenet_xception_weights": "artifacts/pretrained/xception/xception_weights_tf_dim_ordering_tf_kernels_notop.h5",
     "multitask_model": "artifacts/multitask",
     "source_trained_output": "artifacts/multitask_source_trained",
     "outputs": "outputs"
