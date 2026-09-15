@@ -64,14 +64,14 @@ python -m tool_defect.cli ring-compare `
 该检测器复用圆形刀片定位和极坐标展开结果，不读取现有掩码、Labelme 标注、类别清单或已有模型。它利用刀片圆周重复纹样建立图内中位模板，并通过多张无标签图像标定纹理、梯度和外边界偏差的鲁棒尺度。
 
 ```powershell
-python -m tool_defect.cli polar-cache `
-  --input data\images `
+python -m tool_defect.cli polar-cache \
+  --input data\images \
   --output outputs\polar_cache
 
-python -m tool_defect.cli polar-fit `
-  --input data\images `
-  --cache outputs\polar_cache `
-  --output artifacts\polar_anomaly
+python -m tool_defect.cli polar-fit \
+  --input data/images \
+  --cache outputs/polar_cache \
+  --output artifacts/polar_anomaly
 
 python -m tool_defect.cli polar-detect `
   --input data\images `
@@ -101,12 +101,12 @@ python -m tool_defect.cli polar-detect `
 生成自适应环形区域数据集：
 
 ```powershell
-python -m tool_defect.cli ring-dataset `
-  --mode adaptive-annular `
-  --data-root data `
-  --manifest data\manifests\curated_v1_retrain.csv `
-  --cache outputs\polar_cache `
-  --output data\processed\adaptive_annular
+python -m tool_defect.cli ring-dataset \
+  --mode adaptive-annular \
+  --data-root data \
+  --manifest data\manifests\curated_v1_retrain.csv \
+  --cache outputs/polar_cache \
+  --output data/processed/daptive_annular
 ```
 
 生成边界归一化展开数据集：
@@ -127,54 +127,6 @@ python -m tool_defect.cli ring-dataset `
 变换后变为空，命令会以失败状态结束且不会写入新的训练清单。
 原 Labelme 坐标不再适用于变换后的图像，因此不会写入新训练清单，仅在
 `provenance.csv` 中保留原标注路径用于追溯。
-
-在边界归一化数据集上生成八方向重叠圆周子图：
-
-```powershell
-python -m tool_defect.cli slice-dataset `
-  --data-root data\processed\boundary_normalized `
-  --manifest data\processed\boundary_normalized\manifests\dataset.csv `
-  --output data\processed\boundary_normalized_8patch `
-  --slice-count 8 `
-  --window-degrees 90 `
-  --stride-degrees 45 `
-  --min-foreground-pixels 1
-```
-
-该命令以 45 度为步长、每次取 90 度窗口，并在圆周接缝处循环取样，
-因此一张边界归一化图生成 8 张、相邻子图重叠 50%。输出子图保留
-`256×360` 的径向×角度尺寸；现有训练加载器再将其缩放到模型的
-`256×256` 输入尺寸。父图像的训练、验证、测试划分整体传递给 8 个子图，
-不会发生同一父图跨集合泄漏。
-
-新清单中的分类标签按子图掩膜重新确定：掩膜前景像素数至少为 1 时标为
-`unqualified`，否则标为 `qualified`。因此这组实验的分类含义是“局部子图
-是否包含缺陷”，不再是“来源刀片是否合格”；父图标签、切片序号、角度范围、
-接缝信息和掩膜统计保存在 `manifests/provenance.csv` 中。
-
-在自适应环形数据集上生成同样的八方向重叠扇区：
-
-```powershell
-python -m tool_defect.cli slice-dataset `
-  --input-mode adaptive-annular `
-  --data-root data\processed\adaptive_annular `
-  --manifest data\processed\adaptive_annular\manifests\dataset.csv `
-  --output data\processed\adaptive_annular_8patch `
-  --slice-count 8 `
-  --window-degrees 90 `
-  --stride-degrees 45 `
-  --min-foreground-pixels 1
-```
-
-自适应环形图是 `512×512` 的笛卡尔图像，因此每个子图仍保持
-`512×512`，只保留对应的 90 度环形扇区，其余像素置黑；8 个子图保留
-同一个圆心和原始坐标，便于后续直接合并分割结果。对应的训练配置为
-`configs/multitask_adaptive_annular_8patch.json`。
-
-对应的双任务训练配置为
-`configs/multitask_boundary_normalized_8patch.json`。对整张刀片做推理时，
-需要将 8 个子图的预测聚合到父图级别，例如任一子图检出缺陷时判为不合格，
-不能直接把子图级准确率当作整图级准确率。
 
 分别训练两种数据：
 
@@ -208,46 +160,6 @@ python -m tool_defect.cli evaluate `
   --split test `
   --output outputs\evaluation\multitask_boundary_normalized `
   --full-metrics
-```
-
-## 2.1 五类多任务模型统一编排
-
-服务器端可使用 `tools/run_multitask_suite.py` 自动检查五套模型工件；缺少
-`model.json` 或 `weights.h5` 的数据集才会重新训练。正式评估固定使用同一批
-父样本测试集，分块模型先按 `provenance.csv` 将 8 个子图合并回父图，再计算
-父图级分类和分割指标。每个模型的测试父图检测结果保存在对应目录的
-`visualizations/` 中，合并后的掩膜保存在 `masks/` 中。
-
-服务器使用 `tf_311` 环境时，先执行模拟运行检查路径、清单、工件状态和显卡分配：
-
-```bash
-conda activate tf_311
-python tools/run_multitask_suite.py --simulate
-```
-
-确认 `outputs/multitask_suite/run_plan.json` 后执行正式流程。默认将缺失模型
-分配到 0、1、2、3、5 号 2080 Ti，每张卡一个训练进程；可通过参数覆盖：
-
-```bash
-python tools/run_multitask_suite.py \
-  --gpus 0,1,2,3,5 \
-  --max-workers 5
-```
-
-结果结构为：
-
-```text
-outputs/multitask_suite/
-├─ run_plan.json
-├─ suite_metrics.json
-├─ summary.csv
-├─ SUITE_REPORT.md
-├─ logs/<数据集标识>.train.log
-└─ <数据集标识>/
-   ├─ metrics.json
-   ├─ predictions.csv
-   ├─ masks/
-   └─ visualizations/
 ```
 
 ## 3. 数据划分
