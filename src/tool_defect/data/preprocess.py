@@ -52,9 +52,18 @@ def _read_grayscale(path):
 
 def load_image(image_path, image_size=256):
     grayscale = _read_grayscale(image_path)
+    return load_grayscale_array(grayscale, image_size)
+
+
+def load_grayscale_array(grayscale, image_size=256):
+    """Apply the dataset image resizing and RGB conversion to an image array."""
+
+    grayscale = np.asarray(grayscale)
+    if grayscale.ndim != 2:
+        raise ValueError("grayscale must be a two-dimensional array")
     resized = cv2.resize(
         grayscale,
-        (image_size, image_size),
+        (int(image_size), int(image_size)),
         interpolation=cv2.INTER_AREA,
     )
     rgb = cv2.cvtColor(resized, cv2.COLOR_GRAY2RGB)

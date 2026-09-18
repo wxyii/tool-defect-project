@@ -194,6 +194,38 @@ def _normalized_remap(
     )
 
 
+def boundary_normalize_corrected_image(
+    corrected_image,
+    ring_result,
+    radial_samples=None,
+):
+    """Apply the same boundary-normalized remap used by dataset generation."""
+
+    if radial_samples is None:
+        return ring_result.polar_image.copy()
+    return _normalized_remap(
+        corrected_image,
+        ring_result,
+        int(radial_samples),
+        cv2.INTER_LINEAR,
+    )
+
+
+def normalize_boundary_image(image, ring_result, radial_samples=None):
+    """Rectify and boundary-normalize one raw image for model inference."""
+
+    corrected_image = _correct_image(
+        image,
+        ring_result,
+        cv2.INTER_LINEAR,
+    )
+    return boundary_normalize_corrected_image(
+        corrected_image,
+        ring_result,
+        radial_samples,
+    )
+
+
 def _load_ring_result(
     image_path,
     source_root,
@@ -277,20 +309,12 @@ def _process_pair(
             ring_result.outer_boundary,
         )
     else:
-        target_radial_samples = (
-            int(radial_samples)
-            if radial_samples is not None
-            else int(ring_result.polar_image.shape[0])
+        output_image = boundary_normalize_corrected_image(
+            corrected_image,
+            ring_result,
+            radial_samples,
         )
-        if radial_samples is None:
-            output_image = ring_result.polar_image.copy()
-        else:
-            output_image = _normalized_remap(
-                corrected_image,
-                ring_result,
-                target_radial_samples,
-                cv2.INTER_LINEAR,
-            )
+        target_radial_samples = int(output_image.shape[0])
         output_mask = _normalized_remap(
             corrected_mask,
             ring_result,

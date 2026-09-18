@@ -9,7 +9,13 @@ import numpy as np
 from tool_defect.data.preprocess import (
     apply_input_preprocessing,
     artifact_preprocessing_mode,
-    load_image_batch,
+)
+from tool_defect.inference.input_pipeline import (
+    RAW_INPUT,
+    aggregate_class_probabilities,
+    localization_overlay,
+    prepare_input_batch,
+    restore_defect_mask,
 )
 from tool_defect.inference.visualize import overlay_defect_on_image
 from tool_defect.models.loader import load_saved_model
@@ -59,7 +65,15 @@ def _write_png(path, image):
     encoded.tofile(path)
 
 
-def predict(task, input_paths, output_dir, model_dir, image_size=None):
+def predict(
+    task,
+    input_paths,
+    output_dir,
+    model_dir,
+    image_size=None,
+    input_mode=RAW_INPUT,
+    ring_settings=None,
+):
     if task not in {"classification", "multitask"}:
         raise ValueError("task must be 'classification' or 'multitask'")
 
@@ -68,6 +82,7 @@ def predict(task, input_paths, output_dir, model_dir, image_size=None):
     output_dir.mkdir(parents=True, exist_ok=True)
     mask_dir = output_dir / "masks"
     visualization_dir = output_dir / "visualizations"
+    localization_dir = output_dir / "localizations"
     if task == "multitask":
         mask_dir.mkdir(parents=True, exist_ok=True)
         visualization_dir.mkdir(parents=True, exist_ok=True)
@@ -82,28 +97,61 @@ def predict(task, input_paths, output_dir, model_dir, image_size=None):
         )
     rows = []
     for index, image_path in enumerate(images):
-        batch = apply_input_preprocessing(
-            load_image_batch(image_path, image_size=model_image_size),
-            preprocessing,
-        )
+        try:
+            batch, input_context = prepare_input_batch(
+                image_path,
+                model_image_size,
+                input_mode,
+                ring_settings,
+            )
+        except Exception as error:
+            raise RuntimeError(
+                f"无法定位或预处理图片，已停止推理以避免错误放行："
+                f"{image_path}（{error}）"
+            ) from error
+        batch = apply_input_preprocessing(batch, preprocessing)
         named = _named_predictions(model, model.predict(batch, verbose=0))
         class_output_name = (
             "cla_out" if "cla_out" in named else model.output_names[0]
         )
-        probabilities = np.asarray(named[class_output_name])[0]
+        model_probabilities = np.asarray(named[class_output_name])
+        probabilities = (
+            aggregate_class_probabilities(model_probabilities, input_context)
+            if input_context is not None
+            else model_probabilities[0]
+        )
         predicted_index = int(np.argmax(probabilities))
         row = {
             "image_path": str(image_path),
+            "input_mode": input_mode,
             "predicted_label": predicted_index,
             "predicted_class": CLASS_NAMES[predicted_index],
             "qualified_probability": f"{float(probabilities[0]):.8f}",
             "unqualified_probability": f"{float(probabilities[1]):.8f}",
             "mask_path": "",
+            "localization_path": "",
         }
+
+        if input_context is not None:
+            localization_dir.mkdir(parents=True, exist_ok=True)
+            localization_name = f"{index:04d}_{image_path.stem}_location.png"
+            localization_path = localization_dir / localization_name
+            _write_png(localization_path, localization_overlay(input_context))
+            row["localization_path"] = (
+                Path("localizations") / localization_name
+            ).as_posix()
 
         if task == "multitask":
             segmentation = np.asarray(named["seg_out"])[0]
-            mask = (np.argmax(segmentation, axis=-1) * 255).astype(np.uint8)
+            if input_context is None:
+                mask = (np.argmax(segmentation, axis=-1) * 255).astype(
+                    np.uint8
+                )
+            else:
+                mask = restore_defect_mask(
+                    np.asarray(named["seg_out"]),
+                    input_context,
+                )
             mask_name = f"{index:04d}_{image_path.stem}.png"
             mask_path = mask_dir / mask_name
             _write_png(mask_path, mask)
@@ -136,11 +184,13 @@ def predict(task, input_paths, output_dir, model_dir, image_size=None):
             handle,
             fieldnames=[
                 "image_path",
+                "input_mode",
                 "predicted_label",
                 "predicted_class",
                 "qualified_probability",
                 "unqualified_probability",
                 "mask_path",
+                "localization_path",
                 "visualization_path",
             ],
         )

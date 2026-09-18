@@ -72,6 +72,11 @@ def _data_check(args):
 
 def _predict(args):
     from tool_defect.inference.predict import predict
+    from tool_defect.inference.input_pipeline import (
+        AUTO_INPUT,
+        load_ring_settings,
+        resolve_input_mode,
+    )
 
     config = load_config(args.config)
     model_key = (
@@ -81,11 +86,15 @@ def _predict(args):
     )
     model_dir = args.model_dir or config.path(model_key)
     output_dir = args.output or config.path("outputs")
+    input_mode = resolve_input_mode(args.input_mode, config.path("data"))
+    ring_settings = load_ring_settings(config.path("data"), input_mode)
     result = predict(
         task=args.task,
         input_paths=args.input_paths,
         output_dir=output_dir,
         model_dir=model_dir,
+        input_mode=input_mode,
+        ring_settings=ring_settings,
     )
     print(result)
     return 0
@@ -390,6 +399,17 @@ def build_parser():
         "--config", type=Path, default=PROJECT_ROOT / "configs/default.json"
     )
     predict_parser.add_argument("--model-dir", type=Path)
+    predict_parser.add_argument(
+        "--input-mode",
+        choices=(
+            AUTO_INPUT,
+            "raw",
+            "boundary-normalized",
+            "boundary-normalized-8patch",
+        ),
+        default=AUTO_INPUT,
+        help="auto 根据所选配置的数据集识别；边界归一化模型默认自动定位",
+    )
     predict_parser.set_defaults(handler=_predict)
 
     train_parser = subparsers.add_parser(
