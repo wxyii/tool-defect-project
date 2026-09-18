@@ -402,12 +402,12 @@ def build_parser():
     predict_parser.add_argument(
         "--input-mode",
         choices=(
-            AUTO_INPUT,
+            "auto",
             "raw",
             "boundary-normalized",
             "boundary-normalized-8patch",
         ),
-        default=AUTO_INPUT,
+        default="auto",
         help="auto 根据所选配置的数据集识别；边界归一化模型默认自动定位",
     )
     predict_parser.set_defaults(handler=_predict)
