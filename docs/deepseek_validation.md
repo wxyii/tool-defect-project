@@ -29,6 +29,15 @@ $env:DEEPSEEK_API_KEY = "新生成的密钥"
 - `summary.json`：请求成功率、候选分流、标签指标和与现有算法的冲突数；
 - `REPORT.md`：简要报告。
 
+重复使用同一个输出目录不会覆盖历史结果。每次运行会自动生成唯一 `run_id`：
+
+- `deepseek_predictions.csv` 追加本次每张图片一行，并记录运行编号、时间、模型、响应编号和真值标签；
+- `deepseek_raw.jsonl` 追加本次每张图片的原始 JSON；
+- `summary.json` 累计保存运行次数、图片数、成功/失败数、候选分流和每次运行记录；
+- `REPORT.md` 追加本次运行报告和累计统计。
+
+同一个输出目录不建议让多个并发进程同时写入；连续运行或串行运行是安全的。
+
 如果有质检标签，可额外传入 `--labels-csv`。CSV 至少包含 `image_path,label`，标签支持 `qualified/unqualified`、`合格/不合格` 或 `0/1`。
 
 现有算法应先用原有入口生成父图级 `predictions.csv`，再通过 `--baseline-predictions` 传入。八分块必须传入已经聚合到父图的结果，不能把子图 CSV 当作基线。

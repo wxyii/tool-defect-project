@@ -1,3 +1,4 @@
+import csv
 import json
 import sys
 import tempfile
@@ -97,6 +98,29 @@ class DeepSeekTests(unittest.TestCase):
             self.assertEqual(summary["successful_requests"], 1)
             self.assertTrue((output / "deepseek_predictions.csv").is_file())
             self.assertTrue((output / "summary.json").is_file())
+
+    def test_batch_appends_when_output_directory_is_reused(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            image_path = root / "sample.png"
+            image_path.write_bytes(b"test")
+            output = root / "out"
+            client = DeepSeekVisionClient(client=FakeClient())
+
+            first = run_batch(client, [image_path], output)
+            second = run_batch(client, [image_path], output)
+
+            self.assertEqual(first["total_runs"], 1)
+            self.assertEqual(second["total_runs"], 2)
+            self.assertEqual(second["total_images"], 2)
+            with (output / "deepseek_predictions.csv").open(
+                newline="", encoding="utf-8-sig"
+            ) as handle:
+                self.assertEqual(len(list(csv.DictReader(handle))), 2)
+            with (output / "deepseek_raw.jsonl").open(encoding="utf-8") as handle:
+                self.assertEqual(len(handle.readlines()), 2)
+            report = (output / "REPORT.md").read_text(encoding="utf-8")
+            self.assertEqual(report.count("## 运行 "), 2)
 
 
 if __name__ == "__main__":
