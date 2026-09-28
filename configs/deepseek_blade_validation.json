@@ -1,0 +1,9 @@
+{
+  "model": "deepseek-flash",
+  "base_url": "https://api.deepseek.com",
+  "detail": "original",
+  "thinking": "disabled",
+  "max_tokens": 500,
+  "timeout": 120,
+  "prompt_version": "v1"
+}
