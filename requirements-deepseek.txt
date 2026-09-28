@@ -1,0 +1,2 @@
+# 与 TensorFlow 训练环境隔离，只用于 DeepSeek 视觉验证。
+openai>=1.0,<4

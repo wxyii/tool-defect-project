@@ -7,7 +7,7 @@
 先安装依赖并设置环境变量。真实密钥不要写入代码、配置、命令行参数、日志或 Git：
 
 ```powershell
-\.venv\Scripts\python.exe -m pip install -r requirements.txt
+\.venv\Scripts\python.exe -m pip install -r requirements-deepseek.txt
 $env:DEEPSEEK_API_KEY = "新生成的密钥"
 ```
 
@@ -46,7 +46,7 @@ python tools/run_deepseek_comparison.py \
   --baseline-predictions /path/to/parent_predictions.csv
 ```
 
-生产部署时，建议由 systemd、容器编排平台或公司密钥服务注入 `DEEPSEEK_API_KEY`，并限制读取权限、定期轮换、避免把密钥放入进程参数和备份日志。若设备图片不允许外发，应使用公司内网模型或本地模型，不调用公网 API。
+生产部署时，建议由 systemd、容器编排平台或公司密钥服务注入 `DEEPSEEK_API_KEY`，并限制读取权限、定期轮换、避免把密钥放入进程参数和备份日志。若设备图片不允许外发，应使用公司内网模型或本地模型，不调用公网 API。训练服务器的 TensorFlow 环境不要安装这个依赖，单独创建 DeepSeek 环境。
 
 ## 公司服务器已部署模型
 
